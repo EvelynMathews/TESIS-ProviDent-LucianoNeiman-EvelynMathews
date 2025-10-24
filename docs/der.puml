@@ -1,0 +1,351 @@
+@startuml
+hide circle
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor White
+  BorderColor Black
+}
+
+title ProviDent – DER con Usuarios/Roles, Herencia de Productos, Carrito y Órdenes (MVP)
+
+' =========================
+' USUARIOS / ROLES
+' =========================
+entity "users" as users {
+  + id : SERIAL <<PK>>
+  --
+  first_name : TEXT NOT NULL
+  last_name  : TEXT NOT NULL
+  email      : TEXT NOT NULL <<UNIQUE>>
+  password_hash : TEXT NOT NULL
+  photo_url     : TEXT
+  is_active     : BOOLEAN DEFAULT TRUE
+  created_at    : TIMESTAMPTZ DEFAULT now()
+}
+
+entity "roles" as roles {
+  + id : SERIAL <<PK>>
+  --
+  code : TEXT NOT NULL <<UNIQUE>>  ' ADMIN, BUYER, SELLER
+  name : TEXT NOT NULL
+}
+
+entity "user_roles" as user_roles {
+  + user_id : INT <<FK>>
+  + role_id : INT <<FK>>
+  --
+  ' PK compuesta (user_id, role_id)
+}
+
+entity "addresses" as addresses {
+  + id : SERIAL <<PK>>
+  --
+  user_id     : INT <<FK>>   ' -> users.id
+  line1       : TEXT NOT NULL
+  line2       : TEXT
+  city        : TEXT NOT NULL
+  state       : TEXT
+  postal_code : TEXT
+  country     : TEXT NOT NULL
+  is_default  : BOOLEAN DEFAULT FALSE
+}
+
+entity "bank_accounts" as bank_accounts {
+  + id : SERIAL <<PK>>
+  --
+  user_id        : INT <<FK>>  ' -> users.id
+  bank_name      : TEXT
+  account_holder : TEXT
+  account_number : TEXT NOT NULL   ' tokenizar/cifrar en prod
+  iban           : TEXT
+  swift_bic      : TEXT
+  is_primary     : BOOLEAN DEFAULT FALSE
+}
+
+users ||--o{ addresses : "user_id"
+users ||--o{ bank_accounts : "user_id"
+users ||--o{ user_roles : ""
+roles ||--o{ user_roles : ""
+
+note right of roles
+Roles:
+- ADMIN (ABM usuarios/productos)
+- BUYER  (compra)
+- SELLER (vende / publica)
+end note
+
+' =========================
+' PRODUCTOS (HERENCIA)
+' =========================
+entity "products" as products {
+  + id : SERIAL <<PK>>
+  --
+  owner_user_id : INT <<FK>>       ' vendedor (user)
+  name          : TEXT NOT NULL
+  description   : TEXT
+  image_url     : TEXT
+  product_type  : TEXT NOT NULL     ' PROSTHESIS | SIMPLE_MATERIAL | PLASTER_SERVICE | RENTAL
+  is_active     : BOOLEAN DEFAULT TRUE
+  created_at    : TIMESTAMPTZ DEFAULT now()
+}
+
+users ||--o{ products : "owner_user_id"
+
+' Subtipo: Prótesis
+entity "prosthesis_products" as prosthesis_products {
+  + product_id : INT <<PK, FK>>   ' -> products.id
+  --
+  material_id  : INT <<FK>>       ' catálogo técnico (zirconio, etc.)
+}
+
+' Subtipo: Material simple
+entity "simple_material_products" as simple_material_products {
+  + product_id : INT <<PK, FK>>   ' -> products.id
+  --
+  sku        : TEXT <<UNIQUE>>
+  unit_price : NUMERIC(12,2) NOT NULL
+  unit_label : TEXT NOT NULL       ' "unidad", "caja", "kg", etc.
+  stock_qty  : NUMERIC(12,3)
+}
+
+' Subtipo: Modelado y vaciado en yeso (servicio)
+entity "plaster_service_products" as plaster_service_products {
+  + product_id : INT <<PK, FK>>   ' -> products.id
+  --
+  base_price : NUMERIC(12,2) NOT NULL     ' precio unitario del servicio (MVP)
+  notes      : TEXT                        ' instrucciones/alcance
+}
+
+' Subtipo: Alquiler de equipos odontológicos
+entity "rental_products" as rental_products {
+  + product_id : INT <<PK, FK>>  ' -> products.id
+  --
+  stock_qty                 : INT NOT NULL DEFAULT 0
+  insurance_included        : BOOLEAN DEFAULT FALSE  ' Si el precio incluye seguro
+  policy_document_url       : TEXT                   ' adjunto de póliza (si aplica)
+  refundable_deposit_needed : BOOLEAN DEFAULT FALSE
+  refundable_deposit_amount : NUMERIC(12,2)
+}
+
+' Tarifas alquiler (día/semana/mes)
+entity "rental_pricing" as rental_pricing {
+  + id : SERIAL <<PK>>
+  --
+  product_id : INT <<FK>>        ' -> rental_products.product_id
+  period     : TEXT NOT NULL      ' DAY | WEEK | MONTH
+  price      : NUMERIC(12,2) NOT NULL
+  --
+  ' UNIQUE(product_id, period)
+}
+
+products ||--|| prosthesis_products
+products ||--|| simple_material_products
+products ||--|| plaster_service_products
+products ||--|| rental_products
+rental_products ||--o{ rental_pricing : ""
+
+note right of rental_products
+Alquiler:
+- Precios por período en rental_pricing
+- Seguro incluido (con póliza) o
+  Depósito reembolsable
+end note
+
+' =========================
+' CATÁLOGOS PROTÉSICOS
+' =========================
+entity "materials" as materials {
+  + id : SERIAL <<PK>>
+  --
+  name : TEXT NOT NULL
+}
+
+entity "work_types" as work_types {
+  + id : SERIAL <<PK>>
+  --
+  name : TEXT NOT NULL   ' Corona total, Carilla, Incrustación, Puente unidad...
+}
+
+entity "tooth_groups" as tooth_groups {
+  + id : SERIAL <<PK>>
+  --
+  name : TEXT NOT NULL   ' Anterior, Premolar, Molar
+}
+
+entity "teeth" as teeth {
+  + id : SERIAL <<PK>>
+  --
+  fdi_code       : INT NOT NULL <<UNIQUE>>  ' 11..48
+  tooth_group_id : INT <<FK>>
+}
+
+tooth_groups ||--o{ teeth : "tooth_group_id"
+materials ||--o{ prosthesis_products : "material_id"
+
+' Matriz 2D (MVP): TipoTrabajo × GrupoDiente por producto de prótesis
+entity "product_prices" as product_prices {
+  + id : SERIAL <<PK>>
+  --
+  product_id     : INT <<FK>>   ' -> products.id (PROSTHESIS)
+  work_type_id   : INT <<FK>>   ' -> work_types.id
+  tooth_group_id : INT <<FK>>   ' -> tooth_groups.id
+  unit_price     : NUMERIC(12,2) NOT NULL
+  --
+  ' UNIQUE(product_id, work_type_id, tooth_group_id)
+}
+
+products     ||--o{ product_prices : ""
+work_types   ||--o{ product_prices : ""
+tooth_groups ||--o{ product_prices : ""
+
+note bottom of product_prices
+MVP sin overrides por pieza.
+Precio = (work_type × tooth_group)
+end note
+
+' =========================
+' CARRITO
+' =========================
+entity "carts" as carts {
+  + id : SERIAL <<PK>>
+  --
+  buyer_user_id : INT <<FK>>   ' -> users.id
+  created_at    : TIMESTAMPTZ DEFAULT now()
+  updated_at    : TIMESTAMPTZ DEFAULT now()
+}
+
+entity "cart_items" as cart_items {
+  + id : SERIAL <<PK>>
+  --
+  cart_id       : INT <<FK>>   ' -> carts.id
+  product_id    : INT <<FK>>   ' -> products.id
+  seller_user_id: INT <<FK>>   ' redundante p/ cálculo por vendedor
+  quantity      : INT NOT NULL DEFAULT 1
+  unit_price_snapshot : NUMERIC(12,2) NOT NULL   ' precio al momento de agregar
+  currency      : TEXT DEFAULT 'ARS'
+  options_json  : JSONB        ' extensibilidad mínima
+}
+
+carts ||--o{ cart_items : ""
+users ||--o{ carts : "buyer_user_id"
+products ||--o{ cart_items : ""
+users ||--o{ cart_items : "seller_user_id"
+
+' Detalle por tipo de ítem en carrito (subtablas 1:1)
+entity "cart_item_prosthesis" as cart_item_prosthesis {
+  + cart_item_id : INT <<PK, FK>>  ' -> cart_items.id
+  --
+  work_type_id   : INT <<FK>>
+  tooth_group_id : INT <<FK>>
+  pieces_count   : INT NOT NULL DEFAULT 1   ' cantidad de piezas (p. ej., 2 molares)
+}
+
+entity "cart_item_plaster" as cart_item_plaster {
+  + cart_item_id : INT <<PK, FK>>  ' -> cart_items.id
+  --
+  notes : TEXT
+}
+
+entity "cart_item_rental" as cart_item_rental {
+  + cart_item_id : INT <<PK, FK>>  ' -> cart_items.id
+  --
+  start_date     : DATE NOT NULL
+  end_date       : DATE NOT NULL
+  period         : TEXT NOT NULL      ' DAY | WEEK | MONTH (para pricing base)
+  insurance_type : TEXT NOT NULL      ' INCLUDED | DEPOSIT
+  deposit_amount : NUMERIC(12,2)      ' si insurance_type=DEPOSIT
+}
+
+cart_items ||--|| cart_item_prosthesis
+cart_items ||--|| cart_item_plaster
+cart_items ||--|| cart_item_rental
+work_types ||--o{ cart_item_prosthesis : ""
+tooth_groups ||--o{ cart_item_prosthesis : ""
+
+' (Opcional) listar dientes exactos en carrito si se quiere guardar el odontograma:
+entity "cart_prosthesis_teeth" as cart_prosthesis_teeth {
+  + cart_item_id : INT <<FK>>
+  + tooth_id     : INT <<FK>>
+  --
+  ' PK compuesta (cart_item_id, tooth_id)
+}
+cart_item_prosthesis ||--o{ cart_prosthesis_teeth : ""
+teeth ||--o{ cart_prosthesis_teeth : ""
+
+' =========================
+' ÓRDENES
+' =========================
+entity "orders" as orders {
+  + id : SERIAL <<PK>>
+  --
+  buyer_user_id : INT <<FK>>
+  status        : TEXT NOT NULL      ' CREATED | PAID | SHIPPED | COMPLETED | CANCELED
+  total_amount  : NUMERIC(12,2) NOT NULL
+  currency      : TEXT DEFAULT 'ARS'
+  created_at    : TIMESTAMPTZ DEFAULT now()
+  updated_at    : TIMESTAMPTZ DEFAULT now()
+  payment_ref   : TEXT               ' id de pasarela (si aplica)
+}
+
+entity "order_items" as order_items {
+  + id : SERIAL <<PK>>
+  --
+  order_id      : INT <<FK>>    ' -> orders.id
+  product_id    : INT <<FK>>    ' -> products.id
+  seller_user_id: INT <<FK>>    ' -> users.id (para liquidación por vendedor)
+  quantity      : INT NOT NULL DEFAULT 1
+  unit_price    : NUMERIC(12,2) NOT NULL
+  subtotal      : NUMERIC(12,2) NOT NULL
+  currency      : TEXT DEFAULT 'ARS'
+  snapshot_json : JSONB         ' copia atributos visibles del producto
+}
+
+orders ||--o{ order_items : ""
+users  ||--o{ orders : "buyer_user_id"
+products ||--o{ order_items : ""
+users  ||--o{ order_items : "seller_user_id"
+
+' Detalle por tipo en orden (subtablas 1:1)
+entity "order_item_prosthesis" as order_item_prosthesis {
+  + order_item_id : INT <<PK, FK>>
+  --
+  work_type_id    : INT <<FK>>
+  tooth_group_id  : INT <<FK>>
+  pieces_count    : INT NOT NULL DEFAULT 1
+}
+
+entity "order_item_plaster" as order_item_plaster {
+  + order_item_id : INT <<PK, FK>>
+  --
+  notes : TEXT
+}
+
+entity "order_item_rental" as order_item_rental {
+  + order_item_id : INT <<PK, FK>>
+  --
+  start_date     : DATE NOT NULL
+  end_date       : DATE NOT NULL
+  period         : TEXT NOT NULL        ' DAY | WEEK | MONTH
+  insurance_type : TEXT NOT NULL        ' INCLUDED | DEPOSIT
+  deposit_amount : NUMERIC(12,2)
+  returned_at    : TIMESTAMPTZ          ' logística de devolución
+  rental_status  : TEXT                 ' ACTIVE | LATE | RETURNED | DAMAGED
+}
+
+order_items ||--|| order_item_prosthesis
+order_items ||--|| order_item_plaster
+order_items ||--|| order_item_rental
+work_types  ||--o{ order_item_prosthesis : ""
+tooth_groups ||--o{ order_item_prosthesis : ""
+
+' (Opcional) dientes exactos en orden
+entity "order_prosthesis_teeth" as order_prosthesis_teeth {
+  + order_item_id : INT <<FK>>
+  + tooth_id      : INT <<FK>>
+  --
+  ' PK compuesta (order_item_id, tooth_id)
+}
+order_item_prosthesis ||--o{ order_prosthesis_teeth : ""
+teeth ||--o{ order_prosthesis_teeth : ""
+@enduml
