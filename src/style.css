@@ -1,0 +1,26 @@
+@import 'tailwindcss';
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-800;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Montserrat', sans-serif;
+  }
+}
+
+@layer components {
+  h1 {
+    @apply mb-4 text-3xl font-bold;
+  }
+
+  h2 {
+    @apply mb-3 text-2xl font-semibold;
+  }
+
+  h3 {
+    @apply mb-2 text-xl font-semibold;
+  }
+}
