@@ -600,7 +600,7 @@ export default {
         </div>
 
         <!-- Modal Editar Datos Personales -->
-        <div v-if="showEditPersonalData" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click.self="showEditPersonalData = false">
+        <div v-if="showEditPersonalData" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" @click.self="showEditPersonalData = false">
             <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
                 <h3 class="font-heading text-xl font-bold text-gray-800 mb-4">Editar datos personales</h3>
                 <div class="space-y-4">
@@ -638,7 +638,7 @@ export default {
         </div>
 
         <!-- Modal Editar Domicilio -->
-        <div v-if="showEditAddress" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click.self="showEditAddress = false">
+        <div v-if="showEditAddress" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" @click.self="showEditAddress = false">
             <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
                 <h3 class="font-heading text-xl font-bold text-gray-800 mb-4">Editar domicilio</h3>
                 <div class="space-y-4">

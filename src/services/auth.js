@@ -90,13 +90,14 @@ export async function register(email, password, userData = {}) {
             throw new Error(error.message)
         }
 
-        // Actualizar la tabla users con first_name y last_name
+        // Actualizar la tabla users con first_name, last_name y phone
         // (por si el trigger no lo hace automáticamente)
         const { error: updateError } = await supabase
             .from('users')
             .update({
                 first_name: firstName,
-                last_name: lastName
+                last_name: lastName,
+                phone: userData.phone || null
             })
             .eq('id', data.user.id)
 
