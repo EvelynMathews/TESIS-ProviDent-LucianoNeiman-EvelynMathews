@@ -1,6 +1,7 @@
 <script>
 import { subscribeToAuthStateChanges, logout, getCurrentUser } from '../services/auth'
 import { getUserProfileById, updateUserProfile } from '../services/user-profiles'
+import { getUserAddresses, updateAddress, createAddress } from '../services/addresses'
 import { supabase } from '../services/supabase'
 
 export default {
@@ -40,6 +41,7 @@ export default {
                 phone: ''
             },
             addressForm: {
+                id: null,
                 street: '',
                 city: '',
                 province: '',
@@ -77,18 +79,29 @@ export default {
                     roles: ['Comprador']
                 }
 
-                // Cargar domicilio desde location
-                if (profile.location) {
-                    const [city, province] = profile.location.split(', ')
-                    this.addresses = [{
-                        id: 1,
-                        street: '-',
-                        city: city || '-',
-                        province: province || '-',
-                        postal_code: '-',
-                        country: 'Argentina',
-                        is_primary: true
-                    }]
+                // Cargar direcciones desde la tabla addresses
+                try {
+                    const userAddresses = await getUserAddresses(currentUser.id)
+                    this.addresses = userAddresses.length > 0 ? userAddresses : []
+
+                    // Si no hay direcciones pero hay location en profile, crear una
+                    if (this.addresses.length === 0 && profile.location) {
+                        const [city, province] = profile.location.split(', ')
+                        if (city && province) {
+                            this.addresses = [{
+                                id: 'temp',
+                                street: '-',
+                                city: city || '-',
+                                province: province || '-',
+                                postal_code: '-',
+                                country: 'Argentina',
+                                is_primary: true
+                            }]
+                        }
+                    }
+                } catch (addressError) {
+                    console.warn('[MyProfile] Error al cargar direcciones:', addressError.message)
+                    this.addresses = []
                 }
 
                 // TODO: Cargar compras, ventas y publicaciones reales
@@ -149,6 +162,7 @@ export default {
             const addr = this.primaryAddress
             if (addr) {
                 this.addressForm = {
+                    id: addr.id !== 'temp' ? addr.id : null,
                     street: addr.street !== '-' ? addr.street : '',
                     city: addr.city !== '-' ? addr.city : '',
                     province: addr.province !== '-' ? addr.province : '',
@@ -163,20 +177,35 @@ export default {
                 const currentUser = getCurrentUser()
                 const location = `${this.addressForm.city}, ${this.addressForm.province}`
 
+                // Actualizar location en user_profiles
                 await updateUserProfile(currentUser.id, {
                     location: location
                 })
 
-                // Actualizar local
-                this.addresses = [{
-                    id: 1,
-                    street: this.addressForm.street || '-',
-                    city: this.addressForm.city,
-                    province: this.addressForm.province,
-                    postal_code: this.addressForm.postal_code || '-',
-                    country: this.addressForm.country,
-                    is_primary: true
-                }]
+                // Si hay un ID, actualizar dirección existente
+                if (this.addressForm.id) {
+                    await updateAddress(this.addressForm.id, {
+                        street: this.addressForm.street || null,
+                        city: this.addressForm.city,
+                        province: this.addressForm.province,
+                        postal_code: this.addressForm.postal_code || null,
+                        country: this.addressForm.country || 'Argentina'
+                    })
+                } else {
+                    // Si no hay ID, crear nueva dirección
+                    await createAddress({
+                        user_id: currentUser.id,
+                        street: this.addressForm.street || null,
+                        city: this.addressForm.city,
+                        province: this.addressForm.province,
+                        postal_code: this.addressForm.postal_code || null,
+                        country: this.addressForm.country || 'Argentina',
+                        is_primary: true
+                    })
+                }
+
+                // Recargar direcciones
+                await this.loadUserProfile()
 
                 this.showEditAddress = false
                 alert('Domicilio actualizado correctamente')

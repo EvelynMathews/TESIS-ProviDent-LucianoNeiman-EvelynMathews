@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { createUserProfile, getUserProfileById, updateUserProfile } from './user-profiles'
+import { createAddress } from './addresses'
 
 // Estado local del usuario (inicialmente vacío)
 let user = {
@@ -115,6 +116,24 @@ export async function register(email, password, userData = {}) {
                 : '',
             is_public: true,
         })
+
+        // Crear dirección si se proporcionaron datos
+        if (userData.city && userData.province) {
+            try {
+                await createAddress({
+                    user_id: data.user.id,
+                    street: userData.street || null,
+                    city: userData.city,
+                    province: userData.province,
+                    postal_code: userData.postalCode || null,
+                    country: userData.country || 'Argentina',
+                    is_primary: true
+                })
+                console.log('[auth.js] Dirección creada exitosamente')
+            } catch (addressError) {
+                console.warn('[auth.js] No se pudo crear la dirección:', addressError.message)
+            }
+        }
 
         // Actualizar estado local
         setUser({
