@@ -66,17 +66,22 @@ async function fetchFullProfile() {
  */
 export async function register(email, password, userData = {}) {
     try {
-        const username = userData.name && userData.lastName
-            ? `${userData.name} ${userData.lastName}`
+        const firstName = userData.name || ''
+        const lastName = userData.lastName || ''
+        const username = firstName && lastName
+            ? `${firstName} ${lastName}`
             : email.split('@')[0]
 
-        // Registrar en Supabase Auth
+        // Registrar en Supabase Auth con metadata completo
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
                 data: {
-                    username: username
+                    username: username,
+                    first_name: firstName,
+                    last_name: lastName,
+                    phone: userData.phone || null
                 }
             }
         })
@@ -85,8 +90,21 @@ export async function register(email, password, userData = {}) {
             throw new Error(error.message)
         }
 
+        // Actualizar la tabla users con first_name y last_name
+        // (por si el trigger no lo hace automáticamente)
+        const { error: updateError } = await supabase
+            .from('users')
+            .update({
+                first_name: firstName,
+                last_name: lastName
+            })
+            .eq('id', data.user.id)
+
+        if (updateError) {
+            console.warn('[auth.js register] No se pudo actualizar users:', updateError.message)
+        }
+
         // Crear perfil de usuario en la tabla user_profiles
-        // NOTA: La tabla users ya se crea automáticamente por el trigger de Supabase
         await createUserProfile({
             user_id: data.user.id,
             avatar_url: null,
