@@ -1,6 +1,7 @@
 <script>
 import { getCurrentUser } from '../services/auth'
 import { getUserProfileById, updateUserProfile } from '../services/user-profiles'
+import { getUserAddresses, updateAddress, createAddress } from '../services/addresses'
 import { supabase } from '../services/supabase'
 
 export default {
@@ -17,6 +18,7 @@ export default {
                 location: '',
             },
             addressData: {
+                id: null,
                 street: '',
                 city: '',
                 province: '',
@@ -54,11 +56,34 @@ export default {
 
                 this.avatarPreview = profile.avatar_url || ''
 
-                // Parsear location
-                if (profile.location) {
-                    const [city, province] = profile.location.split(', ')
-                    this.addressData.city = city || ''
-                    this.addressData.province = province || ''
+                // Cargar dirección desde tabla addresses
+                try {
+                    const addresses = await getUserAddresses(currentUser.id)
+                    const primaryAddress = addresses.find(addr => addr.is_primary) || addresses[0]
+
+                    if (primaryAddress) {
+                        this.addressData = {
+                            id: primaryAddress.id,
+                            street: primaryAddress.street || '',
+                            city: primaryAddress.city || '',
+                            province: primaryAddress.province || '',
+                            postal_code: primaryAddress.postal_code || '',
+                            country: primaryAddress.country || 'Argentina'
+                        }
+                    } else if (profile.location) {
+                        // Fallback: parsear location si no hay dirección
+                        const [city, province] = profile.location.split(', ')
+                        this.addressData.city = city || ''
+                        this.addressData.province = province || ''
+                    }
+                } catch (addressError) {
+                    console.warn('[MyProfileEdit] Error al cargar dirección:', addressError.message)
+                    // Fallback: parsear location
+                    if (profile.location) {
+                        const [city, province] = profile.location.split(', ')
+                        this.addressData.city = city || ''
+                        this.addressData.province = province || ''
+                    }
                 }
             } catch (error) {
                 console.error('[MyProfileEdit] Error al cargar perfil:', error)
@@ -94,12 +119,13 @@ export default {
                     this.formData.avatar_url = urlData.publicUrl
                 }
 
-                // Actualizar users (first_name, last_name)
+                // Actualizar users (first_name, last_name, phone)
                 await supabase
                     .from('users')
                     .update({
                         first_name: this.formData.first_name,
-                        last_name: this.formData.last_name
+                        last_name: this.formData.last_name,
+                        phone: this.formData.phone
                     })
                     .eq('id', currentUser.id)
 
@@ -113,6 +139,31 @@ export default {
                     bio: this.formData.bio,
                     location: location
                 })
+
+                // Actualizar o crear dirección en tabla addresses
+                if (this.addressData.city && this.addressData.province) {
+                    if (this.addressData.id) {
+                        // Actualizar dirección existente
+                        await updateAddress(this.addressData.id, {
+                            street: this.addressData.street || null,
+                            city: this.addressData.city,
+                            province: this.addressData.province,
+                            postal_code: this.addressData.postal_code || null,
+                            country: this.addressData.country || 'Argentina'
+                        })
+                    } else {
+                        // Crear nueva dirección
+                        await createAddress({
+                            user_id: currentUser.id,
+                            street: this.addressData.street || null,
+                            city: this.addressData.city,
+                            province: this.addressData.province,
+                            postal_code: this.addressData.postal_code || null,
+                            country: this.addressData.country || 'Argentina',
+                            is_primary: true
+                        })
+                    }
+                }
 
                 alert('Perfil actualizado correctamente')
                 this.$router.push('/mi-perfil')
