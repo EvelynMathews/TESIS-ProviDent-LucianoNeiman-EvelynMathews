@@ -1,0 +1,574 @@
+@startuml
+hide circle
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor White
+  BorderColor Black
+  ArrowColor Black
+}
+title ProviDent — DER alineado al DDL con subtipos de usuario
+
+' =========================
+' USUARIOS / ROLES
+' =========================
+package "Usuarios & Roles" #E8F0FE {
+  entity "users" as users {
+    + id : UUID <<PK>>           ' FK -> auth.users.id
+    --
+    first_name : TEXT
+    last_name  : TEXT
+    email      : TEXT <<UNIQUE>>
+    photo_url  : TEXT
+    is_active  : BOOLEAN = TRUE
+    created_at : TIMESTAMPTZ = now()
+  }
+  note right of users
+    Autenticación gestionada por Supabase Auth.
+    No se almacena password_hash aquí.
+    users.id referencia auth.users.id.
+  end note
+
+  entity "user_roles" as user_roles {
+    + user_id : UUID <<FK>>
+    + role : ENUM(role_code)         ' ADMIN | BUYER | SELLER
+    --
+    ' PK compuesta (user_id, role)
+  }
+
+  ' Al menos 1 rol por usuario
+  users ||--|{ user_roles
+
+  ' Subtipos opcionales (0..1) por rol
+  entity "user_buyers" as user_buyers {
+    + user_id : UUID <<PK, FK>>     ' -> users.id
+    --
+    created_at : TIMESTAMPTZ = now()
+  }
+
+  entity "user_sellers" as user_sellers {
+    + user_id : UUID <<PK, FK>>     ' -> users.id
+    --
+    display_name : TEXT
+    rating_avg   : NUMERIC(3,2)
+    created_at   : TIMESTAMPTZ = now()
+  }
+
+  entity "user_admins" as user_admins {
+    + user_id : UUID <<PK, FK>>     ' -> users.id
+    --
+    created_at : TIMESTAMPTZ = now()
+  }
+
+  users ||--o| user_buyers
+  users ||--o| user_sellers
+  users ||--o| user_admins
+
+  ' Perfiles & Direcciones (movido aquí)
+  entity "user_profiles" as user_profiles {
+    + user_id   : UUID <<PK, FK>>   ' -> users.id
+    --
+    avatar      : TEXT
+    bio         : TEXT
+    location    : TEXT
+    is_public   : BOOLEAN NOT NULL = TRUE
+    created_at  : TIMESTAMPTZ NOT NULL = now()
+    updated_at  : TIMESTAMPTZ NOT NULL = now()
+  }
+  ' perfil opcional desde users; user_profiles requiere user (FK obligatoria)
+  users ||--o| user_profiles
+
+}
+
+'' Sección Perfiles & Direcciones movida dentro de "Usuarios & Roles"
+'' Sección Catálogos combinada con Productos más abajo
+
+' =========================
+' DIRECCIONES
+' =========================
+package "Direcciones" #FFF9F0 {
+  entity "provinces" as provinces #FFF2CC {
+    + id     : UUID <<PK>>
+    --
+    name     : TEXT NOT NULL <<UNIQUE>>
+    code     : TEXT <<UNIQUE>>
+    enabled  : BOOLEAN = FALSE
+  }
+  
+
+  ' Addresses pertenecen al BUYER (FK semántica -> user_buyers.user_id)
+  entity "addresses" as addresses {
+    + id : UUID <<PK>>
+    --
+    user_id     : UUID NOT NULL <<FK>>       ' -> user_buyers.user_id
+    street      : TEXT
+    city        : TEXT NOT NULL
+    province_id : UUID NOT NULL <<FK>>       ' -> provinces.id
+    postal_code : TEXT
+    recipient_name : TEXT            ' nombre de quien recibe/factura
+    tax_id         : TEXT            ' CUIL/CUIT
+    is_primary  : BOOLEAN = FALSE
+    created_at  : TIMESTAMPTZ NOT NULL = now()
+    updated_at  : TIMESTAMPTZ NOT NULL = now()
+  }
+
+  provinces ||--o{ addresses
+}
+
+user_buyers ||--o{ addresses
+
+' =========================
+' PRODUCTOS
+' =========================
+package "Productos & Catálogos" #F0F5FF {
+  ' Catálogos (movidos a Prótesis)
+  entity "products" as products {
+    + id : UUID <<PK>>
+    --
+    owner_user_id : UUID <<FK>>     ' -> user_sellers.user_id
+    name : TEXT NOT NULL
+    description : TEXT
+    product_type : ENUM(product_type) NOT NULL  ' PROSTHESIS | SIMPLE | PLASTER_SERVICE | RENTAL
+    is_active : BOOLEAN = TRUE
+    created_at : TIMESTAMPTZ = now()
+    weight_kg : NUMERIC(12,3)
+    length_cm : NUMERIC(12,2)
+    width_cm  : NUMERIC(12,2)
+    height_cm : NUMERIC(12,2)
+  }
+  user_sellers ||--o{ products : "vende"
+
+  ' Imágenes de producto (1:N)
+  entity "product_images" as product_images {
+    + id : UUID <<PK>>
+    --
+    product_id : UUID NOT NULL <<FK>>  ' -> products.id
+    path       : TEXT NOT NULL        ' ruta relativa en Storage
+    alt_text   : TEXT
+    position   : INT NOT NULL = 1      ' orden dentro del producto
+    is_primary : BOOLEAN = FALSE
+    created_at : TIMESTAMPTZ = now()
+  }
+  products ||--o{ product_images
+
+  note right of product_images
+    path es la ruta relativa dentro del bucket.
+    Las URLs públicas/firmadas se construyen en runtime
+    a partir de bucket + path. Transformaciones vía /render.
+  end note
+
+  ' Subtipos de producto por tipo (opcionales respecto al padre)
+
+  package "Productos: Prótesis" #EAF7F1 {
+    ' Catálogos comunes (color distintivo)
+    entity "materials" as materials #FFF2CC {
+      + id   : UUID <<PK>>
+      --
+      name : TEXT NOT NULL <<UNIQUE>>
+    }
+
+    entity "work_types" as work_types #FFF2CC {
+      + id   : UUID <<PK>>
+      --
+      name : TEXT NOT NULL <<UNIQUE>>
+    }
+
+    entity "tooth_groups" as tooth_groups #FFF2CC {
+      + id   : UUID <<PK>>
+      --
+      name : TEXT NOT NULL <<UNIQUE>>
+    }
+
+    entity "teeth" as teeth #FFF2CC {
+      + id : UUID <<PK>>
+      --
+      fdi_code      : INT NOT NULL <<UNIQUE>>
+      tooth_group_id: UUID NOT NULL <<FK>>
+    }
+    tooth_groups ||--o{ teeth
+    entity "prosthesis_products" as prosthesis_products {
+      + product_id : UUID <<PK, FK>>  ' -> products.id
+      --
+      material_id : UUID <<FK>>
+    }
+    products ||--o| prosthesis_products
+    materials ||--o{ prosthesis_products
+
+    entity "product_prices" as product_prices {
+      + id : UUID <<PK>>
+      --
+      product_id    : UUID NOT NULL <<FK>>   ' -> prosthesis_products.product_id
+      work_type_id  : UUID NOT NULL <<FK>>
+      tooth_group_id: UUID NOT NULL <<FK>>
+      unit_price    : NUMERIC(12,2) NOT NULL
+    }
+    prosthesis_products ||--o{ product_prices
+    work_types ||--o{ product_prices
+    tooth_groups ||--o{ product_prices
+  }
+
+  package "Productos: Simple Material" #FFF7E6 {
+    entity "simple_material_products" as simple_material_products {
+      + product_id : UUID <<PK, FK>>
+      --
+      sku : TEXT <<UNIQUE>>
+      unit_price : NUMERIC(12,2) NOT NULL
+      unit_label : TEXT NOT NULL
+      stock_qty : NUMERIC(12,3)
+    }
+    products ||--o| simple_material_products
+  }
+
+  package "Productos: Plaster Service" #F3E8FF {
+    entity "plaster_service_products" as plaster_service_products {
+      + product_id : UUID <<PK, FK>>
+      --
+      base_price : NUMERIC(12,2) NOT NULL
+      notes : TEXT
+    }
+    products ||--o| plaster_service_products
+  }
+
+  package "Productos: Renting" #E6F7FF {
+    entity "rental_products" as rental_products {
+      + product_id : UUID <<PK, FK>>
+      --
+      stock_qty : INT
+      policy_document_url : TEXT
+      refundable_deposit_amount : NUMERIC(12,2)   ' 0 = sin depósito
+    }
+    products ||--o| rental_products
+
+    entity "rental_pricing" as rental_pricing {
+      + id : UUID <<PK>>
+      --
+      product_id : UUID <<FK>>       ' -> rental_products.product_id
+      period : INTERVAL NOT NULL      ' duración (ej: '7 days')
+      price  : NUMERIC(12,2) NOT NULL
+    }
+    rental_products ||--o{ rental_pricing
+  }
+}
+
+' =========================
+' SUPABASE
+' =========================
+package "Supabase" #F5F5F5 {
+  ' Auth (tabla externa)
+  package "Auth" #EEEEEE {
+    entity "auth.users" as auth_users #DDDDDD {
+      + id : UUID <<PK>>
+      --
+      email      : TEXT
+      created_at : TIMESTAMPTZ
+    }
+    note right of auth_users
+      Tabla gestionada por Supabase.
+      No se migra ni modifica desde la app.
+      Solo se referencia (FK en users.id).
+    end note
+  }
+
+  ' Storage
+  package "Storage" #EFEFFF {
+    entity "storage_buckets" as storage_buckets #DDDDDD {
+      + id : UUID <<PK>>
+      --
+      name      : TEXT NOT NULL <<UNIQUE>>
+      is_public : BOOLEAN NOT NULL
+    }
+
+    entity "storage_objects" as storage_objects #DDDDDD {
+      + id : UUID <<PK>>
+      --
+      bucket_id  : UUID NOT NULL <<FK>>
+      name       : TEXT NOT NULL
+      path       : TEXT NOT NULL
+      mime_type  : TEXT
+      size_bytes : INT
+      created_at : TIMESTAMPTZ = now()
+    }
+    storage_buckets ||--o{ storage_objects
+  }
+}
+
+
+
+
+' =========================
+' ARTÍCULOS
+' =========================
+package "Artículos" #FFFDEA {
+  entity "news" as news {
+    + id : UUID <<PK>>
+    --
+    admin_user_id   : UUID <<FK>>      ' -> user_admins.user_id
+    title           : TEXT NOT NULL
+    slug            : TEXT <<UNIQUE>>
+    preview         : TEXT
+    content         : TEXT
+    cover_image_url : TEXT
+    is_published    : BOOLEAN = FALSE
+    published_at    : TIMESTAMPTZ
+    created_at      : TIMESTAMPTZ = now()
+    updated_at      : TIMESTAMPTZ = now()
+  }
+  user_admins ||--o{ news
+
+  ' Imágenes de news (1:N)
+  entity "news_images" as news_images {
+    + id : UUID <<PK>>
+    --
+    news_id   : UUID NOT NULL <<FK>>   ' -> news.id
+    path      : TEXT NOT NULL           ' ruta relativa en Storage
+    alt_text  : TEXT
+    position  : INT NOT NULL = 1        ' orden dentro de la nota
+    is_primary: BOOLEAN = FALSE
+    created_at: TIMESTAMPTZ = now()
+  }
+  news ||--o{ news_images
+}
+
+' =========================
+' CARRITO / ÓRDENES
+' =========================
+package "Carrito & Órdenes" #FDEEF4 {
+  entity "carts" as carts {
+    + id : UUID <<PK>>
+    --
+    buyer_user_id : UUID <<FK>>     ' -> user_buyers.user_id
+    created_at : TIMESTAMPTZ = now()
+    updated_at : TIMESTAMPTZ = now()
+  }
+  user_buyers ||--o{ carts
+
+  entity "cart_items" as cart_items {
+    + id : UUID <<PK>>
+    --
+    cart_id : UUID NOT NULL <<FK>>
+    product_id : UUID NOT NULL <<FK>>
+    quantity : INT NOT NULL = 1
+    unit_price_snapshot : NUMERIC(12,2) NOT NULL
+    options_json : JSONB
+  }
+  carts ||--o{ cart_items
+  products ||--o{ cart_items
+  ' seller se deriva via products.owner_user_id
+
+  entity "orders" as orders {
+    + id : UUID <<PK>>
+    --
+    buyer_user_id : UUID <<FK>>     ' -> user_buyers.user_id
+    shipping_address_id : UUID NOT NULL <<FK>> ' -> addresses.id
+    billing_address_id  : UUID NOT NULL <<FK>> ' -> addresses.id
+    status : ENUM(order_status) NOT NULL = 'CREATED'  ' CREATED | PAID | FULFILLED | CANCELED
+    total_amount : NUMERIC(12,2) NOT NULL
+    created_at : TIMESTAMPTZ = now()
+    updated_at : TIMESTAMPTZ = now()
+  }
+  user_buyers ||--o{ orders
+  addresses ||--o{ orders : "shipping"
+  addresses ||--o{ orders : "billing"
+
+  entity "order_items" as order_items {
+    + id : UUID <<PK>>
+    --
+    order_id : UUID <<FK>>
+    product_id : UUID <<FK>>
+    quantity : INT = 1
+    unit_price : NUMERIC(12,2) NOT NULL
+    subtotal : NUMERIC(12,2) NOT NULL
+    snapshot_json : JSONB
+  }
+  orders ||--|{ order_items
+  products ||--o{ order_items
+  ' seller se deriva via products.owner_user_id
+}
+
+' =========================
+' ENVÍOS
+' =========================
+package "Envíos" #F2FFEE {
+  entity "shipping_profiles" as shipping_profiles {
+    + id : UUID <<PK>>
+    --
+    seller_user_id : UUID <<FK>>    ' -> user_sellers.user_id
+    name : TEXT NOT NULL
+    active : BOOLEAN
+    volume_min_cm3 : NUMERIC(12,2)     ' reemplaza min/max dimensiones
+    volume_max_cm3 : NUMERIC(12,2)
+    created_at : TIMESTAMPTZ = now()
+  }
+  user_sellers ||--o{ shipping_profiles
+
+  entity "product_shipping_profiles" as product_shipping_profiles {
+    + product_id : UUID NOT NULL <<FK>>      ' -> products.id
+    + profile_id : UUID NOT NULL <<FK>>      ' -> shipping_profiles.id
+    --
+    ' PK compuesta (product_id, profile_id)
+  }
+  products ||--|{ product_shipping_profiles
+  shipping_profiles ||--o{ product_shipping_profiles
+
+  
+
+  entity "shipping_zones" as shipping_zones {
+    + id : UUID <<PK>>
+    --
+    profile_id : UUID NOT NULL <<FK>>
+    province_id : UUID NOT NULL <<FK>>
+    postal_code_min : TEXT NOT NULL
+    postal_code_max : TEXT NOT NULL
+    zone_name : TEXT NOT NULL
+  }
+  shipping_profiles ||--o{ shipping_zones
+  provinces ||--o{ shipping_zones
+
+  entity "shipping_rates" as shipping_rates {
+    + id : UUID <<PK>>
+    --
+    profile_id : UUID NOT NULL <<FK>>
+    zone_id : UUID <<FK>>
+    carrier : TEXT NOT NULL
+    service : TEXT NOT NULL
+    price : NUMERIC(12,2) NOT NULL
+    weight_min : NUMERIC(12,3)
+    weight_max : NUMERIC(12,3)
+    eta_days : INT
+    active : BOOLEAN = TRUE
+  }
+  shipping_profiles ||--o{ shipping_rates
+  shipping_zones ||--o{ shipping_rates
+
+  entity "shipments" as shipments {
+    + id : UUID <<PK>>
+    --
+    order_item_id : UUID NOT NULL <<FK>>
+    carrier : TEXT
+    service : TEXT
+    tracking_code : TEXT
+    label_url : TEXT
+    shipping_price_charged : NUMERIC(12,2)
+    shipping_cost_estimated : NUMERIC(12,2)
+    status : ENUM(shipment_status) NOT NULL = 'READY'  ' READY | IN_TRANSIT | DELIVERED | LOST | RETURNED
+    delivered_at : TIMESTAMPTZ
+    proof_of_delivery_url : TEXT
+    created_at : TIMESTAMPTZ = now()
+    updated_at : TIMESTAMPTZ = now()
+  }
+  order_items ||--o{ shipments
+  ' seller se deriva via products.owner_user_id (a través de order_items.product_id)
+}
+
+' Relación cruzada declarada tras definir ambas entidades para evitar placeholders vacíos
+ 
+
+' =========================
+' PAGOS
+' =========================
+package "Pagos & Splits" #E0E7FF {
+  entity "payment_accounts" as payment_accounts {
+    + id : UUID <<PK>>
+    --
+    user_id : UUID <<FK>>           ' -> user_sellers.user_id
+    provider : TEXT NOT NULL        ' MERCADOPAGO | MOBBEX (check)
+    config_json : JSONB NOT NULL
+    is_primary : BOOLEAN = FALSE
+    created_at : TIMESTAMPTZ = now()
+    updated_at : TIMESTAMPTZ = now()
+  }
+  user_sellers ||--o{ payment_accounts
+
+  entity "payments" as payments {
+    + id : UUID <<PK>>
+    --
+    order_id : UUID <<FK>>
+    provider : TEXT NOT NULL        ' MERCADOPAGO | MOBBEX (check)
+    provider_pref_id : TEXT
+    provider_pay_id  : TEXT
+    status : ENUM(payment_status) NOT NULL       ' PENDING | APPROVED | REJECTED | REFUNDED | CHARGED_BACK
+    amount : NUMERIC(12,2) NOT NULL
+    payer_user_id : UUID NOT NULL <<FK>>     ' -> user_buyers.user_id
+    received_at : TIMESTAMPTZ
+    updated_at : TIMESTAMPTZ = now()
+    raw_payload : JSONB               ' incluye installments y metadatos del provider
+  }
+  orders ||--o{ payments
+  user_buyers ||--o{ payments
+
+  entity "payment_splits" as payment_splits {
+    + id : UUID <<PK>>
+    --
+    payment_id : UUID <<FK>>
+    order_item_id : UUID <<FK>>
+    seller_account_id : UUID <<FK>> ' -> payment_accounts.id
+    gross_amount : NUMERIC(12,2) NOT NULL
+    app_fee_amount : NUMERIC(12,2) = 0
+    net_amount : NUMERIC(12,2) NOT NULL
+    escrow_status : ENUM(escrow_status) = 'HELD' ' HELD | RELEASED | REFUNDED
+    provider_split_id : TEXT
+    created_at : TIMESTAMPTZ = now()
+    updated_at : TIMESTAMPTZ = now()
+  }
+  payments ||--o{ payment_splits
+  order_items ||--o{ payment_splits
+  payment_accounts ||--o{ payment_splits
+  ' seller se deriva via payment_accounts.user_id -> user_sellers.user_id
+
+  entity "payouts" as payouts {
+    + id : UUID <<PK>>
+    --
+    split_id : UUID <<FK>>
+    status : ENUM(payout_status) NOT NULL        ' PENDING | PAID | FAILED
+    amount : NUMERIC(12,2) NOT NULL
+    paid_at : TIMESTAMPTZ
+    raw_payload : JSONB               ' incluye provider_payout_id y datos del provider
+    created_at : TIMESTAMPTZ = now()
+  }
+  payment_splits ||--o{ payouts
+
+  ' Cobros de fees de la app (ingresos a la cuenta de la plataforma)
+  entity "app_fee_receipts" as app_fee_receipts {
+    + id : UUID <<PK>>
+    --
+    split_id : UUID <<FK>>
+    status : ENUM(payout_status) NOT NULL        ' PENDING | PAID | FAILED
+    amount : NUMERIC(12,2) NOT NULL              ' snapshot de payment_splits.app_fee_amount
+    received_at : TIMESTAMPTZ
+    raw_payload : JSONB                          ' datos/ids del provider
+    created_at : TIMESTAMPTZ = now()
+  }
+  payment_splits ||--o{ app_fee_receipts
+
+  entity "refunds" as refunds {
+    + id : UUID <<PK>>
+    --
+    payment_id : UUID <<FK>>
+    split_id   : UUID <<FK>>
+    amount : NUMERIC(12,2) NOT NULL
+    status : ENUM(refund_status) NOT NULL        ' REQUESTED | APPROVED | REJECTED | PROCESSED
+    created_at : TIMESTAMPTZ = now()
+    raw_payload : JSONB               ' incluye provider_ref y datos del provider
+  }
+  payments ||--o{ refunds
+  payment_splits ||--o{ refunds
+}
+
+
+' Relación punteada para indicar dependencia externa
+auth_users ||..o| users : "Supabase Auth"
+
+' Product images usan bucket fijo "product-images"
+product_images .. storage_buckets : "bucket = 'product-images'"
+
+' News images usan bucket fijo "news-images"
+news_images .. storage_buckets : "bucket = 'news-images'"
+
+legend right
+  Referencias de colores:
+  - Gris (#DDDDDD): Tablas internas de Supabase (Auth/Storage)
+  - Amarillo (#FFF2CC): Catálogos comunes a todos los usuarios
+  - Blanco: Entidades/datos del dominio de usuarios
+endlegend
+
+@enduml
