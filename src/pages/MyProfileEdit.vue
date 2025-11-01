@@ -1,98 +1,45 @@
 <script>
-import { getCurrentUser } from '../services/auth'
-import { getUserProfileById, updateUserProfile } from '../services/user-profiles'
-import { getUserAddresses, updateAddress, createAddress } from '../services/addresses'
+import { subscribeToAuthStateChanges, updateAuthUser } from '../services/auth'
 import { supabase } from '../services/supabase'
+
+let unsubscribeFromAuth = () => { }
 
 export default {
     name: 'MyProfileEdit',
     data() {
         return {
             formData: {
-                first_name: '',
-                last_name: '',
+                name: '',
+                lastName: '',
                 email: '',
                 phone: '',
+                username: '',
                 bio: '',
                 avatar_url: '',
+                favorite_genres: '',
                 location: '',
             },
             addressData: {
-                id: null,
                 street: '',
                 city: '',
                 province: '',
                 postal_code: '',
                 country: 'Argentina',
+                is_primary: true
+            },
+            bankData: {
+                bank_name: '',
+                account_holder: '',
+                account_number: '',
+                cbu: '',
+                alias: ''
             },
             avatarFile: null,
             avatarPreview: '',
             loading: false,
-            loadingData: true,
         }
     },
     methods: {
-        async loadProfile() {
-            try {
-                this.loadingData = true
-                const currentUser = getCurrentUser()
-
-                if (!currentUser.id) {
-                    this.$router.push('/login')
-                    return
-                }
-
-                const profile = await getUserProfileById(currentUser.id)
-
-                this.formData = {
-                    first_name: profile.first_name || '',
-                    last_name: profile.last_name || '',
-                    email: profile.email || '',
-                    phone: profile.phone || '',
-                    bio: profile.bio || '',
-                    avatar_url: profile.avatar_url || '',
-                    location: profile.location || '',
-                }
-
-                this.avatarPreview = profile.avatar_url || ''
-
-                // Cargar dirección desde tabla addresses
-                try {
-                    const addresses = await getUserAddresses(currentUser.id)
-                    const primaryAddress = addresses.find(addr => addr.is_primary) || addresses[0]
-
-                    if (primaryAddress) {
-                        this.addressData = {
-                            id: primaryAddress.id,
-                            street: primaryAddress.street || '',
-                            city: primaryAddress.city || '',
-                            province: primaryAddress.province || '',
-                            postal_code: primaryAddress.postal_code || '',
-                            country: primaryAddress.country || 'Argentina'
-                        }
-                    } else if (profile.location) {
-                        // Fallback: parsear location si no hay dirección
-                        const [city, province] = profile.location.split(', ')
-                        this.addressData.city = city || ''
-                        this.addressData.province = province || ''
-                    }
-                } catch (addressError) {
-                    console.warn('[MyProfileEdit] Error al cargar dirección:', addressError.message)
-                    // Fallback: parsear location
-                    if (profile.location) {
-                        const [city, province] = profile.location.split(', ')
-                        this.addressData.city = city || ''
-                        this.addressData.province = province || ''
-                    }
-                }
-            } catch (error) {
-                console.error('[MyProfileEdit] Error al cargar perfil:', error)
-                alert('Error al cargar el perfil')
-            } finally {
-                this.loadingData = false
-            }
-        },
-
         handleFileChange(event) {
             const file = event.target.files[0]
             if (file) {
@@ -104,11 +51,10 @@ export default {
         async handleSubmit() {
             try {
                 this.loading = true
-                const currentUser = getCurrentUser()
 
                 // Subir nuevo avatar si corresponde
                 if (this.avatarFile) {
-                    const fileName = `${currentUser.id}_${Date.now()}_${this.avatarFile.name}`
+                    const fileName = `${this.formData.username || 'user'}_${Date.now()}_${this.avatarFile.name}`
                     const { error: uploadError } = await supabase.storage
                         .from('avatars')
                         .upload(fileName, this.avatarFile, { cacheControl: '3600', upsert: false })
@@ -119,57 +65,10 @@ export default {
                     this.formData.avatar_url = urlData.publicUrl
                 }
 
-                // Actualizar users (first_name, last_name, phone)
-                await supabase
-                    .from('users')
-                    .update({
-                        first_name: this.formData.first_name,
-                        last_name: this.formData.last_name,
-                        phone: this.formData.phone
-                    })
-                    .eq('id', currentUser.id)
-
-                // Actualizar user_profiles
-                const location = this.addressData.city && this.addressData.province
-                    ? `${this.addressData.city}, ${this.addressData.province}`
-                    : ''
-
-                await updateUserProfile(currentUser.id, {
-                    avatar_url: this.formData.avatar_url,
-                    bio: this.formData.bio,
-                    location: location
-                })
-
-                // Actualizar o crear dirección en tabla addresses
-                if (this.addressData.city && this.addressData.province) {
-                    if (this.addressData.id) {
-                        // Actualizar dirección existente
-                        await updateAddress(this.addressData.id, {
-                            street: this.addressData.street || null,
-                            city: this.addressData.city,
-                            province: this.addressData.province,
-                            postal_code: this.addressData.postal_code || null,
-                            country: this.addressData.country || 'Argentina'
-                        })
-                    } else {
-                        // Crear nueva dirección
-                        await createAddress({
-                            user_id: currentUser.id,
-                            street: this.addressData.street || null,
-                            city: this.addressData.city,
-                            province: this.addressData.province,
-                            postal_code: this.addressData.postal_code || null,
-                            country: this.addressData.country || 'Argentina',
-                            is_primary: true
-                        })
-                    }
-                }
-
-                alert('Perfil actualizado correctamente')
+                await updateAuthUser(this.formData)
                 this.$router.push('/mi-perfil')
             } catch (error) {
-                console.error('[MyProfileEdit] Error al guardar:', error)
-                alert('Error al guardar cambios.')
+                alert('Error al guardar cambios. Verificá tu conexión o permisos.')
             } finally {
                 this.loading = false
             }
@@ -177,7 +76,24 @@ export default {
     },
 
     mounted() {
-        this.loadProfile()
+        unsubscribeFromAuth = subscribeToAuthStateChanges((newUserState) => {
+            this.formData = {
+                name: newUserState.name || '',
+                lastName: newUserState.lastName || '',
+                email: newUserState.email || '',
+                phone: newUserState.phone || '',
+                username: newUserState.username || '',
+                bio: newUserState.bio || '',
+                avatar_url: newUserState.avatar_url || '',
+                favorite_genres: newUserState.favorite_genres || '',
+                location: newUserState.location || '',
+            }
+            this.avatarPreview = this.formData.avatar_url
+        })
+    },
+
+    unmounted() {
+        unsubscribeFromAuth()
     },
 }
 </script>
@@ -215,13 +131,13 @@ export default {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre</label>
-                            <input v-model="formData.first_name" placeholder="Ingresá tu nombre"
+                            <input v-model="formData.name" placeholder="Ingresá tu nombre"
                                 class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
                                 style="focus:border-color: #2A6FAF;" />
                         </div>
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Apellido</label>
-                            <input v-model="formData.last_name" placeholder="Ingresá tu apellido"
+                            <input v-model="formData.lastName" placeholder="Ingresá tu apellido"
                                 class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
                                 style="focus:border-color: #2A6FAF;" />
                         </div>

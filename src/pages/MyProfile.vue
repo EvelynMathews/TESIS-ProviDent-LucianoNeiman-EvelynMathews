@@ -1,8 +1,5 @@
 <script>
-import { subscribeToAuthStateChanges, logout, getCurrentUser } from '../services/auth'
-import { getUserProfileById, updateUserProfile } from '../services/user-profiles'
-import { getUserAddresses, updateAddress, createAddress } from '../services/addresses'
-import { supabase } from '../services/supabase'
+import { subscribeToAuthStateChanges, logout } from '../services/auth'
 
 export default {
     name: 'MyProfile',
@@ -14,40 +11,82 @@ export default {
                 username: null,
             },
             userProfile: {
-                first_name: '',
-                last_name: '',
-                email: '',
-                phone: '',
+                name: 'Dr. Juan Pérez',
+                lastName: 'Pérez',
+                email: 'juan.perez@example.com',
+                phone: '+54 11 4567-8901',
                 avatar_url: null,
-                bio: '',
-                location: '',
-                roles: ['Comprador']
+                roles: ['Comprador', 'Vendedor']
             },
-            addresses: [],
-            bankAccounts: [],
-            recentPurchases: [],
-            recentSales: [],
-            myPublications: [],
-            isSeller: false,
-            loading: true,
+            addresses: [
+                {
+                    id: 1,
+                    street: 'Av. Corrientes 1234',
+                    city: 'CABA',
+                    province: 'Buenos Aires',
+                    postal_code: 'C1043',
+                    country: 'Argentina',
+                    is_primary: true
+                }
+            ],
+            bankAccounts: [
+                {
+                    id: 1,
+                    bank_name: 'Banco Galicia',
+                    account_holder: 'Juan Pérez',
+                    account_number: '1234-567890/1',
+                    cbu: '0070123430000005678901',
+                    alias: 'juan.perez.dental'
+                }
+            ],
+            recentPurchases: [
+                {
+                    id: 'ORD-001',
+                    date: '2025-01-15',
+                    total: 63500,
+                    status: 'delivered',
+                    items_count: 2
+                },
+                {
+                    id: 'ORD-002',
+                    date: '2025-01-10',
+                    total: 45000,
+                    status: 'in_progress',
+                    items_count: 1
+                }
+            ],
+            recentSales: [
+                {
+                    id: 'SALE-001',
+                    buyer_name: 'Dra. María González',
+                    date: '2025-01-14',
+                    product: 'Resina Compuesta Flow A2',
+                    amount: 18500,
+                    status: 'paid'
+                }
+            ],
+            myPublications: [
+                {
+                    id: 1,
+                    title: 'Resina Compuesta Flow A2',
+                    type: 'product',
+                    image: 'https://placehold.co/100x100/2A6FAF/ffffff?text=Resina',
+                    price: 18500,
+                    status: 'active'
+                },
+                {
+                    id: 101,
+                    title: 'Corona de Zirconio',
+                    type: 'service',
+                    image: 'https://placehold.co/100x100/29A68C/ffffff?text=Corona',
+                    price: 45000,
+                    status: 'active'
+                }
+            ],
+            isSeller: true,
             showPasswordChange: false,
-            showEditPersonalData: false,
-            showEditAddress: false,
             newPassword: '',
-            confirmPassword: '',
-            editForm: {
-                first_name: '',
-                last_name: '',
-                phone: ''
-            },
-            addressForm: {
-                id: null,
-                street: '',
-                city: '',
-                province: '',
-                postal_code: '',
-                country: 'Argentina'
-            }
+            confirmPassword: ''
         }
     },
     computed: {
@@ -56,163 +95,12 @@ export default {
         }
     },
     methods: {
-        async loadUserProfile() {
-            try {
-                this.loading = true
-                const currentUser = getCurrentUser()
-
-                if (!currentUser.id) {
-                    this.$router.push('/login')
-                    return
-                }
-
-                // Cargar perfil del usuario
-                const profile = await getUserProfileById(currentUser.id)
-                this.userProfile = {
-                    first_name: profile.first_name || '',
-                    last_name: profile.last_name || '',
-                    email: profile.email || '',
-                    phone: profile.phone || '',
-                    avatar_url: profile.avatar_url,
-                    bio: profile.bio || '',
-                    location: profile.location || '',
-                    roles: ['Comprador']
-                }
-
-                // Cargar direcciones desde la tabla addresses
-                try {
-                    const userAddresses = await getUserAddresses(currentUser.id)
-                    this.addresses = userAddresses.length > 0 ? userAddresses : []
-
-                    // Si no hay direcciones pero hay location en profile, crear una
-                    if (this.addresses.length === 0 && profile.location) {
-                        const [city, province] = profile.location.split(', ')
-                        if (city && province) {
-                            this.addresses = [{
-                                id: 'temp',
-                                street: '-',
-                                city: city || '-',
-                                province: province || '-',
-                                postal_code: '-',
-                                country: 'Argentina',
-                                is_primary: true
-                            }]
-                        }
-                    }
-                } catch (addressError) {
-                    console.warn('[MyProfile] Error al cargar direcciones:', addressError.message)
-                    this.addresses = []
-                }
-
-                // TODO: Cargar compras, ventas y publicaciones reales
-                // Por ahora vacío
-                this.recentPurchases = []
-                this.recentSales = []
-                this.myPublications = []
-                this.bankAccounts = []
-
-            } catch (error) {
-                console.error('[MyProfile] Error al cargar perfil:', error)
-                alert('Error al cargar el perfil')
-            } finally {
-                this.loading = false
-            }
-        },
         handleLogout() {
             logout()
             this.$router.push('/login')
         },
         goToEditProfile() {
             this.$router.push('/mi-perfil/editar')
-        },
-        openEditPersonalData() {
-            this.editForm = {
-                first_name: this.userProfile.first_name,
-                last_name: this.userProfile.last_name,
-                phone: this.userProfile.phone
-            }
-            this.showEditPersonalData = true
-        },
-        async savePersonalData() {
-            try {
-                const currentUser = getCurrentUser()
-
-                // Actualizar en tabla users (first_name, last_name)
-                await supabase
-                    .from('users')
-                    .update({
-                        first_name: this.editForm.first_name,
-                        last_name: this.editForm.last_name
-                    })
-                    .eq('id', currentUser.id)
-
-                // Actualizar perfil
-                this.userProfile.first_name = this.editForm.first_name
-                this.userProfile.last_name = this.editForm.last_name
-                this.userProfile.phone = this.editForm.phone
-
-                this.showEditPersonalData = false
-                alert('Datos actualizados correctamente')
-            } catch (error) {
-                console.error('[MyProfile] Error al actualizar datos:', error)
-                alert('Error al actualizar los datos')
-            }
-        },
-        openEditAddress() {
-            const addr = this.primaryAddress
-            if (addr) {
-                this.addressForm = {
-                    id: addr.id !== 'temp' ? addr.id : null,
-                    street: addr.street !== '-' ? addr.street : '',
-                    city: addr.city !== '-' ? addr.city : '',
-                    province: addr.province !== '-' ? addr.province : '',
-                    postal_code: addr.postal_code !== '-' ? addr.postal_code : '',
-                    country: addr.country
-                }
-            }
-            this.showEditAddress = true
-        },
-        async saveAddress() {
-            try {
-                const currentUser = getCurrentUser()
-                const location = `${this.addressForm.city}, ${this.addressForm.province}`
-
-                // Actualizar location en user_profiles
-                await updateUserProfile(currentUser.id, {
-                    location: location
-                })
-
-                // Si hay un ID, actualizar dirección existente
-                if (this.addressForm.id) {
-                    await updateAddress(this.addressForm.id, {
-                        street: this.addressForm.street || null,
-                        city: this.addressForm.city,
-                        province: this.addressForm.province,
-                        postal_code: this.addressForm.postal_code || null,
-                        country: this.addressForm.country || 'Argentina'
-                    })
-                } else {
-                    // Si no hay ID, crear nueva dirección
-                    await createAddress({
-                        user_id: currentUser.id,
-                        street: this.addressForm.street || null,
-                        city: this.addressForm.city,
-                        province: this.addressForm.province,
-                        postal_code: this.addressForm.postal_code || null,
-                        country: this.addressForm.country || 'Argentina',
-                        is_primary: true
-                    })
-                }
-
-                // Recargar direcciones
-                await this.loadUserProfile()
-
-                this.showEditAddress = false
-                alert('Domicilio actualizado correctamente')
-            } catch (error) {
-                console.error('[MyProfile] Error al actualizar domicilio:', error)
-                alert('Error al actualizar el domicilio')
-            }
         },
         formatPrice(price) {
             return new Intl.NumberFormat('es-AR').format(price)
@@ -246,31 +134,14 @@ export default {
         goToPublish() {
             this.$router.push('/publicar')
         },
-        async changePassword() {
-            if (!this.newPassword || this.newPassword.length < 6) {
-                alert('La contraseña debe tener al menos 6 caracteres')
-                return
-            }
-
-            if (this.newPassword !== this.confirmPassword) {
-                alert('Las contraseñas no coinciden')
-                return
-            }
-
-            try {
-                const { error } = await supabase.auth.updateUser({
-                    password: this.newPassword
-                })
-
-                if (error) throw error
-
+        changePassword() {
+            if (this.newPassword === this.confirmPassword) {
                 alert('Contraseña cambiada exitosamente')
                 this.showPasswordChange = false
                 this.newPassword = ''
                 this.confirmPassword = ''
-            } catch (error) {
-                console.error('[MyProfile] Error al cambiar contraseña:', error)
-                alert('Error al cambiar la contraseña: ' + error.message)
+            } else {
+                alert('Las contraseñas no coinciden')
             }
         },
         deleteAccount() {
@@ -283,17 +154,7 @@ export default {
     mounted() {
         subscribeToAuthStateChanges(newUserState => {
             this.user = newUserState
-            if (newUserState.id) {
-                this.loadUserProfile()
-            }
         })
-
-        // Cargar datos iniciales
-        const currentUser = getCurrentUser()
-        if (currentUser.id) {
-            this.user = currentUser
-            this.loadUserProfile()
-        }
     }
 }
 </script>
@@ -307,17 +168,14 @@ export default {
                     <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6 -mt-16">
                         <div class="w-32 h-32 rounded-full overflow-hidden shadow-lg flex-shrink-0 border-4 border-white" style="background-color: #E3EEF8;">
                             <img v-if="userProfile.avatar_url" :src="userProfile.avatar_url" alt="Avatar" class="w-full h-full object-cover" />
-                            <div v-else-if="userProfile.first_name" class="w-full h-full flex items-center justify-center text-4xl font-bold" style="color: #2A6FAF;">
-                                {{ userProfile.first_name.charAt(0) }}{{ userProfile.last_name.charAt(0) }}
-                            </div>
                             <div v-else class="w-full h-full flex items-center justify-center text-4xl font-bold" style="color: #2A6FAF;">
-                                ?
+                                {{ userProfile.name.charAt(0) }}{{ userProfile.lastName.charAt(0) }}
                             </div>
                         </div>
 
                         <div class="flex-1 text-center sm:text-left mt-6">
                             <h1 class="font-heading text-3xl font-bold text-gray-800 mb-2">
-                                {{ userProfile.first_name }} {{ userProfile.last_name }}
+                                {{ userProfile.name }} {{ userProfile.lastName }}
                             </h1>
                             <div class="flex flex-wrap gap-2 justify-center sm:justify-start mb-2">
                                 <span v-for="role in userProfile.roles" :key="role"
@@ -369,7 +227,7 @@ export default {
                     <div class="space-y-4">
                         <div>
                             <p class="text-sm text-gray-600">Nombre completo</p>
-                            <p class="font-semibold text-gray-800">{{ userProfile.first_name }} {{ userProfile.last_name }}</p>
+                            <p class="font-semibold text-gray-800">{{ userProfile.name }} {{ userProfile.lastName }}</p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-600">Correo electrónico</p>
@@ -377,14 +235,7 @@ export default {
                         </div>
                         <div>
                             <p class="text-sm text-gray-600">Teléfono</p>
-                            <p class="font-semibold text-gray-800">{{ userProfile.phone || '-' }}</p>
-                        </div>
-                        <div>
-                            <button @click="openEditPersonalData"
-                                class="px-4 py-2 text-sm font-semibold border-2 rounded-lg transition hover:bg-gray-50"
-                                style="color: #29A68C; border-color: #29A68C;">
-                                Editar nombre y teléfono
-                            </button>
+                            <p class="font-semibold text-gray-800">{{ userProfile.phone || 'No especificado' }}</p>
                         </div>
                         <div>
                             <p class="text-sm text-gray-600 mb-2">Contraseña</p>
@@ -434,10 +285,13 @@ export default {
                         <p class="text-gray-600 text-sm">CP: {{ primaryAddress.postal_code }} - {{ primaryAddress.country }}</p>
                     </div>
                     <div class="flex gap-2">
-                        <button @click="openEditAddress"
-                            class="px-4 py-2 text-sm font-semibold border-2 rounded-lg transition hover:bg-gray-50"
+                        <button class="px-4 py-2 text-sm font-semibold border-2 rounded-lg transition hover:bg-gray-50"
                             style="color: #2A6FAF; border-color: #2A6FAF;">
                             Editar
+                        </button>
+                        <button class="px-4 py-2 text-sm font-semibold border-2 rounded-lg transition hover:bg-gray-50"
+                            style="color: #29A68C; border-color: #29A68C;">
+                            Agregar nuevo domicilio
                         </button>
                     </div>
                     </div>
@@ -455,31 +309,35 @@ export default {
                     </h2>
                 </div>
                 <div class="p-6">
-                <div v-if="bankAccounts.length > 0">
-                    <div v-for="account in bankAccounts" :key="account.id" class="mb-4 p-4 rounded-lg bg-gray-50">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <p class="text-sm text-gray-600">Banco</p>
-                                <p class="font-semibold text-gray-800">{{ account.bank_name }}</p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600">Titular</p>
-                                <p class="font-semibold text-gray-800">{{ account.account_holder }}</p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600">CBU</p>
-                                <p class="font-semibold text-gray-800">{{ account.cbu }}</p>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600">Alias</p>
-                                <p class="font-semibold text-gray-800">{{ account.alias }}</p>
-                            </div>
+                <div v-for="account in bankAccounts" :key="account.id" class="mb-4 p-4 rounded-lg bg-gray-50">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-sm text-gray-600">Banco</p>
+                            <p class="font-semibold text-gray-800">{{ account.bank_name }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Titular</p>
+                            <p class="font-semibold text-gray-800">{{ account.account_holder }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">CBU</p>
+                            <p class="font-semibold text-gray-800">{{ account.cbu }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Alias</p>
+                            <p class="font-semibold text-gray-800">{{ account.alias }}</p>
                         </div>
                     </div>
                 </div>
-                <div v-else class="text-center py-8 text-gray-500">
-                    <p class="text-lg font-semibold">-</p>
-                    <p class="text-sm">No hay información bancaria</p>
+                <div class="flex gap-2">
+                    <button class="px-4 py-2 text-sm font-semibold border-2 rounded-lg transition hover:bg-gray-50"
+                        style="color: #2A6FAF; border-color: #2A6FAF;">
+                        Editar cuenta principal
+                    </button>
+                    <button class="px-4 py-2 text-sm font-semibold border-2 rounded-lg transition hover:bg-gray-50"
+                        style="color: #29A68C; border-color: #29A68C;">
+                        Agregar otra cuenta
+                    </button>
                 </div>
                 </div>
             </div>
@@ -625,88 +483,6 @@ export default {
                     style="color: #2A6FAF; border-color: #2A6FAF;">
                     Cerrar sesión
                 </button>
-            </div>
-        </div>
-
-        <!-- Modal Editar Datos Personales -->
-        <div v-if="showEditPersonalData" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" @click.self="showEditPersonalData = false">
-            <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-                <h3 class="font-heading text-xl font-bold text-gray-800 mb-4">Editar datos personales</h3>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre</label>
-                        <input v-model="editForm.first_name" type="text"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
-                            style="focus:ring-color: #2A6FAF;" />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Apellido</label>
-                        <input v-model="editForm.last_name" type="text"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
-                            style="focus:ring-color: #2A6FAF;" />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Teléfono</label>
-                        <input v-model="editForm.phone" type="tel"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
-                            style="focus:ring-color: #2A6FAF;" />
-                    </div>
-                </div>
-                <div class="flex gap-2 mt-6">
-                    <button @click="savePersonalData"
-                        class="flex-1 px-4 py-2 text-white font-semibold rounded-lg transition hover:opacity-90"
-                        style="background-color: #29A68C;">
-                        Guardar
-                    </button>
-                    <button @click="showEditPersonalData = false"
-                        class="flex-1 px-4 py-2 text-gray-600 font-semibold rounded-lg border border-gray-300 hover:bg-gray-50">
-                        Cancelar
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Modal Editar Domicilio -->
-        <div v-if="showEditAddress" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50" @click.self="showEditAddress = false">
-            <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-                <h3 class="font-heading text-xl font-bold text-gray-800 mb-4">Editar domicilio</h3>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Calle y número</label>
-                        <input v-model="addressForm.street" type="text"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
-                            style="focus:ring-color: #2A6FAF;" />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Ciudad</label>
-                        <input v-model="addressForm.city" type="text"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
-                            style="focus:ring-color: #2A6FAF;" />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Provincia</label>
-                        <input v-model="addressForm.province" type="text"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
-                            style="focus:ring-color: #2A6FAF;" />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Código postal</label>
-                        <input v-model="addressForm.postal_code" type="text"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
-                            style="focus:ring-color: #2A6FAF;" />
-                    </div>
-                </div>
-                <div class="flex gap-2 mt-6">
-                    <button @click="saveAddress"
-                        class="flex-1 px-4 py-2 text-white font-semibold rounded-lg transition hover:opacity-90"
-                        style="background-color: #29A68C;">
-                        Guardar
-                    </button>
-                    <button @click="showEditAddress = false"
-                        class="flex-1 px-4 py-2 text-gray-600 font-semibold rounded-lg border border-gray-300 hover:bg-gray-50">
-                        Cancelar
-                    </button>
-                </div>
             </div>
         </div>
     </section>
