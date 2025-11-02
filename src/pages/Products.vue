@@ -3,6 +3,7 @@ import { subscribeToAuthStateChanges } from '../services/auth'
 import ProductCard from '../components/ProductCard.vue'
 import CategoryIcon from '../components/CategoryIcon.vue'
 import { listActiveProducts } from '../services/products'
+import { isCurrentUserSeller, grantSellerSelf } from '../services/sellers'
 
 export default {
     name: 'Products',
@@ -18,6 +19,8 @@ export default {
                 username: null,
                 avatar_url: null,
             },
+            isSeller: false,
+            sellerMessage: '',
             products: [],
             categories: [],
             filteredProducts: [],
@@ -28,6 +31,20 @@ export default {
         }
     },
     methods: {
+        async refreshSeller() {
+            this.isSeller = this.user?.id ? await isCurrentUserSeller() : false
+        },
+        async becomeSeller() {
+            try {
+                await grantSellerSelf()
+                await this.refreshSeller()
+                this.sellerMessage = 'Listo, ahora sos vendedor.'
+                setTimeout(() => { this.sellerMessage = '' }, 3000)
+            } catch (e) {
+                this.sellerMessage = 'No se pudo activar vendedor.'
+                setTimeout(() => { this.sellerMessage = '' }, 3000)
+            }
+        },
         async loadProducts() {
             try {
                 this.loading = true
@@ -91,8 +108,9 @@ export default {
         }
     },
     mounted() {
-        subscribeToAuthStateChanges(newUserState => {
+        subscribeToAuthStateChanges(async newUserState => {
             this.user = newUserState
+            await this.refreshSeller()
         })
         this.loadProducts()
     }
@@ -109,10 +127,19 @@ export default {
                         <p class="text-gray-600">{{ filteredProducts.length }} productos disponibles</p>
                     </div>
 
-                    <RouterLink v-if="user.id" to="/publicar"
-                        class="px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 transition">
-                        Publicar producto
-                    </RouterLink>
+                    <div>
+                        <RouterLink v-if="user.id && isSeller" to="/publicar"
+                            class="px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 transition">
+                            Publicar producto
+                        </RouterLink>
+                        <button v-else-if="user.id && !isSeller" @click="becomeSeller"
+                            class="px-6 py-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition">
+                            Quiero vender
+                        </button>
+                    </div>
+                </div>
+                <div v-if="sellerMessage" class="mt-3 p-3 rounded border border-green-200 bg-green-50 text-green-700">
+                    {{ sellerMessage }}
                 </div>
             </div>
         </div>
