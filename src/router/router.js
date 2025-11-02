@@ -16,11 +16,13 @@ import Publish from "../pages/Publish.vue";
 import MyProducts from "../pages/MyProducts.vue";
 import SellerSetup from "../pages/SellerSetup.vue";
 import ShippingMethodEdit from "../pages/ShippingMethodEdit.vue";
+import AuthCallback from "../pages/AuthCallback.vue";
 
 const routes = [
     { path: '/',                        name: 'Home',                       component: Home },
     { path: '/login',                   name: 'Login',                      component: Login, },
     { path: '/register',                name: 'Register',                   component: Register, },
+    { path: '/auth/callback',           name: 'AuthCallback',               component: AuthCallback, },
     { path: '/mi-perfil',               name: 'MyProfile',                  component: MyProfile,             meta: { requiresAuth: true, }, },
     { path: '/mi-perfil/editar',        name: 'MyProfileEdit',              component: MyProfileEdit,         meta: { requiresAuth: true, }, },
     { path: '/usuario/:id',             name: 'UserProfile',                component: UserProfile,           meta: { requiresAuth: true, }, },

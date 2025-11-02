@@ -17,6 +17,7 @@ export default {
       editingName: '',
       warnDisableId: null,
       warnDisableCount: 0,
+      justActivatedSeller: false,
     }
   },
   methods: {
@@ -37,6 +38,8 @@ export default {
       try {
         await grantSellerSelf()
         await this.refreshStatus()
+        this.justActivatedSeller = true
+        this.message = '¡Cuenta de vendedor activada! Ahora conectá tu cuenta de pago para continuar.'
       } catch {
         this.message = 'No se pudo activar vendedor'
       }
@@ -45,6 +48,10 @@ export default {
       try {
         await connectDummyPaymentAccount('MERCADOPAGO')
         await this.refreshStatus()
+        this.justActivatedSeller = false
+        this.message = '¡Cuenta de pago conectada! Ya podés empezar a vender.'
+        // Cargar métodos de envío ahora que tiene cuenta de pago
+        await this.load()
       } catch {
         this.message = 'No se pudo asociar el método de cobro'
       }
@@ -104,7 +111,10 @@ export default {
   },
   async mounted() {
     await this.refreshStatus()
-    await this.load()
+    // Solo cargar métodos de envío si ya es seller con cuenta de pago
+    if (this.isSeller && this.hasPayment) {
+      await this.load()
+    }
   }
 }
 </script>
@@ -116,7 +126,9 @@ export default {
         <h1 class="text-2xl font-bold text-gray-800 mb-2">Configurar ventas</h1>
         <p class="text-gray-600 mb-6">Asociá tu método de cobro y configurá tus envíos.</p>
 
-        <div v-if="message" class="mb-4 p-3 rounded border border-gray-200 bg-gray-50 text-gray-700">{{ message }}</div>
+        <div v-if="message" class="mb-4 p-3 rounded border" :class="justActivatedSeller ? 'border-emerald-500 bg-emerald-50 text-emerald-800' : 'border-gray-200 bg-gray-50 text-gray-700'">
+          {{ message }}
+        </div>
 
         <div v-if="checking" class="text-gray-600">Verificando estado de vendedor…</div>
         <div v-else class="mb-6 p-4 border rounded bg-gray-50">
@@ -132,8 +144,30 @@ export default {
             </div>
             <div class="flex gap-2">
               <button v-if="!isSeller" @click="activateSeller" class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700">Activar vendedor</button>
-              <button v-if="isSeller && !hasPayment" @click="connectPayment" class="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700">Asociar método de cobro (dummy)</button>
+              <button v-if="isSeller && !hasPayment" @click="connectPayment"
+                      class="px-6 py-3 text-white font-semibold rounded-lg shadow-md transition"
+                      :class="justActivatedSeller ? 'bg-sky-600 hover:bg-sky-700 animate-pulse' : 'bg-sky-600 hover:bg-sky-700'">
+                Conectar Cuenta de Pago
+              </button>
               <router-link v-if="isSeller && hasPayment" to="/publicar" class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700">Publicar producto</router-link>
+            </div>
+          </div>
+        </div>
+
+        <!-- Destacar siguiente paso después de activar vendedor -->
+        <div v-if="justActivatedSeller && isSeller && !hasPayment" class="mb-6 p-6 border-2 border-sky-500 rounded-lg bg-sky-50">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0">
+              <svg class="w-12 h-12 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="text-xl font-bold text-sky-900 mb-2">Paso siguiente: Conectar tu cuenta de pago</h3>
+              <p class="text-sky-800 mb-4">Para poder recibir pagos de tus ventas, necesitás conectar una cuenta de pago. Este es un paso obligatorio para comenzar a vender.</p>
+              <button @click="connectPayment" class="px-8 py-4 bg-sky-600 text-white font-bold rounded-lg hover:bg-sky-700 shadow-lg transform hover:scale-105 transition">
+                Conectar Cuenta de Pago Ahora
+              </button>
             </div>
           </div>
         </div>
