@@ -444,6 +444,8 @@ package "Envíos" #F2FFEE {
     price : NUMERIC(12,2) NOT NULL
     weight_min : NUMERIC(12,3)
     weight_max : NUMERIC(12,3)
+    volume_min_cm3 : NUMERIC(12,2)
+    volume_max_cm3 : NUMERIC(12,2)
     eta_days : INT
     active : BOOLEAN = TRUE
   }
@@ -460,6 +462,7 @@ package "Envíos" #F2FFEE {
     label_url : TEXT
     shipping_price_charged : NUMERIC(12,2)
     shipping_cost_estimated : NUMERIC(12,2)
+    package_volume_cm3 : NUMERIC(12,2)
     status : ENUM(shipment_status) NOT NULL = 'READY'  ' READY | IN_TRANSIT | DELIVERED | LOST | RETURNED
     delivered_at : TIMESTAMPTZ
     proof_of_delivery_url : TEXT

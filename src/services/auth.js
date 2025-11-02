@@ -16,25 +16,41 @@ let user = {
 
 let observers = []
 
-// MODO MOCK: Comentado para no cargar desde Supabase
-// loadCurrentUserAuthState()
+// Initialize from Supabase session and subscribe to changes
+loadCurrentUserAuthState()
+subscribeToSupabaseAuth()
 
 async function loadCurrentUserAuthState() {
-    // TODO: Cuando quieras conectar con Supabase, descomenta este código:
-    /*
-    const { data, error } = await supabase.auth.getUser()
-
-    if (error || !data?.user) {
-        return
-    }
-
-    setUser({
-        id: data.user.id,
-        email: data.user.email,
-    })
-
+  try {
+    const { data } = await supabase.auth.getSession()
+    const session = data?.session
+    const sUser = session?.user
+    if (!sUser) return
+    setUser({ id: sUser.id, email: sUser.email })
     fetchFullProfile()
-    */
+  } catch {}
+}
+
+function subscribeToSupabaseAuth() {
+  supabase.auth.onAuthStateChange((_event, session) => {
+    const sUser = session?.user
+    if (!sUser) {
+      setUser({
+        id: null,
+        email: null,
+        username: null,
+        bio: null,
+        avatar_url: null,
+        favorite_genres: null,
+        favorite_directors: null,
+        location: null,
+        verified: false,
+      })
+      return
+    }
+    setUser({ id: sUser.id, email: sUser.email })
+    fetchFullProfile().catch(() => {})
+  })
 }
 
 async function fetchFullProfile() {

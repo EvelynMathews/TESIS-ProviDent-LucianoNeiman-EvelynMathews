@@ -19,3 +19,26 @@ export async function grantSellerSelf() {
   return true
 }
 
+export async function hasPaymentAccount() {
+  const { data: me } = await supabase.auth.getUser()
+  const uid = me?.user?.id
+  if (!uid) return false
+  const { data, error } = await supabase
+    .from('payment_accounts')
+    .select('id')
+    .eq('user_id', uid)
+    .limit(1)
+  if (error) return false
+  return Array.isArray(data) && data.length === 1
+}
+
+export async function connectDummyPaymentAccount(provider = 'MERCADOPAGO') {
+  const { data: me } = await supabase.auth.getUser()
+  const uid = me?.user?.id
+  if (!uid) throw new Error('No auth user')
+  const { error } = await supabase
+    .from('payment_accounts')
+    .insert({ user_id: uid, provider, config_json: {}, is_primary: true })
+  if (error) throw error
+  return true
+}

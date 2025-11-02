@@ -99,12 +99,16 @@ DROP POLICY IF EXISTS "Owners can read own payment accounts" ON public.payment_a
 CREATE POLICY "Owners can read own payment accounts" ON public.payment_accounts FOR SELECT USING (user_id = auth.uid());
 DROP POLICY IF EXISTS "Admins can read all payment accounts" ON public.payment_accounts;
 CREATE POLICY "Admins can read all payment accounts" ON public.payment_accounts FOR SELECT USING (EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='ADMIN'));
+DROP POLICY IF EXISTS "Owners can create own payment accounts" ON public.payment_accounts;
 DROP POLICY IF EXISTS "Sellers can create own payment accounts" ON public.payment_accounts;
-CREATE POLICY "Sellers can create own payment accounts" ON public.payment_accounts FOR INSERT WITH CHECK (user_id = auth.uid() AND EXISTS (SELECT 1 FROM public.user_sellers s WHERE s.user_id=auth.uid()));
+CREATE POLICY "Sellers can create own payment accounts" ON public.payment_accounts FOR INSERT WITH CHECK (
+  user_id = auth.uid() AND EXISTS (SELECT 1 FROM public.user_sellers s WHERE s.user_id=auth.uid())
+);
 DROP POLICY IF EXISTS "Owners can update own payment accounts" ON public.payment_accounts;
 CREATE POLICY "Owners can update own payment accounts" ON public.payment_accounts FOR UPDATE USING (user_id = auth.uid());
 DROP POLICY IF EXISTS "Owners can delete own payment accounts" ON public.payment_accounts;
 CREATE POLICY "Owners can delete own payment accounts" ON public.payment_accounts FOR DELETE USING (user_id = auth.uid());
+
 
 -- Policies: payments
 DROP POLICY IF EXISTS "Buyers can read own payments" ON public.payments;

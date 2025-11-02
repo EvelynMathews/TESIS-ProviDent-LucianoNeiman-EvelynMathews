@@ -3,7 +3,7 @@ import { subscribeToAuthStateChanges } from '../services/auth'
 import ProductCard from '../components/ProductCard.vue'
 import CategoryIcon from '../components/CategoryIcon.vue'
 import { listActiveProducts } from '../services/products'
-import { isCurrentUserSeller, grantSellerSelf } from '../services/sellers'
+import { isCurrentUserSeller, grantSellerSelf, connectDummyPaymentAccount } from '../services/sellers'
 
 export default {
     name: 'Products',
@@ -37,9 +37,9 @@ export default {
         async becomeSeller() {
             try {
                 await grantSellerSelf()
+                await connectDummyPaymentAccount('MERCADOPAGO')
                 await this.refreshSeller()
-                this.sellerMessage = 'Listo, ahora sos vendedor.'
-                setTimeout(() => { this.sellerMessage = '' }, 3000)
+                this.$router.push('/seller-setup')
             } catch (e) {
                 this.sellerMessage = 'No se pudo activar vendedor.'
                 setTimeout(() => { this.sellerMessage = '' }, 3000)

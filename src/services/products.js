@@ -154,7 +154,171 @@ export async function getProductById(id) {
   }
 }
 
-export async function createSupplyProduct({ name, description, unit_price, unit_label, stock_qty, sku, imageFile }) {
+export async function listShippingProfiles() {
+  const { data: me } = await supabase.auth.getUser()
+  const uid = me?.user?.id
+  if (!uid) return []
+  const { data, error } = await supabase
+    .from('shipping_profiles')
+    .select('id, name, active')
+    .eq('seller_user_id', uid)
+    .order('name', { ascending: true })
+  if (error) return []
+  return data || []
+}
+
+export async function getShippingProfileById(id) {
+  const { data, error } = await supabase
+    .from('shipping_profiles')
+    .select('id, name, active, volume_min_cm3, volume_max_cm3')
+    .eq('id', id)
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function createShippingProfile(name, active = true, extraFields = {}) {
+  const { data: me } = await supabase.auth.getUser()
+  const uid = me?.user?.id
+  if (!uid) throw new Error('No auth user')
+  const insert = { seller_user_id: uid, name, active, ...extraFields }
+  const { data, error } = await supabase
+    .from('shipping_profiles')
+    .insert(insert)
+    .select('id')
+    .single()
+  if (error) throw error
+  return data.id
+}
+
+export async function linkProductShippingProfile(productId, profileId) {
+  const { error } = await supabase
+    .from('product_shipping_profiles')
+    .insert({ product_id: productId, profile_id: profileId })
+  if (error) throw error
+  return true
+}
+
+export async function updateShippingProfile(id, fields) {
+  const { error } = await supabase
+    .from('shipping_profiles')
+    .update(fields)
+    .eq('id', id)
+  if (error) throw error
+  return true
+}
+
+export async function countShippingProfileUsage(profileId) {
+  const { count, error } = await supabase
+    .from('product_shipping_profiles')
+    .select('product_id', { count: 'exact', head: true })
+    .eq('profile_id', profileId)
+  if (error) throw error
+  return count || 0
+}
+
+export async function updateProduct(id, fields) {
+  const { error } = await supabase
+    .from('products')
+    .update(fields)
+    .eq('id', id)
+  if (error) throw error
+  return true
+}
+
+export async function deleteProductById(id) {
+  const { error } = await supabase
+    .from('products')
+    .delete()
+    .eq('id', id)
+  if (error) throw error
+  return true
+}
+
+export async function pauseProductsByShippingProfile(profileId) {
+  const idsRes = await supabase
+    .from('product_shipping_profiles')
+    .select('product_id')
+    .eq('profile_id', profileId)
+  if (idsRes.error) throw idsRes.error
+  const ids = (idsRes.data || []).map(r => r.product_id)
+  if (!ids.length) return 0
+  const upd = await supabase
+    .from('products')
+    .update({ is_active: false })
+    .in('id', ids)
+  if (upd.error) throw upd.error
+  return upd.count || ids.length
+}
+
+export async function listProvinces() {
+  const { data, error } = await supabase
+    .from('provinces')
+    .select('id, name, code')
+    .order('name', { ascending: true })
+  if (error) return []
+  return data || []
+}
+
+export async function listShippingZones(profileId) {
+  const { data, error } = await supabase
+    .from('shipping_zones')
+    .select('id, zone_name, province_id, postal_code_min, postal_code_max')
+    .eq('profile_id', profileId)
+    .order('zone_name', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+export async function createShippingZone(profileId, zone) {
+  const payload = { ...zone, profile_id: profileId }
+  const { error } = await supabase.from('shipping_zones').insert(payload)
+  if (error) throw error
+  return true
+}
+
+export async function updateShippingZone(id, fields) {
+  const { error } = await supabase.from('shipping_zones').update(fields).eq('id', id)
+  if (error) throw error
+  return true
+}
+
+export async function deleteShippingZone(id) {
+  const { error } = await supabase.from('shipping_zones').delete().eq('id', id)
+  if (error) throw error
+  return true
+}
+
+export async function listShippingRates(profileId) {
+  const { data, error } = await supabase
+    .from('shipping_rates')
+    .select('id, zone_id, carrier, service, price, weight_min, weight_max, volume_min_cm3, volume_max_cm3, eta_days, active')
+    .eq('profile_id', profileId)
+    .order('price', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+export async function createShippingRate(profileId, rate) {
+  const payload = { ...rate, profile_id: profileId }
+  const { error } = await supabase.from('shipping_rates').insert(payload)
+  if (error) throw error
+  return true
+}
+
+export async function updateShippingRate(id, fields) {
+  const { error } = await supabase.from('shipping_rates').update(fields).eq('id', id)
+  if (error) throw error
+  return true
+}
+
+export async function deleteShippingRate(id) {
+  const { error } = await supabase.from('shipping_rates').delete().eq('id', id)
+  if (error) throw error
+  return true
+}
+
+export async function createSupplyProduct({ name, description, unit_price, unit_label, stock_qty, sku, imageFile, shipping_profile_id }) {
   const { data: me, error: uerr } = await supabase.auth.getUser()
   if (uerr || !me?.user?.id) throw new Error('No auth user')
 
@@ -188,7 +352,11 @@ export async function createSupplyProduct({ name, description, unit_price, unit_
       .from('product_images')
       .insert({ product_id: prod.id, path: storagePath, alt_text: name, position: 1, is_primary: true })
     if (piErr) throw piErr
-}
+  }
+  if (!shipping_profile_id) {
+    throw new Error('SHIPPING_PROFILE_REQUIRED')
+  }
+  await linkProductShippingProfile(prod.id, shipping_profile_id)
 }
 
 export async function createProsthesisProduct({ name, description, imageFile }) {

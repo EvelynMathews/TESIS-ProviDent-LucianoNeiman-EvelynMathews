@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS public.shipping_rates (
   price numeric(12,2) NOT NULL,
   weight_min numeric(12,3),
   weight_max numeric(12,3),
+  volume_min_cm3 numeric(12,2),
+  volume_max_cm3 numeric(12,2),
   eta_days integer,
   active boolean DEFAULT true
 );

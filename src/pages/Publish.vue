@@ -1,6 +1,6 @@
 <script>
 import { subscribeToAuthStateChanges } from '../services/auth'
-import { createSupplyProduct } from '../services/products'
+import { createSupplyProduct, createProsthesisProduct, createPlasterServiceProduct, createRentalProduct, listShippingProfiles, createShippingProfile } from '../services/products'
 
 export default {
     name: 'Publish',
@@ -25,8 +25,11 @@ export default {
                 unit: 'unidad',
                 unitCustom: '',
                 stock: '',
-                sku: ''
+                sku: '',
+                shippingProfileId: null,
+                newShippingProfileName: ''
             },
+            shippingProfiles: [],
 
             // Service data - Prosthesis
             prosthesisData: {
@@ -105,7 +108,8 @@ export default {
                 const unitOk = this.productData.unit !== 'otro' || (this.productData.unit === 'otro' && this.productData.unitCustom && this.productData.unitCustom.trim().length > 0)
                 return this.productData.name && this.productData.description &&
                        this.productData.price && this.productData.stock &&
-                       this.productData.images.length > 0 && unitOk
+                       this.productData.images.length > 0 && unitOk &&
+                       (this.productData.shippingProfileId || (this.productData.newShippingProfileName && this.productData.newShippingProfileName.trim().length > 0))
             }
 
             if (this.serviceType === 'prosthesis') {
@@ -220,6 +224,11 @@ export default {
                     const imageFile = this.productData.imageFile || null
                     if (!imageFile) { alert('Debés agregar al menos una imagen'); return }
                     const unit_label = this.productData.unit === 'otro' ? (this.productData.unitCustom || '').trim() : this.productData.unit
+                    let profileId = this.productData.shippingProfileId
+                    if (!profileId && this.productData.newShippingProfileName) {
+                        profileId = await createShippingProfile(this.productData.newShippingProfileName.trim(), true)
+                    }
+                    if (!profileId) { alert('Seleccioná o creá un perfil de envío'); return }
                     await createSupplyProduct({
                         name: this.productData.name,
                         description: this.productData.description,
@@ -228,6 +237,7 @@ export default {
                         stock_qty: Number(this.productData.stock) || null,
                         sku: this.productData.sku || null,
                         imageFile,
+                        shipping_profile_id: profileId,
                     })
                 } else if (this.publicationType === 'service') {
                     if (this.serviceType === 'prosthesis') {
@@ -261,10 +271,72 @@ export default {
                 }
                 this.published = true
                 this.currentStep = 4
+                try { sessionStorage.removeItem('publishDraft') } catch {}
             } catch (e) {
                 alert('No se pudo publicar')
                 console.error(e)
             }
+        },
+        async loadShippingProfiles() {
+            try {
+                const list = await listShippingProfiles()
+                this.shippingProfiles = list
+                if (list.length && !this.productData.shippingProfileId) {
+                    this.productData.shippingProfileId = list[0].id
+                }
+            } catch { this.shippingProfiles = [] }
+        },
+
+        preserveDraft() {
+            try {
+                const draft = {
+                    publicationType: this.publicationType,
+                    serviceType: this.serviceType,
+                    currentStep: this.currentStep,
+                    productData: { ...this.productData, imageFile: undefined },
+                    prosthesisData: { ...this.prosthesisData, imageFile: undefined },
+                    plasterData: { ...this.plasterData },
+                    rentalData: { ...this.rentalData, imageFile: undefined },
+                }
+                sessionStorage.setItem('publishDraft', JSON.stringify(draft))
+            } catch {}
+        },
+
+        restoreDraft() {
+            try {
+                const raw = sessionStorage.getItem('publishDraft')
+                if (!raw) return
+                const draft = JSON.parse(raw)
+                this.publicationType = draft.publicationType || this.publicationType
+                this.serviceType = draft.serviceType || this.serviceType
+                this.currentStep = draft.currentStep || this.currentStep
+                if (draft.productData) this.productData = { ...this.productData, ...draft.productData }
+                if (draft.prosthesisData) this.prosthesisData = { ...this.prosthesisData, ...draft.prosthesisData }
+                if (draft.plasterData) this.plasterData = { ...this.plasterData, ...draft.plasterData }
+                if (draft.rentalData) this.rentalData = { ...this.rentalData, ...draft.rentalData }
+            } catch {}
+        },
+
+        async quickCreateShippingProfile() {
+            const name = (this.productData.newShippingProfileName || '').trim()
+            if (!name) { alert('Ingresá un nombre para el perfil de envío'); return }
+            try {
+                const id = await createShippingProfile(name, true)
+                await this.loadShippingProfiles()
+                this.productData.shippingProfileId = id
+                this.productData.newShippingProfileName = ''
+                this.preserveDraft()
+                this.$router.push(`/perfiles-envio/${id}?returnTo=/publicar`)
+            } catch (e) {
+                alert('No se pudo crear el perfil de envío')
+            }
+        },
+
+        configureSelectedProfile() {
+            const id = this.productData.shippingProfileId
+            if (!id) { alert('Seleccioná un perfil de envío'); return }
+            this.preserveDraft()
+            this.$router.push(`/perfiles-envio/${id}?returnTo=/publicar`)
         },
 
         formatPrice(price) {
@@ -275,6 +347,8 @@ export default {
         subscribeToAuthStateChanges(newUserState => {
             this.user = newUserState
         })
+        this.restoreDraft()
+        this.loadShippingProfiles()
     }
 }
 </script>
@@ -558,6 +632,41 @@ export default {
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                             style="focus:ring-color: #2A6FAF;"
                             placeholder="Ej: CABA, Buenos Aires" />
+                    </div>
+
+                    <!-- Shipping profile selection/creation -->
+                    <div class="mt-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            🚚 Perfil de envío para este producto
+                        </label>
+                        <div v-if="shippingProfiles.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                            <div class="md:col-span-2">
+                                <select v-model="productData.shippingProfileId"
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
+                                        style="focus:ring-color: #2A6FAF;">
+                                    <option :value="null">Seleccioná un perfil</option>
+                                    <option v-for="sp in shippingProfiles" :key="sp.id" :value="sp.id">{{ sp.name }} {{ sp.active ? '' : '(pausado)' }}</option>
+                                </select>
+                                <p class="text-xs text-gray-500 mt-1">Podés cambiarlo luego desde la configuración del producto.</p>
+                            </div>
+                            <div>
+                                <button type="button" @click="configureSelectedProfile" class="w-full px-4 py-3 border rounded-lg text-sky-700 border-sky-600 hover:bg-sky-50">Configurar perfil</button>
+                            </div>
+                        </div>
+                        <div v-else class="p-4 border rounded bg-yellow-50 text-yellow-800">
+                            Aún no tenés perfiles de envío. Creá uno para poder publicar.
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                            <div class="md:col-span-2">
+                                <label class="block text-sm text-gray-700 mb-1">Crear nuevo perfil</label>
+                                <input v-model="productData.newShippingProfileName"
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
+                                       style="focus:ring-color: #2A6FAF;" placeholder="Nombre del perfil (ej: Envío estándar)" />
+                            </div>
+                            <div class="flex items-end">
+                                <button type="button" @click="quickCreateShippingProfile" class="w-full px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Crear y configurar</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
