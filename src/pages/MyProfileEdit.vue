@@ -8,35 +8,18 @@ export default {
     name: 'MyProfileEdit',
     data() {
         return {
+            userId: null,
             formData: {
-                name: '',
-                lastName: '',
+                first_name: '',
+                last_name: '',
                 email: '',
-                phone: '',
-                username: '',
                 bio: '',
-                avatar_url: '',
-                favorite_genres: '',
                 location: '',
-            },
-            addressData: {
-                street: '',
-                city: '',
-                province: '',
-                postal_code: '',
-                country: 'Argentina',
-                is_primary: true
-            },
-            bankData: {
-                bank_name: '',
-                account_holder: '',
-                account_number: '',
-                cbu: '',
-                alias: ''
             },
             avatarFile: null,
             avatarPreview: '',
             loading: false,
+            error: null
         }
     },
     methods: {
@@ -52,22 +35,34 @@ export default {
             try {
                 this.loading = true
 
+                // Preparar datos a guardar
+                const dataToUpdate = {
+                    first_name: this.formData.first_name,
+                    last_name: this.formData.last_name,
+                    bio: this.formData.bio,
+                    location: this.formData.location,
+                }
+
                 // Subir nuevo avatar si corresponde
                 if (this.avatarFile) {
-                    const fileName = `${this.formData.username || 'user'}_${Date.now()}_${this.avatarFile.name}`
+                    // El nombre debe estar en formato: {userId}/{timestamp}_{filename}
+                    // para cumplir con las políticas de RLS del bucket
+                    const fileName = `${this.userId}/${Date.now()}_${this.avatarFile.name}`
                     const { error: uploadError } = await supabase.storage
                         .from('avatars')
                         .upload(fileName, this.avatarFile, { cacheControl: '3600', upsert: false })
 
                     if (uploadError) throw uploadError
 
-                    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName)
-                    this.formData.avatar_url = urlData.publicUrl
+                    // Guardar la ruta del archivo (no la URL pública completa)
+                    // porque MyProfile.vue usa createSignedUrl que necesita la ruta
+                    dataToUpdate.avatar_url = fileName
                 }
 
-                await updateAuthUser(this.formData)
+                await updateAuthUser(dataToUpdate)
                 this.$router.push('/mi-perfil')
             } catch (error) {
+                console.error('Error al guardar:', error)
                 alert('Error al guardar cambios. Verificá tu conexión o permisos.')
             } finally {
                 this.loading = false
@@ -75,20 +70,24 @@ export default {
         },
     },
 
-    mounted() {
-        unsubscribeFromAuth = subscribeToAuthStateChanges((newUserState) => {
+    async mounted() {
+        unsubscribeFromAuth = subscribeToAuthStateChanges(async (newUserState) => {
+            this.userId = newUserState.id
             this.formData = {
-                name: newUserState.name || '',
-                lastName: newUserState.lastName || '',
+                first_name: newUserState.first_name || '',
+                last_name: newUserState.last_name || '',
                 email: newUserState.email || '',
-                phone: newUserState.phone || '',
-                username: newUserState.username || '',
                 bio: newUserState.bio || '',
-                avatar_url: newUserState.avatar_url || '',
-                favorite_genres: newUserState.favorite_genres || '',
                 location: newUserState.location || '',
             }
-            this.avatarPreview = this.formData.avatar_url
+
+            // Convertir ruta del avatar a URL pública para el preview
+            if (newUserState.avatar_url) {
+                const { data } = supabase.storage.from('avatars').getPublicUrl(newUserState.avatar_url)
+                this.avatarPreview = data.publicUrl
+            } else {
+                this.avatarPreview = ''
+            }
         })
     },
 
@@ -131,91 +130,22 @@ export default {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre</label>
-                            <input v-model="formData.name" placeholder="Ingresá tu nombre"
+                            <input v-model="formData.first_name" placeholder="Ingresá tu nombre"
                                 class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
                                 style="focus:border-color: #2A6FAF;" />
                         </div>
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Apellido</label>
-                            <input v-model="formData.lastName" placeholder="Ingresá tu apellido"
+                            <input v-model="formData.last_name" placeholder="Ingresá tu apellido"
                                 class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
                                 style="focus:border-color: #2A6FAF;" />
                         </div>
-                        <div>
+                        <div class="md:col-span-2">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Correo electrónico</label>
-                            <input v-model="formData.email" type="email" placeholder="correo@ejemplo.com"
-                                class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
+                            <input v-model="formData.email" type="email" placeholder="correo@ejemplo.com" disabled
+                                class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed"
                                 style="focus:border-color: #2A6FAF;" />
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Teléfono</label>
-                            <input v-model="formData.phone" placeholder="+54 11 1234-5678"
-                                class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
-                                style="focus:border-color: #2A6FAF;" />
-                        </div>
-                    </div>
-                </div>
-
-                <div class="border-2 rounded-lg p-6" style="border-color: #D4F4EC; background-color: #F8FDFB;">
-                    <h3 class="font-heading text-xl font-bold mb-4" style="color: #29A68C;">Domicilio</h3>
-                    <div class="grid grid-cols-1 gap-4">
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Calle y número</label>
-                            <input v-model="addressData.street" placeholder="Av. Corrientes 1234"
-                                class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
-                                style="focus:border-color: #29A68C;" />
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">Ciudad</label>
-                                <input v-model="addressData.city" placeholder="CABA"
-                                    class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
-                                    style="focus:border-color: #29A68C;" />
-                            </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">Provincia</label>
-                                <input v-model="addressData.province" placeholder="Buenos Aires"
-                                    class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
-                                    style="focus:border-color: #29A68C;" />
-                            </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">Código postal</label>
-                                <input v-model="addressData.postal_code" placeholder="C1043"
-                                    class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
-                                    style="focus:border-color: #29A68C;" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="border-2 rounded-lg p-6" style="border-color: #F8E8E2; background-color: #FEFAF8;">
-                    <h3 class="font-heading text-xl font-bold mb-4" style="color: #DC8C73;">Información bancaria</h3>
-                    <div class="grid grid-cols-1 gap-4">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">Banco</label>
-                                <input v-model="bankData.bank_name" placeholder="Banco Galicia"
-                                    class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
-                                    style="focus:border-color: #DC8C73;" />
-                            </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">Titular de la cuenta</label>
-                                <input v-model="bankData.account_holder" placeholder="Nombre completo del titular"
-                                    class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
-                                    style="focus:border-color: #DC8C73;" />
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">CBU</label>
-                            <input v-model="bankData.cbu" placeholder="0070123430000005678901"
-                                class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
-                                style="focus:border-color: #DC8C73;" />
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Alias</label>
-                            <input v-model="bankData.alias" placeholder="nombre.apellido.dental"
-                                class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
-                                style="focus:border-color: #DC8C73;" />
+                            <p class="text-xs text-gray-500 mt-1">El email no puede modificarse</p>
                         </div>
                     </div>
                 </div>
@@ -224,22 +154,10 @@ export default {
                     <h3 class="font-heading text-xl font-bold mb-4" style="color: #2A6FAF;">Información adicional</h3>
                     <div class="grid grid-cols-1 gap-4">
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre de usuario</label>
-                            <input v-model="formData.username" placeholder="Ingresá tu nombre de usuario"
-                                class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
-                                style="focus:border-color: #2A6FAF;" />
-                        </div>
-                        <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Biografía</label>
                             <textarea v-model="formData.bio" rows="4" placeholder="Contanos un poco sobre vos"
                                 class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition resize-none"
                                 style="focus:border-color: #2A6FAF;"></textarea>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Especialidades</label>
-                            <input v-model="formData.favorite_genres" placeholder="Ej: Endodoncia, Ortodoncia"
-                                class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
-                                style="focus:border-color: #2A6FAF;" />
                         </div>
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Ubicación</label>

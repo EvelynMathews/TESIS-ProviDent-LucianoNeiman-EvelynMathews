@@ -12,13 +12,14 @@ export default {
                 password: '',
                 confirmPassword: '',
                 name: '',
-                lastName: '',
-                avatarFile: null,
+                lastName: ''
                 // Removed: phone/address fields not required at registration
-                avatarFile: null
+                // Avatar se sube después de confirmar email, desde /mi-perfil/editar
             },
             loading: false,
             errorMessage: '',
+            registrationSuccess: false,
+            requiresEmailConfirmation: false,
         }
     },
     computed: {
@@ -59,22 +60,30 @@ export default {
             this.errorMessage = ''
 
             try {
-                await register(this.user.email, this.user.password, {
+                const result = await register(this.user.email, this.user.password, {
                     name: this.user.name,
-                    lastName: this.user.lastName,
-                    avatarFile: this.user.avatarFile,
+                    lastName: this.user.lastName
                 })
-                this.$router.push('/mi-perfil')
+
+                if (result.requiresEmailConfirmation) {
+                    // Mostrar mensaje de confirmación de email
+                    this.registrationSuccess = true
+                    this.requiresEmailConfirmation = true
+                } else {
+                    // Login automático exitoso
+                    this.$router.push('/mi-perfil')
+                }
             } catch (error) {
-                this.errorMessage = 'No se pudo crear la cuenta. Revisá los datos ingresados.'
                 console.error('Error al registrar:', error)
+                // Mostrar mensaje de error específico
+                if (error.message) {
+                    this.errorMessage = error.message
+                } else {
+                    this.errorMessage = 'No se pudo crear la cuenta. Revisá los datos ingresados.'
+                }
             } finally {
                 this.loading = false
             }
-        },
-        onAvatarChange(e) {
-            const file = e.target.files?.[0]
-            this.user.avatarFile = file || null
         }
     },
 }
@@ -120,7 +129,50 @@ export default {
                 </div>
             </div>
 
-            <div class="bg-white rounded-lg shadow-md p-8">
+            <!-- Success Message -->
+            <div v-if="registrationSuccess && requiresEmailConfirmation" class="bg-white rounded-lg shadow-md p-8">
+                <div class="text-center py-8">
+                    <div class="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center shadow-lg"
+                        style="background: linear-gradient(135deg, #2A6FAF 0%, #29A68C 100%);">
+                        <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"></path>
+                            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"></path>
+                        </svg>
+                    </div>
+
+                    <h1 class="font-heading text-3xl font-bold text-gray-800 mb-3">¡Cuenta creada!</h1>
+                    <p class="text-gray-600 mb-2 max-w-md mx-auto">
+                        Te enviamos un email de confirmación a:
+                    </p>
+                    <p class="text-lg font-semibold mb-6" style="color: #2A6FAF;">{{ user.email }}</p>
+
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 max-w-md mx-auto">
+                        <p class="text-sm text-blue-800">
+                            <strong>📧 Revisá tu casilla de correo</strong><br>
+                            Hacé clic en el enlace que te enviamos para confirmar tu cuenta y poder iniciar sesión.
+                        </p>
+                    </div>
+
+                    <div class="space-y-3 max-w-md mx-auto">
+                        <p class="text-sm text-gray-600">¿No recibiste el email?</p>
+                        <ul class="text-xs text-gray-500 text-left space-y-1">
+                            <li>• Revisá tu carpeta de spam o correo no deseado</li>
+                            <li>• Verificá que escribiste bien tu dirección de email</li>
+                            <li>• El email puede tardar algunos minutos en llegar</li>
+                        </ul>
+                    </div>
+
+                    <div class="mt-8">
+                        <RouterLink to="/login"
+                            class="inline-block px-6 py-3 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90"
+                            style="background-color: #2A6FAF;">
+                            Ir a iniciar sesión
+                        </RouterLink>
+                    </div>
+                </div>
+            </div>
+
+            <div v-else class="bg-white rounded-lg shadow-md p-8">
                 <form @submit.prevent="currentStep === totalSteps ? handleSubmit() : nextStep()">
                     <div v-if="currentStep === 1" class="space-y-6">
                         <div class="p-4 rounded-lg" style="background-color: #E3EEF8;">
@@ -188,13 +240,6 @@ export default {
                                     style="focus:ring-color: #29A68C;"
                                     placeholder="Pérez" />
                             </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                Avatar (opcional)
-                            </label>
-                            <input type="file" accept="image/*" @change="onAvatarChange" />
                         </div>
 
                         <div v-if="false"></div>
