@@ -1,7 +1,10 @@
 <template>
     <div class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300">
         <div class="relative">
-            <img :src="product.image" :alt="product.name" class="w-full h-48 object-cover" />
+            <img :src="product.image || placeholder" :alt="product.name" class="w-full h-48 object-cover" />
+            <span v-if="product.stock === 0" class="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">
+                SIN STOCK
+            </span>
             <span v-if="product.product_type === 'rental'" class="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
                 Alquiler
             </span>
@@ -32,7 +35,7 @@
                 </div>
                 <div v-else>
                     <p class="text-2xl font-bold text-secondary">${{ formatPrice(product.price) }}</p>
-                    <p class="text-xs text-gray-500">{{ product.unit }}</p>
+                    <p class="text-xs text-gray-500">{{ product.unit || 'unidad' }}</p>
                 </div>
             </div>
 
@@ -48,15 +51,28 @@
                 style="background-color: #2A6FAF;">
                 Ver detalles
             </RouterLink>
-
-            <p class="text-xs text-gray-500 mt-2 truncate">
-                Por {{ product.seller.username }}
-            </p>
+            <button @click="onAdd"
+                :disabled="product.stock === 0"
+                class="mt-2 w-full font-medium py-2 px-4 rounded-lg transition shadow-md"
+                :class="product.stock === 0 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-green-600 text-white hover:opacity-90'">
+                Agregar al carrito
+            </button>
+            <div class="flex items-center gap-2 mt-2">
+                <img v-if="product.seller?.avatar_url" :src="product.seller.avatar_url" alt="avatar"
+                     class="w-6 h-6 rounded-full object-cover" />
+                <div v-else class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-semibold text-gray-600">
+                    {{ initials(product.seller?.username) }}
+                </div>
+                <RouterLink :to="`/usuario/${product.seller?.id}`" class="text-xs text-gray-600 truncate hover:underline">
+                    Por {{ product.seller?.username }}
+                </RouterLink>
+            </div>
         </div>
     </div>
 </template>
 
 <script>
+import { addToCart } from '../services/cart'
 export default {
     name: 'ProductCard',
     props: {
@@ -68,6 +84,31 @@ export default {
     methods: {
         formatPrice(price) {
             return new Intl.NumberFormat('es-AR').format(price)
+        },
+        initials(name) {
+            if (!name) return '?'
+            const parts = String(name).trim().split(/\s+/)
+            const a = parts[0]?.[0] || ''
+            const b = parts[1]?.[0] || ''
+            return (a + b).toUpperCase() || a.toUpperCase() || '?'
+        },
+        onAdd() {
+            if (this.product.stock === 0) return
+            addToCart({
+                id: this.product.id,
+                type: 'product',
+                name: this.product.name,
+                price: this.product.price,
+                quantity: 1,
+                unit: this.product.unit,
+                image: this.product.image,
+                seller: { username: this.product.seller?.username }
+            })
+        }
+    },
+    data() {
+        return {
+            placeholder: 'https://placehold.co/600x400?text=Producto'
         }
     }
 }

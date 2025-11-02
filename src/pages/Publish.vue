@@ -1,5 +1,6 @@
 <script>
 import { subscribeToAuthStateChanges } from '../services/auth'
+import { createSupplyProduct } from '../services/products'
 
 export default {
     name: 'Publish',
@@ -17,15 +18,14 @@ export default {
             // Product data
             productData: {
                 name: '',
-                brand: '',
                 description: '',
                 images: [],
+                imageFile: null,
                 price: '',
                 unit: 'unidad',
+                unitCustom: '',
                 stock: '',
-                sku: '',
-                paymentAccount: '',
-                location: ''
+                sku: ''
             },
 
             // Service data - Prosthesis
@@ -40,9 +40,7 @@ export default {
                     incrustacion: { anterior: '', premolar: '', molar: '' },
                     puente: { anterior: '', premolar: '', molar: '' }
                 },
-                deliveryTime: '',
-                paymentAccount: '',
-                location: ''
+                deliveryTime: ''
             },
 
             // Service data - Plaster
@@ -50,9 +48,7 @@ export default {
                 name: '',
                 description: '',
                 basePrice: '',
-                deliveryTime: '',
-                paymentAccount: '',
-                location: ''
+                deliveryTime: ''
             },
 
             // Service data - Rental
@@ -61,14 +57,9 @@ export default {
                 description: '',
                 images: [],
                 stock: '',
-                insuranceType: 'deposit', // 'insurance' or 'deposit'
-                insuranceFile: null,
-                depositAmount: '',
                 priceDay: '',
                 priceWeek: '',
-                priceMonth: '',
-                paymentAccount: '',
-                location: ''
+                priceMonth: ''
             },
 
             previewMode: false,
@@ -111,8 +102,10 @@ export default {
 
         validateCurrentForm() {
             if (this.publicationType === 'product') {
+                const unitOk = this.productData.unit !== 'otro' || (this.productData.unit === 'otro' && this.productData.unitCustom && this.productData.unitCustom.trim().length > 0)
                 return this.productData.name && this.productData.description &&
-                       this.productData.price && this.productData.stock
+                       this.productData.price && this.productData.stock &&
+                       this.productData.images.length > 0 && unitOk
             }
 
             if (this.serviceType === 'prosthesis') {
@@ -169,9 +162,8 @@ export default {
             this.published = false
             // Limpiar formularios
             this.productData = {
-                name: '', brand: '', description: '', images: [],
-                price: '', unit: 'unidad', stock: '', sku: '',
-                paymentAccount: '', location: ''
+                name: '', description: '', images: [], imageFile: null,
+                price: '', unit: 'unidad', unitCustom: '', stock: '', sku: ''
             }
             this.prosthesisData = {
                 name: '', description: '', material: '', images: [],
@@ -181,27 +173,27 @@ export default {
                     incrustacion: { anterior: '', premolar: '', molar: '' },
                     puente: { anterior: '', premolar: '', molar: '' }
                 },
-                deliveryTime: '', paymentAccount: '', location: ''
+                deliveryTime: ''
             }
             this.plasterData = {
                 name: '', description: '', basePrice: '',
-                deliveryTime: '', paymentAccount: '', location: ''
+                deliveryTime: ''
             }
             this.rentalData = {
                 name: '', description: '', images: [], stock: '',
-                insuranceType: 'deposit', insuranceFile: null, depositAmount: '',
-                priceDay: '', priceWeek: '', priceMonth: '',
-                paymentAccount: '', location: ''
+                priceDay: '', priceWeek: '', priceMonth: ''
             }
         },
 
         handleImageUpload(event, dataType) {
             const files = event.target.files
             if (files.length > 0) {
-                // Simular carga de imagen
-                const imageUrl = URL.createObjectURL(files[0])
+                const file = files[0]
+                const imageUrl = URL.createObjectURL(file)
                 if (dataType === 'product') {
-                    this.productData.images.push(imageUrl)
+                    this.productData.imageFile = file
+                    if (this.productData.images.length === 0) this.productData.images.push(imageUrl)
+                    else this.productData.images.splice(0,1,imageUrl)
                 } else if (dataType === 'prosthesis') {
                     this.prosthesisData.images.push(imageUrl)
                 } else if (dataType === 'rental') {
@@ -220,28 +212,59 @@ export default {
             }
         },
 
-        handleInsuranceFileUpload(event) {
-            const file = event.target.files[0]
-            if (file) {
-                // Simular carga de archivo (modo mock)
-                this.rentalData.insuranceFile = {
-                    name: file.name,
-                    size: file.size,
-                    type: file.type
+        
+
+        async publishListing() {
+            try {
+                if (this.publicationType === 'product') {
+                    const imageFile = this.productData.imageFile || null
+                    if (!imageFile) { alert('Debés agregar al menos una imagen'); return }
+                    const unit_label = this.productData.unit === 'otro' ? (this.productData.unitCustom || '').trim() : this.productData.unit
+                    await createSupplyProduct({
+                        name: this.productData.name,
+                        description: this.productData.description,
+                        unit_price: Number(this.productData.price) || 0,
+                        unit_label: unit_label || 'unidad',
+                        stock_qty: Number(this.productData.stock) || null,
+                        sku: this.productData.sku || null,
+                        imageFile,
+                    })
+                } else if (this.publicationType === 'service') {
+                    if (this.serviceType === 'prosthesis') {
+                        const imageFile = this.prosthesisData.imageFile || null
+                        if (!imageFile) { alert('Subí al menos una imagen'); return }
+                        await createProsthesisProduct({
+                            name: this.prosthesisData.name,
+                            description: this.prosthesisData.description,
+                            imageFile,
+                        })
+                    } else if (this.serviceType === 'plaster') {
+                        await createPlasterServiceProduct({
+                            name: this.plasterData.name,
+                            description: this.plasterData.description,
+                            base_price: Number(this.plasterData.basePrice) || 0,
+                            imageFile: null,
+                        })
+                    } else if (this.serviceType === 'rental') {
+                        const imageFile = this.rentalData.imageFile || null
+                        if (!imageFile) { alert('Subí al menos una imagen'); return }
+                        await createRentalProduct({
+                            name: this.rentalData.name,
+                            description: this.rentalData.description,
+                            stock_qty: Number(this.rentalData.stock) || 0,
+                            priceDay: Number(this.rentalData.priceDay) || null,
+                            priceWeek: Number(this.rentalData.priceWeek) || null,
+                            priceMonth: Number(this.rentalData.priceMonth) || null,
+                            imageFile,
+                        })
+                    }
                 }
-            }
-        },
-
-        removeInsuranceFile() {
-            this.rentalData.insuranceFile = null
-        },
-
-        publishListing() {
-            // Simular publicación (modo mock)
-            setTimeout(() => {
                 this.published = true
                 this.currentStep = 4
-            }, 500)
+            } catch (e) {
+                alert('No se pudo publicar')
+                console.error(e)
+            }
         },
 
         formatPrice(price) {
@@ -409,7 +432,7 @@ export default {
                             placeholder="Ej: Resina compuesta Universal A2" />
                     </div>
 
-                    <div>
+                    <div v-if="false">
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             🏷️ Marca o fabricante
                         </label>
@@ -433,8 +456,8 @@ export default {
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             🖼️ Imágenes (mínimo una)
                         </label>
-                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                            <input type="file" @change="handleImageUpload($event, 'product')" accept="image/*"
+                        <div :class="['border-2 border-dashed rounded-lg p-6 text-center', productData.images.length ? 'border-gray-300' : 'border-red-400']">
+                            <input type="file" ref="productImageInput" @change="handleImageUpload($event, 'product')" accept="image/*"
                                 class="hidden" id="product-image-upload" />
                             <label for="product-image-upload" class="cursor-pointer">
                                 <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -442,6 +465,7 @@ export default {
                                 </svg>
                                 <p class="text-sm text-gray-600">Hacé clic para subir o arrastrá la imagen aquí</p>
                                 <p class="text-xs text-gray-500 mt-1">JPG, PNG o GIF (máx. 5MB)</p>
+                                <p v-if="!productData.images.length" class="text-xs text-red-600 mt-2">Subí al menos una imagen</p>
                             </label>
                         </div>
                         <div v-if="productData.images.length > 0" class="grid grid-cols-3 gap-4 mt-4">
@@ -482,7 +506,11 @@ export default {
                                 <option value="litro">Litro</option>
                                 <option value="metro">Metro</option>
                                 <option value="pack">Pack</option>
+                                <option value="otro">Otro...</option>
                             </select>
+                            <input v-if="productData.unit === 'otro'" type="text" v-model="productData.unitCustom"
+                                class="mt-2 w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
+                                style="focus:ring-color: #2A6FAF;" placeholder="Especificá la unidad (ej: frasco, bolsa, kit)" />
                         </div>
                     </div>
 
@@ -508,7 +536,7 @@ export default {
                         </div>
                     </div>
 
-                    <div>
+                    <div v-if="false">
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             💳 Cuenta de cobro
                         </label>
@@ -522,7 +550,7 @@ export default {
                         </select>
                     </div>
 
-                    <div>
+                    <div v-if="false">
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             📍 Ubicación del producto
                         </label>
@@ -674,29 +702,7 @@ export default {
                             placeholder="Ej: 5" />
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            💳 Cuenta de cobro
-                        </label>
-                        <select v-model="prosthesisData.paymentAccount"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            style="focus:ring-color: #2A6FAF;">
-                            <option value="">Seleccionar cuenta</option>
-                            <option value="bank1">Cuenta Banco Nación - ...4567</option>
-                            <option value="bank2">Cuenta Galicia - ...8901</option>
-                            <option value="mp">Mercado Pago</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            📍 Ubicación del laboratorio
-                        </label>
-                        <input type="text" v-model="prosthesisData.location"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            style="focus:ring-color: #2A6FAF;"
-                            placeholder="Ej: CABA, Buenos Aires" />
-                    </div>
+                    
                 </div>
             </div>
 
@@ -752,29 +758,7 @@ export default {
                             placeholder="Ej: 2" />
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            💳 Cuenta de cobro
-                        </label>
-                        <select v-model="plasterData.paymentAccount"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            style="focus:ring-color: #29A68C;">
-                            <option value="">Seleccionar cuenta</option>
-                            <option value="bank1">Cuenta Banco Nación - ...4567</option>
-                            <option value="bank2">Cuenta Galicia - ...8901</option>
-                            <option value="mp">Mercado Pago</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            📍 Ubicación del laboratorio
-                        </label>
-                        <input type="text" v-model="plasterData.location"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            style="focus:ring-color: #29A68C;"
-                            placeholder="Ej: CABA, Buenos Aires" />
-                    </div>
+                    
                 </div>
             </div>
 
@@ -943,29 +927,9 @@ export default {
                         </div>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            💳 Cuenta de cobro
-                        </label>
-                        <select v-model="rentalData.paymentAccount"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            style="focus:ring-color: #DC8C73;">
-                            <option value="">Seleccionar cuenta</option>
-                            <option value="bank1">Cuenta Banco Nación - ...4567</option>
-                            <option value="bank2">Cuenta Galicia - ...8901</option>
-                            <option value="mp">Mercado Pago</option>
-                        </select>
-                    </div>
+                    
 
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            📍 Ubicación del equipo
-                        </label>
-                        <input type="text" v-model="rentalData.location"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            style="focus:ring-color: #DC8C73;"
-                            placeholder="Ej: CABA, Buenos Aires" />
-                    </div>
+                    
                 </div>
             </div>
 

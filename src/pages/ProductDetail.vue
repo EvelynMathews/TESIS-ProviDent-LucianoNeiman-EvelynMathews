@@ -1,6 +1,6 @@
 <script>
 import { subscribeToAuthStateChanges } from '../services/auth'
-import { products } from '../data/mockProducts'
+import { getProductById, listActiveProducts } from '../services/products'
 import ProductCard from '../components/ProductCard.vue'
 
 export default {
@@ -14,25 +14,7 @@ export default {
                 id: null,
                 email: null,
             },
-            product: {
-                id: 1,
-                name: 'Resina Compuesta Flow A2',
-                brand: 'DentFlow Pro',
-                category: 'Materiales e Insumos',
-                price: 18500,
-                stock: 45,
-                unit: 'Jeringa 4g',
-                description: 'Resina compuesta de microhíbrida de última generación. Ideal para restauraciones anteriores y posteriores. Excelente pulido y estética natural. Incluye 4 jeringas de 4g cada una con punta aplicadora.',
-                image: 'https://placehold.co/600x600/2A6FAF/ffffff?text=Resina+Flow',
-                product_type: 'product',
-                seller: {
-                    id: 101,
-                    username: 'Dental Supply BA',
-                    rating: 4.8,
-                    sales_count: 234,
-                    location: 'Buenos Aires, CABA'
-                }
-            },
+            product: null,
             quantity: 1,
             loading: false,
             relatedProducts: []
@@ -47,6 +29,13 @@ export default {
         formatPrice(price) {
             return new Intl.NumberFormat('es-AR').format(price)
         },
+        initials(name) {
+            if (!name) return '?'
+            const parts = String(name).trim().split(/\s+/)
+            const a = parts[0]?.[0] || ''
+            const b = parts[1]?.[0] || ''
+            return (a + b).toUpperCase() || a.toUpperCase() || '?'
+        },
         increaseQuantity() {
             if (this.quantity < this.product.stock) {
                 this.quantity++
@@ -60,18 +49,32 @@ export default {
         addToCart() {
             alert(`Agregado al carrito: ${this.quantity} ${this.product.unit} de ${this.product.name}`)
         },
-        loadRelatedProducts() {
-            // Cargar productos de la misma categoría (excluyendo el actual)
-            this.relatedProducts = products
-                .filter(p => p.category === this.product.category && p.id !== this.product.id)
-                .slice(0, 4)
+        async loadRelatedProducts() {
+            try {
+                const items = await listActiveProducts()
+                const currentId = this.product?.id
+                this.relatedProducts = items.filter(p => p.id !== currentId).slice(0, 4)
+            } catch (e) { console.error(e) }
+        },
+        async loadProduct() {
+            try {
+                this.loading = true
+                const id = this.$route.params.id
+                const p = await getProductById(id)
+                this.product = p
+                await this.loadRelatedProducts()
+            } catch (e) {
+                console.error('Failed to load product', e)
+            } finally {
+                this.loading = false
+            }
         }
     },
     mounted() {
         subscribeToAuthStateChanges(newUserState => {
             this.user = newUserState
         })
-        this.loadRelatedProducts()
+        this.loadProduct()
     }
 }
 </script>
@@ -85,7 +88,7 @@ export default {
                 </RouterLink>
             </div>
 
-            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div v-if="product" class="bg-white rounded-lg shadow-md overflow-hidden">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 md:p-8">
                     <div>
                         <img :src="product.image" :alt="product.name" class="w-full rounded-lg shadow-lg" />
@@ -112,7 +115,7 @@ export default {
 
                         <div class="mb-6">
                             <p class="text-4xl font-bold text-secondary mb-2">${{ formatPrice(product.price) }}</p>
-                            <p class="text-sm text-gray-600">{{ product.unit }}</p>
+                            <p class="text-sm text-gray-600">{{ product.unit || 'unidad' }}</p>
                         </div>
 
                         <div class="mb-6">
@@ -159,18 +162,22 @@ export default {
                         </div>
 
                         <div v-else class="mb-6">
-                            <p class="text-red-600 font-semibold">Producto sin stock</p>
+                            <p class="text-red-600 font-extrabold tracking-wide">SIN STOCK</p>
                         </div>
 
                         <div class="border-t border-gray-200 pt-6">
                             <h3 class="font-heading font-semibold text-gray-800 mb-3">Vendido por</h3>
                             <div class="flex items-center gap-3">
-                                <div class="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center font-bold">
-                                    {{ product.seller.username.charAt(0) }}
+                                <img v-if="product.seller?.avatar_url" :src="product.seller.avatar_url" alt="avatar"
+                                     class="w-12 h-12 rounded-full object-cover" />
+                                <div v-else class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-lg font-bold text-gray-700">
+                                    {{ initials(product.seller?.username) }}
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-800">{{ product.seller.username }}</p>
-                                    <p class="text-sm text-gray-600">{{ product.seller.location }}</p>
+                                    <RouterLink :to="`/usuario/${product.seller?.id}`" class="font-semibold text-gray-800 hover:underline">
+                                        {{ product.seller.username }}
+                                    </RouterLink>
+                                    <p v-if="product.seller.location" class="text-sm text-gray-600">{{ product.seller.location }}</p>
                                 </div>
                             </div>
                         </div>

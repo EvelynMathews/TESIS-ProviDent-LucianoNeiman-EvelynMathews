@@ -3,7 +3,12 @@
 
 -- Types
 DO $$ BEGIN
-  CREATE TYPE product_type AS ENUM ('PROSTHESIS','SIMPLE','PLASTER_SERVICE','RENTAL');
+  CREATE TYPE product_type AS ENUM ('PROSTHESIS','SUPPLY','PLASTER_SERVICE','RENTAL');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Ensure SUPPLY exists on existing installations
+DO $$ BEGIN
+  ALTER TYPE product_type ADD VALUE IF NOT EXISTS 'SUPPLY';
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Catalogs
@@ -60,7 +65,7 @@ CREATE TABLE IF NOT EXISTS public.prosthesis_products (
   material_id uuid REFERENCES public.materials(id)
 );
 
-CREATE TABLE IF NOT EXISTS public.simple_material_products (
+CREATE TABLE IF NOT EXISTS public.supply_products (
   product_id uuid PRIMARY KEY REFERENCES public.products(id),
   sku text UNIQUE,
   unit_price numeric(12,2) NOT NULL,
@@ -104,7 +109,7 @@ ALTER TABLE public.teeth ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_images ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.prosthesis_products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.simple_material_products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.supply_products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.plaster_service_products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rental_products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_prices ENABLE ROW LEVEL SECURITY;
@@ -114,12 +119,12 @@ ALTER TABLE public.rental_pricing ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Authenticated users can read materials catalog" ON public.materials;
 CREATE POLICY "Authenticated users can read materials catalog" ON public.materials FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "Admins can manage materials catalog" ON public.materials;
-CREATE POLICY "Admins can manage materials catalog" ON public.materials FOR ALL USING (EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='ADMIN')) WITH CHECK (EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='ADMIN'));
+CREATE POLICY "Admins can manage materials catalog" ON public.materials FOR ALL USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
 
 DROP POLICY IF EXISTS "Authenticated users can read work types catalog" ON public.work_types;
 CREATE POLICY "Authenticated users can read work types catalog" ON public.work_types FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "Admins can manage work types catalog" ON public.work_types;
-CREATE POLICY "Admins can manage work types catalog" ON public.work_types FOR ALL USING (EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='ADMIN')) WITH CHECK (EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='ADMIN'));
+CREATE POLICY "Admins can manage work types catalog" ON public.work_types FOR ALL USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
 
 DROP POLICY IF EXISTS "Authenticated users can read tooth groups catalog" ON public.tooth_groups;
 CREATE POLICY "Authenticated users can read tooth groups catalog" ON public.tooth_groups FOR SELECT USING (auth.uid() IS NOT NULL);
@@ -159,11 +164,11 @@ DO $$ BEGIN
   DROP POLICY IF EXISTS "Owners can manage prosthesis products" ON public.prosthesis_products;
   CREATE POLICY "Owners can manage prosthesis products" ON public.prosthesis_products FOR ALL USING (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid())) WITH CHECK (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid()));
 
-  -- simple_material_products
-  DROP POLICY IF EXISTS "Anyone can read simple material products" ON public.simple_material_products;
-  CREATE POLICY "Anyone can read simple material products" ON public.simple_material_products FOR SELECT USING (true);
-  DROP POLICY IF EXISTS "Owners can manage simple material products" ON public.simple_material_products;
-  CREATE POLICY "Owners can manage simple material products" ON public.simple_material_products FOR ALL USING (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid())) WITH CHECK (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid()));
+  -- supply_products
+  DROP POLICY IF EXISTS "Anyone can read supply products" ON public.supply_products;
+  CREATE POLICY "Anyone can read supply products" ON public.supply_products FOR SELECT USING (true);
+  DROP POLICY IF EXISTS "Owners can manage supply products" ON public.supply_products;
+  CREATE POLICY "Owners can manage supply products" ON public.supply_products FOR ALL USING (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid())) WITH CHECK (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid()));
 
   -- plaster_service_products
   DROP POLICY IF EXISTS "Anyone can read plaster service products" ON public.plaster_service_products;
@@ -197,8 +202,8 @@ BEGIN
   CASE NEW.product_type
     WHEN 'PROSTHESIS' THEN
       INSERT INTO public.prosthesis_products(product_id) VALUES (NEW.id) ON CONFLICT DO NOTHING;
-    WHEN 'SIMPLE' THEN
-      INSERT INTO public.simple_material_products(product_id, unit_price, unit_label) VALUES (NEW.id, 0, 'unit') ON CONFLICT DO NOTHING;
+    WHEN 'SUPPLY' THEN
+      INSERT INTO public.supply_products(product_id, unit_price, unit_label) VALUES (NEW.id, 0, 'unit') ON CONFLICT DO NOTHING;
     WHEN 'PLASTER_SERVICE' THEN
       INSERT INTO public.plaster_service_products(product_id, base_price) VALUES (NEW.id, 0) ON CONFLICT DO NOTHING;
     WHEN 'RENTAL' THEN
@@ -215,15 +220,15 @@ RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN
   IF NEW.product_type IS DISTINCT FROM OLD.product_type THEN
     DELETE FROM public.prosthesis_products WHERE product_id = NEW.id;
-    DELETE FROM public.simple_material_products WHERE product_id = NEW.id;
+    DELETE FROM public.supply_products WHERE product_id = NEW.id;
     DELETE FROM public.plaster_service_products WHERE product_id = NEW.id;
     DELETE FROM public.rental_products WHERE product_id = NEW.id;
 
     CASE NEW.product_type
       WHEN 'PROSTHESIS' THEN
         INSERT INTO public.prosthesis_products(product_id) VALUES (NEW.id) ON CONFLICT DO NOTHING;
-      WHEN 'SIMPLE' THEN
-        INSERT INTO public.simple_material_products(product_id, unit_price, unit_label) VALUES (NEW.id, 0, 'unit') ON CONFLICT DO NOTHING;
+      WHEN 'SUPPLY' THEN
+        INSERT INTO public.supply_products(product_id, unit_price, unit_label) VALUES (NEW.id, 0, 'unit') ON CONFLICT DO NOTHING;
       WHEN 'PLASTER_SERVICE' THEN
         INSERT INTO public.plaster_service_products(product_id, base_price) VALUES (NEW.id, 0) ON CONFLICT DO NOTHING;
       WHEN 'RENTAL' THEN
@@ -241,8 +246,9 @@ RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN
   DELETE FROM public.product_prices WHERE product_id = OLD.id;
   DELETE FROM public.product_shipping_profiles WHERE product_id = OLD.id;
+  DELETE FROM public.product_images WHERE product_id = OLD.id;
   DELETE FROM public.prosthesis_products WHERE product_id = OLD.id;
-  DELETE FROM public.simple_material_products WHERE product_id = OLD.id;
+  DELETE FROM public.supply_products WHERE product_id = OLD.id;
   DELETE FROM public.plaster_service_products WHERE product_id = OLD.id;
   DELETE FROM public.rental_pricing WHERE product_id = OLD.id;
   DELETE FROM public.rental_products WHERE product_id = OLD.id;
@@ -250,7 +256,7 @@ BEGIN
 END $$;
 
 DROP TRIGGER IF EXISTS on_product_deleted ON public.products;
-CREATE TRIGGER on_product_deleted AFTER DELETE ON public.products FOR EACH ROW EXECUTE FUNCTION public.handle_product_deleted();
+CREATE TRIGGER on_product_deleted BEFORE DELETE ON public.products FOR EACH ROW EXECUTE FUNCTION public.handle_product_deleted();
 
 -- Storage
 INSERT INTO storage.buckets (id, name, public)
