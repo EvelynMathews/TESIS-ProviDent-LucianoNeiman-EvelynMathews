@@ -1,5 +1,8 @@
 <script>
 import { subscribeToAuthStateChanges, logout } from '../services/auth'
+import { isCurrentUserSeller, grantSellerSelf } from '../services/sellers'
+import { supabase } from '../services/supabase'
+import { listMyProducts } from '../services/products'
 
 export default {
     name: 'MyProfile',
@@ -65,25 +68,10 @@ export default {
                     status: 'paid'
                 }
             ],
-            myPublications: [
-                {
-                    id: 1,
-                    title: 'Resina Compuesta Flow A2',
-                    type: 'product',
-                    image: 'https://placehold.co/100x100/2A6FAF/ffffff?text=Resina',
-                    price: 18500,
-                    status: 'active'
-                },
-                {
-                    id: 101,
-                    title: 'Corona de Zirconio',
-                    type: 'service',
-                    image: 'https://placehold.co/100x100/29A68C/ffffff?text=Corona',
-                    price: 45000,
-                    status: 'active'
-                }
-            ],
-            isSeller: true,
+            
+            isSeller: false,
+            sellerMessage: '',
+            myProducts: [],
             showPasswordChange: false,
             newPassword: '',
             confirmPassword: ''
@@ -95,9 +83,59 @@ export default {
         }
     },
     methods: {
-        handleLogout() {
+        async handleLogout() {
             logout()
             this.$router.push('/login')
+        },
+        async loadProfile() {
+            const { data: me } = await supabase.auth.getUser()
+            const uid = me?.user?.id
+            if (!uid) return
+            const { data } = await supabase.from('public_user_profiles').select('*').eq('id', uid).single()
+            if (data) {
+                this.userProfile.name = data.first_name
+                this.userProfile.lastName = data.last_name
+                this.userProfile.email = me.user.email
+                if (data.avatar_url) {
+                    try {
+                        const { data: signed, error } = await supabase.storage.from('avatars').createSignedUrl(data.avatar_url, 60 * 60)
+                        if (!error && signed?.signedUrl) {
+                            this.userProfile.avatar_url = signed.signedUrl
+                        } else {
+                            const dl = await supabase.storage.from('avatars').download(data.avatar_url)
+                            if (!dl.error && dl.data) {
+                                this.userProfile.avatar_url = URL.createObjectURL(dl.data)
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Avatar URL generation failed', e?.message || e)
+                        this.userProfile.avatar_url = null
+                    }
+                } else {
+                    this.userProfile.avatar_url = null
+                }
+            }
+            this.isSeller = await isCurrentUserSeller()
+            this.userProfile.roles = ['Comprador'].concat(this.isSeller ? ['Vendedor'] : [])
+            if (this.isSeller) {
+                try { this.myProducts = (await listMyProducts()).slice(0, 4) } catch (e) { this.myProducts = [] }
+            } else {
+                this.myProducts = []
+            }
+        },
+        async becomeSeller() {
+            try {
+                await grantSellerSelf()
+                this.isSeller = true
+                this.userProfile.roles = ['Comprador', 'Vendedor']
+                this.sellerMessage = 'Listo, ahora sos vendedor.'
+                try { window.dispatchEvent(new CustomEvent('seller:changed')) } catch {}
+                setTimeout(() => { this.sellerMessage = '' }, 3000)
+            } catch (e) {
+                this.sellerMessage = 'No se pudo activar vendedor.'
+                console.error(e)
+                setTimeout(() => { this.sellerMessage = '' }, 3000)
+            }
         },
         goToEditProfile() {
             this.$router.push('/mi-perfil/editar')
@@ -154,6 +192,7 @@ export default {
     mounted() {
         subscribeToAuthStateChanges(newUserState => {
             this.user = newUserState
+            this.loadProfile()
         })
     }
 }
@@ -162,6 +201,9 @@ export default {
 <template>
     <section class="pt-20 bg-gray-50 min-h-screen pb-12">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div v-if="sellerMessage" class="mb-4 p-3 rounded border border-green-200 bg-green-50 text-green-700">
+                {{ sellerMessage }}
+            </div>
             <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
                 <div class="h-32" style="background: linear-gradient(135deg, #2A6FAF 0%, #29A68C 50%, #DC8C73 100%);"></div>
                 <div class="px-6 pb-6">
@@ -205,7 +247,7 @@ export default {
                     </div>
                     <h2 class="font-heading text-2xl font-bold text-gray-800 mb-2">¿Querés empezar a vender en ProviDent?</h2>
                     <p class="text-gray-600 mb-6">Completá tus datos de cobro y elegí qué tipo de oferta querés publicar.</p>
-                    <button @click="goToPublish"
+                    <button @click="becomeSeller"
                         class="px-8 py-3 text-white font-semibold rounded-lg shadow-lg hover:opacity-90 transition"
                         style="background-color: #2A6FAF;">
                         Quiero ser vendedor
@@ -412,45 +454,28 @@ export default {
                 </div>
             </div>
 
-            <div v-if="isSeller" class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div v-if="isSeller && myProducts.length" class="bg-white rounded-lg shadow-md p-6 mb-6">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="font-heading text-xl font-bold text-gray-800 flex items-center gap-2">
                         <svg class="w-6 h-6" style="color: #2A6FAF;" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path>
                         </svg>
-                        Mis publicaciones
+                        Mis productos
                     </h2>
-                    <button @click="goToPublish"
+                    <RouterLink to="/mis-productos"
                         class="px-4 py-2 text-sm text-white font-semibold rounded-lg transition hover:opacity-90"
                         style="background-color: #29A68C;">
-                        Publicar nuevo producto o servicio
-                    </button>
+                        Ver todos
+                    </RouterLink>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div v-for="publication in myPublications" :key="publication.id"
-                        class="flex gap-4 p-4 border border-gray-200 rounded-lg hover:shadow-md transition">
-                        <img :src="publication.image" :alt="publication.title" class="w-20 h-20 object-cover rounded-lg flex-shrink-0" />
-                        <div class="flex-1">
-                            <div class="flex justify-between items-start mb-2">
-                                <div>
-                                    <p class="font-semibold text-gray-800">{{ publication.title }}</p>
-                                    <p class="text-sm text-gray-600 capitalize">{{ publication.type === 'product' ? 'Producto' : 'Servicio' }}</p>
-                                </div>
-                                <span class="px-2 py-1 text-xs font-semibold rounded-full text-white"
-                                    :style="{backgroundColor: getStatusColor(publication.status)}">
-                                    {{ getStatusText(publication.status) }}
-                                </span>
-                            </div>
-                            <p class="font-bold mb-2" style="color: #29A68C;">${{ formatPrice(publication.price) }}</p>
-                            <div class="flex gap-2">
-                                <button class="text-xs px-3 py-1 font-semibold border rounded-lg hover:bg-gray-50"
-                                    style="color: #2A6FAF; border-color: #2A6FAF;">
-                                    Editar
-                                </button>
-                                <button class="text-xs px-3 py-1 font-semibold text-red-600 border border-red-600 rounded-lg hover:bg-red-50">
-                                    Eliminar
-                                </button>
-                            </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div v-for="p in myProducts" :key="p.id"
+                        class="border border-gray-200 rounded-lg overflow-hidden">
+                        <img :src="p.image || 'https://placehold.co/600x400?text=Producto'" class="w-full h-28 object-cover" />
+                        <div class="p-3">
+                            <p class="font-semibold text-gray-800 truncate">{{ p.name }}</p>
+                            <p class="text-xs text-gray-600 truncate">${{ formatPrice(p.price) }} · {{ p.unit || 'unidad' }}</p>
+                            <RouterLink :to="`/productos/${p.id}`" class="text-xs text-sky-600 hover:underline">Ver</RouterLink>
                         </div>
                     </div>
                 </div>

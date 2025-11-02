@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { createUserProfile, getUserProfileById, updateUserProfile } from './user-profiles'
+import { getUserProfileById, updateUserProfile } from './user-profiles'
 
 // Estado local del usuario (inicialmente vacío)
 let user = {
@@ -48,103 +48,54 @@ async function fetchFullProfile() {
 
 
 export async function register(email, password, userData = {}) {
-    try {
-        // MODO MOCK: Simular registro sin tocar Supabase
-        const mockUserId = 'mock-user-' + Date.now()
-        const username = userData.name && userData.lastName
-            ? `${userData.name} ${userData.lastName}`
-            : email.split('@')[0]
+    const firstName = userData.name || ''
+    const lastName = userData.lastName || ''
+    const location = userData.city && userData.province ? `${userData.city}, ${userData.province}` : ''
+    const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { first_name: firstName, last_name: lastName } }
+    })
+    if (error) throw new Error(error.message)
 
-        // Simular usuario registrado exitosamente
-        setUser({
-            id: mockUserId,
-            email: email,
-            username: username,
-            bio: '',
-            avatar_url: null,
-            location: userData.city && userData.province
-                ? `${userData.city}, ${userData.province}`
-                : '',
-            verified: false,
-        })
-
-        // Simular un pequeño delay como si fuera una llamada real
-        await new Promise(resolve => setTimeout(resolve, 500))
-
-        // TODO: Cuando quieras conectar con Supabase, descomenta este código:
-        /*
-        const { data, error } = await supabase.auth.signUp({ email, password })
-
-        if (error) {
-            throw new Error(error.message)
-        }
-
-        await createUserProfile({
-            id: data.user.id,
-            email: data.user.email,
-            username: username,
-            bio: '',
-            avatar_url: null,
-            favorite_genres: '',
-            favorite_directors: '',
-            location: userData.city && userData.province
-                ? `${userData.city}, ${userData.province}`
-                : '',
-            verified: false,
-        })
-
-        setUser({
-            id: data.user.id,
-            email: data.user.email,
-            username: username,
-        })
-        */
-    } catch (error) {
-        throw error
+    // Si no hay sesión (confirmación por email deshabilitada?), intentar login directo
+    let userId = data.user?.id
+    if (!userId) {
+        const { data: si, error: siErr } = await supabase.auth.signInWithPassword({ email, password })
+        if (siErr) throw new Error(siErr.message)
+        userId = si.user.id
     }
+
+    // Actualizar perfil (opcional) con ubicación pública
+    if (location) {
+        await supabase.from('user_profiles').update({ location }).eq('user_id', userId)
+    }
+
+    // Subir avatar opcional
+    if (userData.avatarFile instanceof File) {
+        const arrayBuffer = await userData.avatarFile.arrayBuffer()
+        const bytes = new Uint8Array(arrayBuffer)
+        const storagePath = `${userId}/avatar.png`
+        const { error: upErr } = await supabase.storage.from('avatars').upload(storagePath, bytes, {
+            contentType: userData.avatarFile.type || 'image/png', upsert: true,
+        })
+        if (!upErr) {
+            await supabase.from('user_profiles').update({ avatar: storagePath }).eq('user_id', userId)
+        }
+    }
+
+    setUser({ id: userId, email, username: `${firstName} ${lastName}`.trim() })
 }
 
 export async function login(email, password) {
-    // MODO MOCK: Simular login sin tocar Supabase
-    const mockUserId = 'mock-user-' + Date.now()
-
-    setUser({
-        id: mockUserId,
-        email: email,
-        username: email.split('@')[0],
-        bio: '',
-        avatar_url: null,
-        location: 'CABA, Buenos Aires',
-        verified: false,
-    })
-
-    // Simular un pequeño delay como si fuera una llamada real
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    // TODO: Cuando quieras conectar con Supabase, descomenta este código:
-    /*
-    const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-    })
-
-    if (error) {
-        throw new Error(error.message)
-    }
-
-    setUser({
-        id: data.user.id,
-        email: data.user.email,
-    })
-
-    fetchFullProfile()
-    */
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) throw new Error(error.message)
+    setUser({ id: data.user.id, email: data.user.email })
+    try { await fetchFullProfile() } catch {}
 }
 
 export async function logout() {
-    // MODO MOCK: No necesitamos llamar a Supabase
-    // await supabase.auth.signOut()
-
+    await supabase.auth.signOut()
     setUser({
         id: null,
         email: null,

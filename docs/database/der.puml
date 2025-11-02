@@ -16,8 +16,8 @@ package "Usuarios & Roles" #E8F0FE {
   entity "users" as users {
     + id : UUID <<PK>>           ' FK -> auth.users.id
     --
-    first_name : TEXT
-    last_name  : TEXT
+    first_name : TEXT NOT NULL
+    last_name  : TEXT NOT NULL
     email      : TEXT <<UNIQUE>>
     photo_url  : TEXT
     is_active  : BOOLEAN = TRUE
@@ -78,6 +78,16 @@ package "Usuarios & Roles" #E8F0FE {
   ' perfil opcional desde users; user_profiles requiere user (FK obligatoria)
   users ||--o| user_profiles
 
+  ' Public view for lightweight profile reads
+  entity "public_user_profiles (VIEW)" as public_user_profiles {
+    id : UUID
+    first_name : TEXT
+    last_name : TEXT
+    avatar_url : TEXT
+  }
+  users ||.. public_user_profiles
+  user_profiles ||.. public_user_profiles
+
 }
 
 '' Sección Perfiles & Direcciones movida dentro de "Usuarios & Roles"
@@ -128,7 +138,7 @@ package "Productos & Catálogos" #F0F5FF {
     owner_user_id : UUID <<FK>>     ' -> user_sellers.user_id
     name : TEXT NOT NULL
     description : TEXT
-    product_type : ENUM(product_type) NOT NULL  ' PROSTHESIS | SIMPLE | PLASTER_SERVICE | RENTAL
+    product_type : ENUM(product_type) NOT NULL  ' PROSTHESIS | SUPPLY | PLASTER_SERVICE | RENTAL
     is_active : BOOLEAN = TRUE
     created_at : TIMESTAMPTZ = now()
     weight_kg : NUMERIC(12,3)
@@ -207,8 +217,8 @@ package "Productos & Catálogos" #F0F5FF {
     tooth_groups ||--o{ product_prices
   }
 
-  package "Productos: Simple Material" #FFF7E6 {
-    entity "simple_material_products" as simple_material_products {
+  package "Productos: Supply" #FFF7E6 {
+    entity "supply_products" as supply_products {
       + product_id : UUID <<PK, FK>>
       --
       sku : TEXT <<UNIQUE>>
@@ -216,7 +226,7 @@ package "Productos & Catálogos" #F0F5FF {
       unit_label : TEXT NOT NULL
       stock_qty : NUMERIC(12,3)
     }
-    products ||--o| simple_material_products
+    products ||--o| supply_products
   }
 
   package "Productos: Plaster Service" #F3E8FF {

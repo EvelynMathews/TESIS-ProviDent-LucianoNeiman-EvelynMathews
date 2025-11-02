@@ -2,7 +2,7 @@
 import { subscribeToAuthStateChanges } from '../services/auth'
 import ProductCard from '../components/ProductCard.vue'
 import CategoryIcon from '../components/CategoryIcon.vue'
-import { products, categories } from '../data/mockProducts'
+import { listActiveProducts } from '../services/products'
 
 export default {
     name: 'Products',
@@ -28,23 +28,17 @@ export default {
         }
     },
     methods: {
-        loadMockData() {
-            this.loading = true
-            setTimeout(() => {
-                this.products = products
-                this.filteredProducts = products
-                this.categories = categories
+        async loadProducts() {
+            try {
+                this.loading = true
+                const items = await listActiveProducts()
+                this.products = items
+                this.filteredProducts = items
+            } catch (e) {
+                console.error('Failed loading products:', e?.message || e)
+            } finally {
                 this.loading = false
-
-                const urlParams = new URLSearchParams(window.location.search)
-                const categorySlug = urlParams.get('categoria')
-                if (categorySlug) {
-                    const category = categories.find(c => c.slug === categorySlug)
-                    if (category) {
-                        this.filterByCategory(category.id)
-                    }
-                }
-            }, 500)
+            }
         },
         filterByCategory(categoryId) {
             if (this.selectedCategory === categoryId) {
@@ -65,10 +59,8 @@ export default {
 
             const query = this.searchQuery.toLowerCase()
             this.filteredProducts = this.products.filter(p =>
-                p.name.toLowerCase().includes(query) ||
-                p.brand?.toLowerCase().includes(query) ||
-                p.category.toLowerCase().includes(query) ||
-                p.description.toLowerCase().includes(query)
+                p.name?.toLowerCase().includes(query) ||
+                p.description?.toLowerCase().includes(query)
             )
 
             if (this.selectedCategory) {
@@ -102,7 +94,7 @@ export default {
         subscribeToAuthStateChanges(newUserState => {
             this.user = newUserState
         })
-        this.loadMockData()
+        this.loadProducts()
     }
 }
 </script>

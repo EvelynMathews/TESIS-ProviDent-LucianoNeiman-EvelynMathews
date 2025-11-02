@@ -6,19 +6,16 @@ export default {
     data() {
         return {
             currentStep: 1,
-            totalSteps: 4,
+            totalSteps: 2,
             user: {
                 email: '',
                 password: '',
                 confirmPassword: '',
                 name: '',
                 lastName: '',
-                phone: '',
-                street: '',
-                city: '',
-                province: '',
-                postalCode: '',
-                country: 'Argentina'
+                avatarFile: null,
+                // Removed: phone/address fields not required at registration
+                avatarFile: null
             },
             loading: false,
             errorMessage: '',
@@ -34,11 +31,7 @@ export default {
                     return this.user.email && this.user.password && this.user.confirmPassword &&
                            this.user.password === this.user.confirmPassword && this.user.password.length >= 6
                 case 2:
-                    return this.user.name && this.user.lastName && this.user.phone
-                case 3:
-                    return this.user.street && this.user.city && this.user.province && this.user.postalCode
-                case 4:
-                    return true
+                    return this.user.name && this.user.lastName
                 default:
                     return false
             }
@@ -69,12 +62,7 @@ export default {
                 await register(this.user.email, this.user.password, {
                     name: this.user.name,
                     lastName: this.user.lastName,
-                    phone: this.user.phone,
-                    street: this.user.street,
-                    city: this.user.city,
-                    province: this.user.province,
-                    postalCode: this.user.postalCode,
-                    country: this.user.country
+                    avatarFile: this.user.avatarFile,
                 })
                 this.$router.push('/mi-perfil')
             } catch (error) {
@@ -84,6 +72,10 @@ export default {
                 this.loading = false
             }
         },
+        onAvatarChange(e) {
+            const file = e.target.files?.[0]
+            this.user.avatarFile = file || null
+        }
     },
 }
 </script>
@@ -199,17 +191,16 @@ export default {
                         </div>
 
                         <div>
-                            <label for="phone" class="block text-sm font-semibold text-gray-700 mb-2">
-                                Teléfono *
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Avatar (opcional)
                             </label>
-                            <input type="tel" id="phone" v-model="user.phone" required
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                style="focus:ring-color: #29A68C;"
-                                placeholder="+54 11 1234-5678" />
+                            <input type="file" accept="image/*" @change="onAvatarChange" />
                         </div>
+
+                        <div v-if="false"></div>
                     </div>
 
-                    <div v-if="currentStep === 3" class="space-y-6">
+            <div v-if="false" class="space-y-6">
                         <div class="p-4 rounded-lg" style="background-color: #F8E8E2;">
                             <h2 class="font-heading text-xl font-bold mb-2" style="color: #DC8C73;">Paso 3: Dirección</h2>
                             <p class="text-sm text-gray-600">¿Dónde te encontrás?</p>

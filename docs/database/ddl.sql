@@ -315,6 +315,15 @@ CREATE TABLE public.simple_material_products (
                                                  CONSTRAINT simple_material_products_pkey PRIMARY KEY (product_id),
                                                  CONSTRAINT simple_material_products_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
 );
+CREATE TABLE public.supply_products (
+                                        product_id uuid NOT NULL,
+                                        sku text UNIQUE,
+                                        unit_price numeric NOT NULL,
+                                        unit_label text NOT NULL,
+                                        stock_qty numeric,
+                                        CONSTRAINT supply_products_pkey PRIMARY KEY (product_id),
+                                        CONSTRAINT supply_products_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
+);
 CREATE TABLE public.teeth (
                               id uuid NOT NULL DEFAULT gen_random_uuid(),
                               fdi_code integer NOT NULL UNIQUE,
@@ -366,8 +375,8 @@ CREATE TABLE public.user_sellers (
 );
 CREATE TABLE public.users (
                               id uuid NOT NULL,
-                              first_name text,
-                              last_name text,
+                              first_name text NOT NULL,
+                              last_name text NOT NULL,
                               email text UNIQUE,
                               photo_url text,
                               is_active boolean DEFAULT true,

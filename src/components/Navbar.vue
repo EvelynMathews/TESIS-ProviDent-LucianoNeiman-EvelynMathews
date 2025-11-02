@@ -1,5 +1,6 @@
 <script>
 import { logout, subscribeToAuthStateChanges } from '../services/auth';
+import { isCurrentUserSeller } from '../services/sellers';
 import { getCartCount } from '../services/cart';
 
 export default {
@@ -13,6 +14,7 @@ export default {
                 avatar_url: null,
             },
             mobileMenuOpen: false,
+            isSeller: false,
         };
     },
     computed: {
@@ -25,13 +27,25 @@ export default {
             logout();
             this.$router.push('/login');
         },
+        async refreshSeller() {
+            this.isSeller = this.user?.id ? await isCurrentUserSeller() : false;
+        },
         toggleMobileMenu() {
             this.mobileMenuOpen = !this.mobileMenuOpen;
         },
     },
     mounted() {
-        subscribeToAuthStateChanges(newUserState => this.user = newUserState);
+        subscribeToAuthStateChanges(async (newUserState) => {
+            this.user = newUserState;
+            await this.refreshSeller();
+        });
+        try {
+            window.addEventListener('seller:changed', this.refreshSeller);
+        } catch {}
     },
+    beforeUnmount() {
+        try { window.removeEventListener('seller:changed', this.refreshSeller); } catch {}
+    }
 };
 </script>
 
@@ -75,6 +89,11 @@ export default {
 
                 <div class="hidden md:flex items-center gap-4">
                     <template v-if="user.id === null">
+                        <RouterLink to="/productos"
+                            class="px-4 py-2 text-gray-700 font-medium hover:text-sky-600 transition"
+                            active-class="text-sky-600">
+                            Productos
+                        </RouterLink>
                         <RouterLink to="/login"
                             class="px-4 py-2 text-gray-700 font-medium hover:text-sky-600 transition">
                             Ingresar
@@ -86,6 +105,16 @@ export default {
                     </template>
 
                     <template v-else>
+                        <RouterLink to="/productos"
+                            class="px-4 py-2 text-gray-700 font-medium hover:text-sky-600 transition"
+                            active-class="text-sky-600">
+                            Productos
+                        </RouterLink>
+                        <RouterLink v-if="isSeller" to="/mis-productos"
+                            class="px-4 py-2 text-gray-700 font-medium hover:text-sky-600 transition"
+                            active-class="text-sky-600">
+                            Mis Productos
+                        </RouterLink>
                         <RouterLink to="/chat"
                             class="px-4 py-2 text-gray-700 font-medium hover:text-sky-600 transition"
                             active-class="text-sky-600">
@@ -148,6 +177,13 @@ export default {
 
                     <template v-else>
                         <li>
+                            <RouterLink v-if="isSeller" to="/mis-productos" @click="mobileMenuOpen = false"
+                                class="block py-2 px-3 text-gray-700 rounded hover:bg-gray-100 transition"
+                                active-class="text-sky-600 bg-sky-50">
+                                Mis Productos
+                            </RouterLink>
+                        </li>
+                        <li>
                             <RouterLink to="/chat" @click="mobileMenuOpen = false"
                                 class="block py-2 px-3 text-gray-700 rounded hover:bg-gray-100 transition"
                                 active-class="text-sky-600 bg-sky-50">
@@ -162,7 +198,7 @@ export default {
                             </RouterLink>
                         </li>
                         <li>
-                            <button @click="handleLogout; mobileMenuOpen = false"
+                            <button @click="() => { handleLogout(); mobileMenuOpen = false }"
                                 class="block w-full py-2 px-3 border border-gray-300 rounded text-gray-700 font-semibold hover:bg-gray-100 transition text-center">
                                 Cerrar sesión
                             </button>
