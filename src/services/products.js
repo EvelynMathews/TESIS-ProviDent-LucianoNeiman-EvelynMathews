@@ -154,12 +154,12 @@ export async function getProductById(id) {
   }
 }
 
-export async function listShippingProfiles() {
+export async function listShippingMethods() {
   const { data: me } = await supabase.auth.getUser()
   const uid = me?.user?.id
   if (!uid) return []
   const { data, error } = await supabase
-    .from('shipping_profiles')
+    .from('shipping_methods')
     .select('id, name, active')
     .eq('seller_user_id', uid)
     .order('name', { ascending: true })
@@ -167,9 +167,9 @@ export async function listShippingProfiles() {
   return data || []
 }
 
-export async function getShippingProfileById(id) {
+export async function getShippingMethodById(id) {
   const { data, error } = await supabase
-    .from('shipping_profiles')
+    .from('shipping_methods')
     .select('id, name, active, volume_min_cm3, volume_max_cm3')
     .eq('id', id)
     .single()
@@ -177,13 +177,13 @@ export async function getShippingProfileById(id) {
   return data
 }
 
-export async function createShippingProfile(name, active = true, extraFields = {}) {
+export async function createShippingMethod(name, active = true, extraFields = {}) {
   const { data: me } = await supabase.auth.getUser()
   const uid = me?.user?.id
   if (!uid) throw new Error('No auth user')
   const insert = { seller_user_id: uid, name, active, ...extraFields }
   const { data, error } = await supabase
-    .from('shipping_profiles')
+    .from('shipping_methods')
     .insert(insert)
     .select('id')
     .single()
@@ -191,28 +191,28 @@ export async function createShippingProfile(name, active = true, extraFields = {
   return data.id
 }
 
-export async function linkProductShippingProfile(productId, profileId) {
+export async function linkProductShippingMethod(productId, methodId) {
   const { error } = await supabase
-    .from('product_shipping_profiles')
-    .insert({ product_id: productId, profile_id: profileId })
+    .from('product_shipping_methods')
+    .insert({ product_id: productId, method_id: methodId })
   if (error) throw error
   return true
 }
 
-export async function updateShippingProfile(id, fields) {
+export async function updateShippingMethod(id, fields) {
   const { error } = await supabase
-    .from('shipping_profiles')
+    .from('shipping_methods')
     .update(fields)
     .eq('id', id)
   if (error) throw error
   return true
 }
 
-export async function countShippingProfileUsage(profileId) {
+export async function countShippingMethodUsage(methodId) {
   const { count, error } = await supabase
-    .from('product_shipping_profiles')
+    .from('product_shipping_methods')
     .select('product_id', { count: 'exact', head: true })
-    .eq('profile_id', profileId)
+    .eq('method_id', methodId)
   if (error) throw error
   return count || 0
 }
@@ -235,11 +235,11 @@ export async function deleteProductById(id) {
   return true
 }
 
-export async function pauseProductsByShippingProfile(profileId) {
+export async function pauseProductsByShippingMethod(methodId) {
   const idsRes = await supabase
-    .from('product_shipping_profiles')
+    .from('product_shipping_methods')
     .select('product_id')
-    .eq('profile_id', profileId)
+    .eq('method_id', methodId)
   if (idsRes.error) throw idsRes.error
   const ids = (idsRes.data || []).map(r => r.product_id)
   if (!ids.length) return 0
@@ -260,18 +260,18 @@ export async function listProvinces() {
   return data || []
 }
 
-export async function listShippingZones(profileId) {
+export async function listShippingZones(methodId) {
   const { data, error } = await supabase
     .from('shipping_zones')
     .select('id, zone_name, province_id, postal_code_min, postal_code_max')
-    .eq('profile_id', profileId)
+    .eq('method_id', methodId)
     .order('zone_name', { ascending: true })
   if (error) throw error
   return data || []
 }
 
-export async function createShippingZone(profileId, zone) {
-  const payload = { ...zone, profile_id: profileId }
+export async function createShippingZone(methodId, zone) {
+  const payload = { ...zone, method_id: methodId }
   const { error } = await supabase.from('shipping_zones').insert(payload)
   if (error) throw error
   return true
@@ -289,18 +289,18 @@ export async function deleteShippingZone(id) {
   return true
 }
 
-export async function listShippingRates(profileId) {
-  const { data, error } = await supabase
+export async function listShippingRates(methodId) {
+  const { data, error} = await supabase
     .from('shipping_rates')
-    .select('id, zone_id, carrier, service, price, weight_min, weight_max, volume_min_cm3, volume_max_cm3, eta_days, active')
-    .eq('profile_id', profileId)
+    .select('id, zone_id, price, weight_min, weight_max, volume_min_cm3, volume_max_cm3, eta_days, active')
+    .eq('method_id', methodId)
     .order('price', { ascending: true })
   if (error) throw error
   return data || []
 }
 
-export async function createShippingRate(profileId, rate) {
-  const payload = { ...rate, profile_id: profileId }
+export async function createShippingRate(methodId, rate) {
+  const payload = { ...rate, method_id: methodId }
   const { error } = await supabase.from('shipping_rates').insert(payload)
   if (error) throw error
   return true
@@ -318,9 +318,13 @@ export async function deleteShippingRate(id) {
   return true
 }
 
-export async function createSupplyProduct({ name, description, unit_price, unit_label, stock_qty, sku, imageFile, shipping_profile_id }) {
+export async function createSupplyProduct({ name, description, unit_price, unit_label, stock_qty, sku, imageFile, shipping_method_id }) {
   const { data: me, error: uerr } = await supabase.auth.getUser()
   if (uerr || !me?.user?.id) throw new Error('No auth user')
+
+  if (!shipping_method_id) {
+    throw new Error('SHIPPING_METHOD_REQUIRED')
+  }
 
   const insert = {
     name,
@@ -353,10 +357,7 @@ export async function createSupplyProduct({ name, description, unit_price, unit_
       .insert({ product_id: prod.id, path: storagePath, alt_text: name, position: 1, is_primary: true })
     if (piErr) throw piErr
   }
-  if (!shipping_profile_id) {
-    throw new Error('SHIPPING_PROFILE_REQUIRED')
-  }
-  await linkProductShippingProfile(prod.id, shipping_profile_id)
+  await linkProductShippingMethod(prod.id, shipping_method_id)
 }
 
 export async function createProsthesisProduct({ name, description, imageFile }) {
@@ -376,9 +377,9 @@ export async function createProsthesisProduct({ name, description, imageFile }) 
     const ext = type.includes('jpeg') ? 'jpg' : type.split('/')[1] || 'png'
     const storagePath = `${me.user.id}/${prod.id}.${ext}`
     const { error: upErr } = await supabase.storage.from('product-images').upload(storagePath, imageFile, { contentType: type, upsert: true })
-    if (!upErr) {
-      await supabase.from('product_images').insert({ product_id: prod.id, path: storagePath, alt_text: name, position: 1, is_primary: true })
-    }
+    if (upErr) throw upErr
+    const { error: piErr } = await supabase.from('product_images').insert({ product_id: prod.id, path: storagePath, alt_text: name, position: 1, is_primary: true })
+    if (piErr) throw piErr
   }
   return prod.id
 }
@@ -402,9 +403,9 @@ export async function createPlasterServiceProduct({ name, description, base_pric
     const ext = type.includes('jpeg') ? 'jpg' : type.split('/')[1] || 'png'
     const storagePath = `${me.user.id}/${prod.id}.${ext}`
     const { error: upErr } = await supabase.storage.from('product-images').upload(storagePath, imageFile, { contentType: type, upsert: true })
-    if (!upErr) {
-      await supabase.from('product_images').insert({ product_id: prod.id, path: storagePath, alt_text: name, position: 1, is_primary: true })
-    }
+    if (upErr) throw upErr
+    const { error: piErr } = await supabase.from('product_images').insert({ product_id: prod.id, path: storagePath, alt_text: name, position: 1, is_primary: true })
+    if (piErr) throw piErr
   }
   return prod.id
 }
@@ -436,9 +437,9 @@ export async function createRentalProduct({ name, description, stock_qty, priceD
     const ext = type.includes('jpeg') ? 'jpg' : type.split('/')[1] || 'png'
     const storagePath = `${me.user.id}/${prod.id}.${ext}`
     const { error: upErr } = await supabase.storage.from('product-images').upload(storagePath, imageFile, { contentType: type, upsert: true })
-    if (!upErr) {
-      await supabase.from('product_images').insert({ product_id: prod.id, path: storagePath, alt_text: name, position: 1, is_primary: true })
-    }
+    if (upErr) throw upErr
+    const { error: piErr } = await supabase.from('product_images').insert({ product_id: prod.id, path: storagePath, alt_text: name, position: 1, is_primary: true })
+    if (piErr) throw piErr
   }
   return prod.id
 }

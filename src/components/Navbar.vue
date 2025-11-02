@@ -118,7 +118,7 @@ export default {
                         <RouterLink v-if="isSeller" to="/seller-setup"
                             class="px-4 py-2 text-gray-700 font-medium hover:text-sky-600 transition"
                             active-class="text-sky-600">
-                            Perfiles de envío
+                            Métodos de envío
                         </RouterLink>
                         <RouterLink to="/chat"
                             class="px-4 py-2 text-gray-700 font-medium hover:text-sky-600 transition"
@@ -206,7 +206,7 @@ export default {
                             <RouterLink to="/seller-setup" @click="mobileMenuOpen = false"
                                 class="block py-2 px-3 text-gray-700 rounded hover:bg-gray-100 transition"
                                 active-class="text-sky-600 bg-sky-50">
-                                Perfiles de envío
+                                Métodos de envío
                             </RouterLink>
                         </li>
                         <li>

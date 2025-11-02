@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { subscribeToAuthStateChanges } from "../services/auth";
+import { supabase } from "../services/supabase";
 import Home from "../pages/Home.vue";
 import Login from "../pages/Login.vue";
 import Register from "../pages/Register.vue";
@@ -14,7 +15,7 @@ import Cart from "../pages/Cart.vue";
 import Publish from "../pages/Publish.vue";
 import MyProducts from "../pages/MyProducts.vue";
 import SellerSetup from "../pages/SellerSetup.vue";
-import ShippingProfileEdit from "../pages/ShippingProfileEdit.vue";
+import ShippingMethodEdit from "../pages/ShippingMethodEdit.vue";
 
 const routes = [
     { path: '/',                        name: 'Home',                       component: Home },
@@ -31,7 +32,7 @@ const routes = [
     { path: '/publicar',                name: 'Publish',                    component: Publish,               meta: { requiresAuth: true, }, },
     { path: '/mis-productos',           name: 'MyProducts',                 component: MyProducts,            meta: { requiresAuth: true, }, },
     { path: '/seller-setup',            name: 'SellerSetup',                component: SellerSetup,           meta: { requiresAuth: true, }, },
-    { path: '/perfiles-envio/:id',      name: 'ShippingProfileEdit',        component: ShippingProfileEdit,   meta: { requiresAuth: true, }, },
+    { path: '/metodos-envio/:id',       name: 'ShippingMethodEdit',         component: ShippingMethodEdit,    meta: { requiresAuth: true, }, },
 ];
 
 
@@ -40,17 +41,12 @@ const router = createRouter({
     routes,
 });
 
-
-let user = {
-    id: null,
-    email: null,
-}
-subscribeToAuthStateChanges(newUserState => user = newUserState);
-
-
-router.beforeEach((to, from) => {
-    if (to.meta.requiresAuth && user.id === null) {
-        return '/login';
+router.beforeEach(async (to, from) => {
+    if (to.meta.requiresAuth) {
+        const { data } = await supabase.auth.getSession();
+        if (!data?.session?.user) {
+            return '/login';
+        }
     }
 });
 

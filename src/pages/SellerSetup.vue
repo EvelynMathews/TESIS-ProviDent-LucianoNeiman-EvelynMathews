@@ -1,5 +1,5 @@
 <script>
-import { listShippingProfiles, createShippingProfile, updateShippingProfile, countShippingProfileUsage } from '../services/products'
+import { listShippingMethods, createShippingMethod, updateShippingMethod, countShippingMethodUsage } from '../services/products'
 import { isCurrentUserSeller, grantSellerSelf, hasPaymentAccount, connectDummyPaymentAccount } from '../services/sellers'
 
 export default {
@@ -10,7 +10,7 @@ export default {
       checking: false,
       isSeller: false,
       hasPayment: false,
-      profiles: [],
+      methods: [],
       newName: '',
       message: '',
       editingId: null,
@@ -30,7 +30,7 @@ export default {
     async load() {
       try {
         this.loading = true
-        this.profiles = await listShippingProfiles()
+        this.methods = await listShippingMethods()
       } finally { this.loading = false }
     },
     async activateSeller() {
@@ -49,52 +49,52 @@ export default {
         this.message = 'No se pudo asociar el método de cobro'
       }
     },
-    async createProfile() {
-      if (!this.newName.trim()) { this.message = 'Ingresá un nombre para el perfil'; return }
+    async createMethod() {
+      if (!this.newName.trim()) { this.message = 'Ingresá un nombre para el método'; return }
       try {
-        const newId = await createShippingProfile(this.newName.trim(), true)
+        const newId = await createShippingMethod(this.newName.trim(), true)
         this.newName = ''
         await this.load()
-        this.$router.push(`/perfiles-envio/${newId}`)
-        this.message = 'Perfil creado. Ya podés publicar productos.'
+        this.$router.push(`/metodos-envio/${newId}`)
+        this.message = 'Método creado. Ya podés publicar productos.'
       } catch (e) {
-        this.message = 'No se pudo crear el perfil'
+        this.message = 'No se pudo crear el método'
       }
     },
-    startEdit(p) {
-      this.editingId = p.id
-      this.editingName = p.name
+    startEdit(m) {
+      this.editingId = m.id
+      this.editingName = m.name
     },
-    async saveEdit(p) {
+    async saveEdit(m) {
       if (!this.editingName.trim()) { this.message = 'Ingresá un nombre válido'; return }
       try {
-        await updateShippingProfile(p.id, { name: this.editingName.trim() })
+        await updateShippingMethod(m.id, { name: this.editingName.trim() })
         this.editingId = null
         this.editingName = ''
         await this.load()
-        this.message = 'Perfil actualizado'
+        this.message = 'Método actualizado'
       } catch { this.message = 'No se pudo actualizar' }
     },
     cancelEdit() { this.editingId = null; this.editingName = '' },
-    async toggleActive(p) {
-      if (p.active) {
+    async toggleActive(m) {
+      if (m.active) {
         // request deactivate: warn if used
-        const used = await countShippingProfileUsage(p.id)
+        const used = await countShippingMethodUsage(m.id)
         if (used > 0) {
-          this.warnDisableId = p.id
+          this.warnDisableId = m.id
           this.warnDisableCount = used
           return
         }
-        await updateShippingProfile(p.id, { active: false })
+        await updateShippingMethod(m.id, { active: false })
         await this.load()
       } else {
-        await updateShippingProfile(p.id, { active: true })
+        await updateShippingMethod(m.id, { active: true })
         await this.load()
       }
     },
     async confirmDisable() {
       if (!this.warnDisableId) return
-      await updateShippingProfile(this.warnDisableId, { active: false })
+      await updateShippingMethod(this.warnDisableId, { active: false })
       this.warnDisableId = null
       this.warnDisableCount = 0
       await this.load()
@@ -145,38 +145,38 @@ export default {
             Para configurar envíos primero activá tu cuenta de vendedor y asociá un método de cobro.
           </div>
 
-          <div v-if="profiles.length === 0" class="mb-6">
-            <p class="text-gray-700 mb-3">Aún no tenés perfiles de envío.</p>
+          <div v-if="methods.length === 0" class="mb-6">
+            <p class="text-gray-700 mb-3">Aún no tenés métodos de envío.</p>
             <div class="flex gap-2">
-              <input v-model="newName" type="text" placeholder="Nombre del perfil (ej: Envío estándar)"
+              <input v-model="newName" type="text" placeholder="Nombre del método (ej: Envío estándar)"
                      class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500" />
-              <button @click="createProfile" :disabled="!(isSeller && hasPayment)"
+              <button @click="createMethod" :disabled="!(isSeller && hasPayment)"
                       class="px-4 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700">Crear</button>
             </div>
           </div>
 
           <div v-else class="mb-6">
-            <h2 class="font-semibold text-gray-800 mb-3">Tus perfiles de envío</h2>
+            <h2 class="font-semibold text-gray-800 mb-3">Tus métodos de envío</h2>
             <div class="space-y-3">
-              <div v-for="p in profiles" :key="p.id" class="p-3 border rounded">
+              <div v-for="m in methods" :key="m.id" class="p-3 border rounded">
                 <div class="flex items-center justify-between">
                   <div class="flex items-center gap-3">
-                    <span :class="p.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'" class="text-xs px-2 py-1 rounded-full">{{ p.active ? 'Activo' : 'Pausado' }}</span>
-                    <span v-if="editingId !== p.id" class="font-semibold text-gray-800">{{ p.name }}</span>
+                    <span :class="m.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'" class="text-xs px-2 py-1 rounded-full">{{ m.active ? 'Activo' : 'Pausado' }}</span>
+                    <span v-if="editingId !== m.id" class="font-semibold text-gray-800">{{ m.name }}</span>
                     <input v-else v-model="editingName" class="px-2 py-1 border rounded" />
                   </div>
                   <div class="flex items-center gap-2">
-                    <button v-if="editingId !== p.id" @click="startEdit(p)" class="text-sky-600 text-sm hover:underline">Editar</button>
-                    <button v-else @click="saveEdit(p)" class="text-emerald-600 text-sm hover:underline">Guardar</button>
-                    <button v-if="editingId === p.id" @click="cancelEdit" class="text-gray-600 text-sm hover:underline">Cancelar</button>
-                    <router-link :to="`/perfiles-envio/${p.id}`" class="text-sm px-2 py-1 rounded border border-sky-600 text-sky-700 hover:bg-sky-50">Configurar</router-link>
-                    <button @click="toggleActive(p)" class="text-sm px-2 py-1 rounded border" :class="p.active ? 'border-red-600 text-red-600 hover:bg-red-50' : 'border-emerald-600 text-emerald-600 hover:bg-emerald-50'">
-                      {{ p.active ? 'Desactivar' : 'Activar' }}
+                    <button v-if="editingId !== m.id" @click="startEdit(m)" class="text-sky-600 text-sm hover:underline">Editar</button>
+                    <button v-else @click="saveEdit(m)" class="text-emerald-600 text-sm hover:underline">Guardar</button>
+                    <button v-if="editingId === m.id" @click="cancelEdit" class="text-gray-600 text-sm hover:underline">Cancelar</button>
+                    <router-link :to="`/metodos-envio/${m.id}`" class="text-sm px-2 py-1 rounded border border-sky-600 text-sky-700 hover:bg-sky-50">Configurar</router-link>
+                    <button @click="toggleActive(m)" class="text-sm px-2 py-1 rounded border" :class="m.active ? 'border-red-600 text-red-600 hover:bg-red-50' : 'border-emerald-600 text-emerald-600 hover:bg-emerald-50'">
+                      {{ m.active ? 'Desactivar' : 'Activar' }}
                     </button>
                   </div>
                 </div>
-                <div v-if="warnDisableId === p.id" class="mt-2 p-2 rounded bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm flex items-center justify-between">
-                  <span>Este perfil está asociado a {{ warnDisableCount }} producto(s). ¿Desactivar igualmente?</span>
+                <div v-if="warnDisableId === m.id" class="mt-2 p-2 rounded bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm flex items-center justify-between">
+                  <span>Este método está asociado a {{ warnDisableCount }} producto(s). ¿Desactivar igualmente?</span>
                   <div class="flex gap-2">
                     <button @click="confirmDisable" class="px-2 py-1 bg-yellow-600 text-white rounded">Desactivar</button>
                     <button @click="cancelDisable" class="px-2 py-1 border rounded">Cancelar</button>

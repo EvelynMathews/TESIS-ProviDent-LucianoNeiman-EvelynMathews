@@ -1,6 +1,7 @@
 <script>
 import { subscribeToAuthStateChanges } from '../services/auth'
-import { createSupplyProduct, createProsthesisProduct, createPlasterServiceProduct, createRentalProduct, listShippingProfiles, createShippingProfile } from '../services/products'
+import { createSupplyProduct, createProsthesisProduct, createPlasterServiceProduct, createRentalProduct, listShippingMethods, createShippingMethod } from '../services/products'
+import { isCurrentUserSeller } from '../services/sellers'
 
 export default {
     name: 'Publish',
@@ -26,10 +27,10 @@ export default {
                 unitCustom: '',
                 stock: '',
                 sku: '',
-                shippingProfileId: null,
-                newShippingProfileName: ''
+                shippingMethodId: null,
+                newShippingMethodName: ''
             },
-            shippingProfiles: [],
+            shippingMethods: [],
 
             // Service data - Prosthesis
             prosthesisData: {
@@ -37,6 +38,7 @@ export default {
                 description: '',
                 material: '',
                 images: [],
+                imageFile: null,
                 pricingMatrix: {
                     corona_total: { anterior: '', premolar: '', molar: '' },
                     carilla: { anterior: '', premolar: '', molar: '' },
@@ -50,6 +52,8 @@ export default {
             plasterData: {
                 name: '',
                 description: '',
+                images: [],
+                imageFile: null,
                 basePrice: '',
                 deliveryTime: ''
             },
@@ -59,6 +63,7 @@ export default {
                 name: '',
                 description: '',
                 images: [],
+                imageFile: null,
                 stock: '',
                 priceDay: '',
                 priceWeek: '',
@@ -66,7 +71,9 @@ export default {
             },
 
             previewMode: false,
-            published: false
+            published: false,
+            errorMessage: null,
+            showShippingConfig: false
         }
     },
     computed: {
@@ -87,6 +94,11 @@ export default {
         }
     },
     methods: {
+        showError(message) {
+            this.errorMessage = message
+            setTimeout(() => { this.errorMessage = null }, 5000)
+        },
+
         selectPublicationType(type) {
             this.publicationType = type
             if (type === 'product') {
@@ -109,17 +121,21 @@ export default {
                 return this.productData.name && this.productData.description &&
                        this.productData.price && this.productData.stock &&
                        this.productData.images.length > 0 && unitOk &&
-                       (this.productData.shippingProfileId || (this.productData.newShippingProfileName && this.productData.newShippingProfileName.trim().length > 0))
+                       (this.productData.shippingMethodId || (this.productData.newShippingMethodName && this.productData.newShippingMethodName.trim().length > 0))
             }
 
             if (this.serviceType === 'prosthesis') {
+                // Verificar que haya al menos un precio en la matriz
+                const hasPrice = Object.values(this.prosthesisData.pricingMatrix).some(workType =>
+                    Object.values(workType).some(price => price && Number(price) > 0)
+                )
                 return this.prosthesisData.name && this.prosthesisData.description &&
-                       this.prosthesisData.material
+                       this.prosthesisData.material && this.prosthesisData.images.length > 0 && hasPrice
             }
 
             if (this.serviceType === 'plaster') {
                 return this.plasterData.name && this.plasterData.description &&
-                       this.plasterData.basePrice
+                       this.plasterData.basePrice && this.plasterData.images.length > 0
             }
 
             if (this.serviceType === 'rental') {
@@ -128,7 +144,7 @@ export default {
                                           this.rentalData.priceWeek ||
                                           this.rentalData.priceMonth
                 return this.rentalData.name && this.rentalData.description &&
-                       this.rentalData.stock && hasAtLeastOnePrice
+                       this.rentalData.stock && hasAtLeastOnePrice && this.rentalData.images.length > 0
             }
 
             return false
@@ -167,10 +183,11 @@ export default {
             // Limpiar formularios
             this.productData = {
                 name: '', description: '', images: [], imageFile: null,
-                price: '', unit: 'unidad', unitCustom: '', stock: '', sku: ''
+                price: '', unit: 'unidad', unitCustom: '', stock: '', sku: '',
+                shippingMethodId: null, newShippingMethodName: ''
             }
             this.prosthesisData = {
-                name: '', description: '', material: '', images: [],
+                name: '', description: '', material: '', images: [], imageFile: null,
                 pricingMatrix: {
                     corona_total: { anterior: '', premolar: '', molar: '' },
                     carilla: { anterior: '', premolar: '', molar: '' },
@@ -180,11 +197,11 @@ export default {
                 deliveryTime: ''
             }
             this.plasterData = {
-                name: '', description: '', basePrice: '',
+                name: '', description: '', images: [], imageFile: null, basePrice: '',
                 deliveryTime: ''
             }
             this.rentalData = {
-                name: '', description: '', images: [], stock: '',
+                name: '', description: '', images: [], imageFile: null, stock: '',
                 priceDay: '', priceWeek: '', priceMonth: ''
             }
         },
@@ -199,9 +216,17 @@ export default {
                     if (this.productData.images.length === 0) this.productData.images.push(imageUrl)
                     else this.productData.images.splice(0,1,imageUrl)
                 } else if (dataType === 'prosthesis') {
-                    this.prosthesisData.images.push(imageUrl)
+                    this.prosthesisData.imageFile = file
+                    if (this.prosthesisData.images.length === 0) this.prosthesisData.images.push(imageUrl)
+                    else this.prosthesisData.images.splice(0,1,imageUrl)
+                } else if (dataType === 'plaster') {
+                    this.plasterData.imageFile = file
+                    if (this.plasterData.images.length === 0) this.plasterData.images.push(imageUrl)
+                    else this.plasterData.images.splice(0,1,imageUrl)
                 } else if (dataType === 'rental') {
-                    this.rentalData.images.push(imageUrl)
+                    this.rentalData.imageFile = file
+                    if (this.rentalData.images.length === 0) this.rentalData.images.push(imageUrl)
+                    else this.rentalData.images.splice(0,1,imageUrl)
                 }
             }
         },
@@ -211,6 +236,8 @@ export default {
                 this.productData.images.splice(index, 1)
             } else if (dataType === 'prosthesis') {
                 this.prosthesisData.images.splice(index, 1)
+            } else if (dataType === 'plaster') {
+                this.plasterData.images.splice(index, 1)
             } else if (dataType === 'rental') {
                 this.rentalData.images.splice(index, 1)
             }
@@ -222,13 +249,19 @@ export default {
             try {
                 if (this.publicationType === 'product') {
                     const imageFile = this.productData.imageFile || null
-                    if (!imageFile) { alert('Debés agregar al menos una imagen'); return }
-                    const unit_label = this.productData.unit === 'otro' ? (this.productData.unitCustom || '').trim() : this.productData.unit
-                    let profileId = this.productData.shippingProfileId
-                    if (!profileId && this.productData.newShippingProfileName) {
-                        profileId = await createShippingProfile(this.productData.newShippingProfileName.trim(), true)
+                    if (!imageFile) {
+                        this.showError('Debés agregar al menos una imagen')
+                        return
                     }
-                    if (!profileId) { alert('Seleccioná o creá un perfil de envío'); return }
+                    const unit_label = this.productData.unit === 'otro' ? (this.productData.unitCustom || '').trim() : this.productData.unit
+                    let methodId = this.productData.shippingMethodId
+                    if (!methodId && this.productData.newShippingMethodName) {
+                        methodId = await createShippingMethod(this.productData.newShippingMethodName.trim(), true)
+                    }
+                    if (!methodId) {
+                        this.showError('Seleccioná o creá un método de envío')
+                        return
+                    }
                     await createSupplyProduct({
                         name: this.productData.name,
                         description: this.productData.description,
@@ -237,27 +270,38 @@ export default {
                         stock_qty: Number(this.productData.stock) || null,
                         sku: this.productData.sku || null,
                         imageFile,
-                        shipping_profile_id: profileId,
+                        shipping_method_id: methodId,
                     })
                 } else if (this.publicationType === 'service') {
                     if (this.serviceType === 'prosthesis') {
                         const imageFile = this.prosthesisData.imageFile || null
-                        if (!imageFile) { alert('Subí al menos una imagen'); return }
+                        if (!imageFile) {
+                            this.showError('Subí al menos una imagen')
+                            return
+                        }
                         await createProsthesisProduct({
                             name: this.prosthesisData.name,
                             description: this.prosthesisData.description,
                             imageFile,
                         })
                     } else if (this.serviceType === 'plaster') {
+                        const imageFile = this.plasterData.imageFile || null
+                        if (!imageFile) {
+                            this.showError('Subí al menos una imagen')
+                            return
+                        }
                         await createPlasterServiceProduct({
                             name: this.plasterData.name,
                             description: this.plasterData.description,
                             base_price: Number(this.plasterData.basePrice) || 0,
-                            imageFile: null,
+                            imageFile,
                         })
                     } else if (this.serviceType === 'rental') {
                         const imageFile = this.rentalData.imageFile || null
-                        if (!imageFile) { alert('Subí al menos una imagen'); return }
+                        if (!imageFile) {
+                            this.showError('Subí al menos una imagen')
+                            return
+                        }
                         await createRentalProduct({
                             name: this.rentalData.name,
                             description: this.rentalData.description,
@@ -271,84 +315,61 @@ export default {
                 }
                 this.published = true
                 this.currentStep = 4
-                try { sessionStorage.removeItem('publishDraft') } catch {}
             } catch (e) {
-                alert('No se pudo publicar')
+                this.showError('No se pudo publicar. Revisá los datos e intentá nuevamente.')
                 console.error(e)
             }
         },
-        async loadShippingProfiles() {
+        async loadShippingMethods() {
             try {
-                const list = await listShippingProfiles()
-                this.shippingProfiles = list
-                if (list.length && !this.productData.shippingProfileId) {
-                    this.productData.shippingProfileId = list[0].id
+                const list = await listShippingMethods()
+                this.shippingMethods = list
+                if (list.length && !this.productData.shippingMethodId) {
+                    this.productData.shippingMethodId = list[0].id
                 }
-            } catch { this.shippingProfiles = [] }
+            } catch { this.shippingMethods = [] }
         },
 
-        preserveDraft() {
+        async quickCreateShippingMethod() {
+            const name = (this.productData.newShippingMethodName || '').trim()
+            if (!name) {
+                this.showError('Ingresá un nombre para el método de envío')
+                return
+            }
             try {
-                const draft = {
-                    publicationType: this.publicationType,
-                    serviceType: this.serviceType,
-                    currentStep: this.currentStep,
-                    productData: { ...this.productData, imageFile: undefined },
-                    prosthesisData: { ...this.prosthesisData, imageFile: undefined },
-                    plasterData: { ...this.plasterData },
-                    rentalData: { ...this.rentalData, imageFile: undefined },
-                }
-                sessionStorage.setItem('publishDraft', JSON.stringify(draft))
-            } catch {}
-        },
-
-        restoreDraft() {
-            try {
-                const raw = sessionStorage.getItem('publishDraft')
-                if (!raw) return
-                const draft = JSON.parse(raw)
-                this.publicationType = draft.publicationType || this.publicationType
-                this.serviceType = draft.serviceType || this.serviceType
-                this.currentStep = draft.currentStep || this.currentStep
-                if (draft.productData) this.productData = { ...this.productData, ...draft.productData }
-                if (draft.prosthesisData) this.prosthesisData = { ...this.prosthesisData, ...draft.prosthesisData }
-                if (draft.plasterData) this.plasterData = { ...this.plasterData, ...draft.plasterData }
-                if (draft.rentalData) this.rentalData = { ...this.rentalData, ...draft.rentalData }
-            } catch {}
-        },
-
-        async quickCreateShippingProfile() {
-            const name = (this.productData.newShippingProfileName || '').trim()
-            if (!name) { alert('Ingresá un nombre para el perfil de envío'); return }
-            try {
-                const id = await createShippingProfile(name, true)
-                await this.loadShippingProfiles()
-                this.productData.shippingProfileId = id
-                this.productData.newShippingProfileName = ''
-                this.preserveDraft()
-                this.$router.push(`/perfiles-envio/${id}?returnTo=/publicar`)
+                const id = await createShippingMethod(name, true)
+                await this.loadShippingMethods()
+                this.productData.shippingMethodId = id
+                this.productData.newShippingMethodName = ''
+                this.showShippingConfig = true
             } catch (e) {
-                alert('No se pudo crear el perfil de envío')
+                this.showError('No se pudo crear el método de envío')
             }
         },
 
-        configureSelectedProfile() {
-            const id = this.productData.shippingProfileId
-            if (!id) { alert('Seleccioná un perfil de envío'); return }
-            this.preserveDraft()
-            this.$router.push(`/perfiles-envio/${id}?returnTo=/publicar`)
+        toggleShippingConfig() {
+            const id = this.productData.shippingMethodId
+            if (!id) {
+                this.showError('Seleccioná un método de envío primero')
+                return
+            }
+            this.showShippingConfig = !this.showShippingConfig
         },
 
         formatPrice(price) {
             return new Intl.NumberFormat('es-AR').format(price)
         }
     },
-    mounted() {
+    async mounted() {
         subscribeToAuthStateChanges(newUserState => {
             this.user = newUserState
         })
-        this.restoreDraft()
-        this.loadShippingProfiles()
+        const isSeller = await isCurrentUserSeller()
+        if (!isSeller) {
+            this.$router.push('/seller-setup')
+            return
+        }
+        this.loadShippingMethods()
     }
 }
 </script>
@@ -360,6 +381,16 @@ export default {
             <div v-if="!published" class="mb-8">
                 <h1 class="font-heading text-3xl font-bold text-gray-800 mb-2">Publicar en ProviDent</h1>
                 <p class="text-gray-600">Seguí los pasos para crear tu publicación</p>
+            </div>
+
+            <!-- Error Message -->
+            <div v-if="errorMessage" class="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
+                <div class="flex items-start">
+                    <svg class="w-5 h-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                    </svg>
+                    <p class="text-sm text-red-800 font-medium">{{ errorMessage }}</p>
+                </div>
             </div>
 
             <!-- Progress Bar -->
@@ -634,37 +665,59 @@ export default {
                             placeholder="Ej: CABA, Buenos Aires" />
                     </div>
 
-                    <!-- Shipping profile selection/creation -->
+                    <!-- Shipping method selection/creation -->
                     <div class="mt-6">
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            🚚 Perfil de envío para este producto
+                            🚚 Método de envío para este producto
                         </label>
-                        <div v-if="shippingProfiles.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-                            <div class="md:col-span-2">
-                                <select v-model="productData.shippingProfileId"
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                        style="focus:ring-color: #2A6FAF;">
-                                    <option :value="null">Seleccioná un perfil</option>
-                                    <option v-for="sp in shippingProfiles" :key="sp.id" :value="sp.id">{{ sp.name }} {{ sp.active ? '' : '(pausado)' }}</option>
-                                </select>
-                                <p class="text-xs text-gray-500 mt-1">Podés cambiarlo luego desde la configuración del producto.</p>
+                        <div v-if="shippingMethods.length > 0" class="space-y-3">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                                <div class="md:col-span-2">
+                                    <select v-model="productData.shippingMethodId"
+                                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
+                                            style="focus:ring-color: #2A6FAF;">
+                                        <option :value="null">Seleccioná un método</option>
+                                        <option v-for="sm in shippingMethods" :key="sm.id" :value="sm.id">{{ sm.name }} {{ sm.active ? '' : '(pausado)' }}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <button type="button" @click="toggleShippingConfig" class="w-full px-4 py-3 border rounded-lg text-sky-700 border-sky-600 hover:bg-sky-50">
+                                        {{ showShippingConfig ? 'Ocultar config' : 'Configurar' }}
+                                    </button>
+                                </div>
                             </div>
-                            <div>
-                                <button type="button" @click="configureSelectedProfile" class="w-full px-4 py-3 border rounded-lg text-sky-700 border-sky-600 hover:bg-sky-50">Configurar perfil</button>
+
+                            <!-- Collapsible shipping config -->
+                            <div v-if="showShippingConfig" class="p-4 border-2 border-sky-200 rounded-lg bg-sky-50">
+                                <p class="text-sm text-sky-900 mb-3">
+                                    <strong>Nota:</strong> Configurá zonas y tarifas en una nueva pestaña para no perder tu progreso.
+                                </p>
+                                <div class="flex gap-2">
+                                    <a :href="`/metodos-envio/${productData.shippingMethodId}`" target="_blank" rel="noopener noreferrer"
+                                       class="px-4 py-2 text-sm bg-sky-600 text-white rounded hover:bg-sky-700 flex items-center gap-1">
+                                        Abrir configuración
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                        </svg>
+                                    </a>
+                                    <button @click="showShippingConfig = false" class="px-3 py-2 text-sm border border-sky-600 text-sky-700 rounded hover:bg-sky-100">
+                                        Cerrar
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div v-else class="p-4 border rounded bg-yellow-50 text-yellow-800">
-                            Aún no tenés perfiles de envío. Creá uno para poder publicar.
+                            Aún no tenés métodos de envío. Creá uno para poder publicar.
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
                             <div class="md:col-span-2">
-                                <label class="block text-sm text-gray-700 mb-1">Crear nuevo perfil</label>
-                                <input v-model="productData.newShippingProfileName"
+                                <label class="block text-sm text-gray-700 mb-1">Crear nuevo método</label>
+                                <input v-model="productData.newShippingMethodName"
                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                       style="focus:ring-color: #2A6FAF;" placeholder="Nombre del perfil (ej: Envío estándar)" />
+                                       style="focus:ring-color: #2A6FAF;" placeholder="Nombre del método (ej: Envío estándar)" />
                             </div>
                             <div class="flex items-end">
-                                <button type="button" @click="quickCreateShippingProfile" class="w-full px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Crear y configurar</button>
+                                <button type="button" @click="quickCreateShippingMethod" class="w-full px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Crear y configurar</button>
                             </div>
                         </div>
                     </div>
@@ -697,6 +750,33 @@ export default {
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                             style="focus:ring-color: #2A6FAF;"
                             placeholder="Describí tu servicio, materiales, garantías..."></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            🖼️ Imágenes (mínimo una) *
+                        </label>
+                        <div :class="['border-2 border-dashed rounded-lg p-6 text-center', prosthesisData.images.length ? 'border-gray-300' : 'border-red-400']">
+                            <input type="file" ref="prosthesisImageInput" @change="handleImageUpload($event, 'prosthesis')" accept="image/*"
+                                class="hidden" id="prosthesis-image-upload" />
+                            <label for="prosthesis-image-upload" class="cursor-pointer">
+                                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                </svg>
+                                <p class="text-sm text-gray-600">Hacé clic para subir o arrastrá la imagen aquí</p>
+                                <p class="text-xs text-gray-500 mt-1">JPG, PNG o GIF (máx. 5MB)</p>
+                                <p v-if="!prosthesisData.images.length" class="text-xs text-red-600 mt-2">Subí al menos una imagen</p>
+                            </label>
+                        </div>
+                        <div v-if="prosthesisData.images.length > 0" class="grid grid-cols-3 gap-4 mt-4">
+                            <div v-for="(image, index) in prosthesisData.images" :key="index" class="relative">
+                                <img :src="image" class="w-full h-32 object-cover rounded-lg" />
+                                <button @click="removeImage(index, 'prosthesis')" type="button"
+                                    class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600">
+                                    ×
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <div>
@@ -845,6 +925,33 @@ export default {
 
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            🖼️ Imágenes (mínimo una) *
+                        </label>
+                        <div :class="['border-2 border-dashed rounded-lg p-6 text-center', plasterData.images.length ? 'border-gray-300' : 'border-red-400']">
+                            <input type="file" ref="plasterImageInput" @change="handleImageUpload($event, 'plaster')" accept="image/*"
+                                class="hidden" id="plaster-image-upload" />
+                            <label for="plaster-image-upload" class="cursor-pointer">
+                                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                </svg>
+                                <p class="text-sm text-gray-600">Hacé clic para subir o arrastrá la imagen aquí</p>
+                                <p class="text-xs text-gray-500 mt-1">JPG, PNG o GIF (máx. 5MB)</p>
+                                <p v-if="!plasterData.images.length" class="text-xs text-red-600 mt-2">Subí al menos una imagen</p>
+                            </label>
+                        </div>
+                        <div v-if="plasterData.images.length > 0" class="grid grid-cols-3 gap-4 mt-4">
+                            <div v-for="(image, index) in plasterData.images" :key="index" class="relative">
+                                <img :src="image" class="w-full h-32 object-cover rounded-lg" />
+                                <button @click="removeImage(index, 'plaster')" type="button"
+                                    class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600">
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">
                             💰 Precio base *
                         </label>
                         <div class="relative">
@@ -901,16 +1008,18 @@ export default {
 
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            🖼️ Imágenes del equipo
+                            🖼️ Imágenes (mínimo una) *
                         </label>
-                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                            <input type="file" @change="handleImageUpload($event, 'rental')" accept="image/*"
+                        <div :class="['border-2 border-dashed rounded-lg p-6 text-center', rentalData.images.length ? 'border-gray-300' : 'border-red-400']">
+                            <input type="file" ref="rentalImageInput" @change="handleImageUpload($event, 'rental')" accept="image/*"
                                 class="hidden" id="rental-image-upload" />
                             <label for="rental-image-upload" class="cursor-pointer">
                                 <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                                 </svg>
-                                <p class="text-sm text-gray-600">Hacé clic para subir imágenes</p>
+                                <p class="text-sm text-gray-600">Hacé clic para subir o arrastrá la imagen aquí</p>
+                                <p class="text-xs text-gray-500 mt-1">JPG, PNG o GIF (máx. 5MB)</p>
+                                <p v-if="!rentalData.images.length" class="text-xs text-red-600 mt-2">Subí al menos una imagen</p>
                             </label>
                         </div>
                         <div v-if="rentalData.images.length > 0" class="grid grid-cols-3 gap-4 mt-4">
@@ -1333,7 +1442,7 @@ export default {
                 </p>
 
                 <div class="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
-                    <RouterLink to="/mi-perfil"
+                    <RouterLink to="/mis-productos"
                         class="px-6 py-3 border-2 font-semibold rounded-lg transition hover:bg-gray-50 text-center"
                         style="color: #2A6FAF; border-color: #2A6FAF;">
                         Ver mis publicaciones
