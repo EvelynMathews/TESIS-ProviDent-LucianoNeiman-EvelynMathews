@@ -13,6 +13,8 @@ import ServiceDetail from "../pages/ServiceDetail.vue";
 import Cart from "../pages/Cart.vue";
 import Publish from "../pages/Publish.vue";
 import MyProducts from "../pages/MyProducts.vue";
+import SellerSetup from "../pages/SellerSetup.vue";
+import ShippingProfileEdit from "../pages/ShippingProfileEdit.vue";
 
 const routes = [
     { path: '/',                        name: 'Home',                       component: Home },
@@ -28,6 +30,8 @@ const routes = [
     { path: '/carrito',                 name: 'Cart',                       component: Cart,                  meta: { requiresAuth: true, }, },
     { path: '/publicar',                name: 'Publish',                    component: Publish,               meta: { requiresAuth: true, }, },
     { path: '/mis-productos',           name: 'MyProducts',                 component: MyProducts,            meta: { requiresAuth: true, }, },
+    { path: '/seller-setup',            name: 'SellerSetup',                component: SellerSetup,           meta: { requiresAuth: true, }, },
+    { path: '/perfiles-envio/:id',      name: 'ShippingProfileEdit',        component: ShippingProfileEdit,   meta: { requiresAuth: true, }, },
 ];
 
 

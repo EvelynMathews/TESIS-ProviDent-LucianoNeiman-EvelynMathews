@@ -1,10 +1,10 @@
 <script>
-import { listMyProducts } from '../services/products'
+import { listMyProducts, updateProduct, deleteProductById } from '../services/products'
 
 export default {
   name: 'MyProducts',
   data() {
-    return { items: [], loading: false, error: '' }
+    return { items: [], loading: false, error: '', busyId: null }
   },
   methods: {
     async load() {
@@ -16,6 +16,21 @@ export default {
       } finally {
         this.loading = false
       }
+    },
+    async toggleActive(p) {
+      try {
+        this.busyId = p.id
+        await updateProduct(p.id, { is_active: !p.is_active })
+        await this.load()
+      } catch (e) { this.error = e?.message || String(e) } finally { this.busyId = null }
+    },
+    async remove(p) {
+      if (!confirm('¿Eliminar este producto?')) return
+      try {
+        this.busyId = p.id
+        await deleteProductById(p.id)
+        await this.load()
+      } catch (e) { this.error = e?.message || String(e) } finally { this.busyId = null }
     },
     goPublish() {
       this.$router.push('/publicar')
@@ -48,7 +63,15 @@ export default {
                 <span class="text-sm text-gray-700">${{ new Intl.NumberFormat('es-AR').format(p.price) }} · {{ p.unit || 'unidad' }}</span>
                 <span :class="p.is_active ? 'text-green-600' : 'text-gray-500'" class="text-xs font-semibold">{{ p.is_active ? 'Activo' : 'Pausado' }}</span>
               </div>
-              <RouterLink :to="`/productos/${p.id}`" class="block mt-3 text-center text-white bg-sky-600 hover:bg-sky-700 rounded-lg py-2">Ver</RouterLink>
+              <div class="mt-3 grid grid-cols-3 gap-2">
+                <RouterLink :to="`/productos/${p.id}`" class="text-center text-white bg-sky-600 hover:bg-sky-700 rounded-lg py-2">Ver</RouterLink>
+                <button @click="toggleActive(p)" :disabled="busyId===p.id"
+                        class="text-center rounded-lg py-2 border" :class="p.is_active ? 'border-yellow-600 text-yellow-700 hover:bg-yellow-50' : 'border-emerald-600 text-emerald-700 hover:bg-emerald-50'">
+                  {{ p.is_active ? 'Pausar' : 'Activar' }}
+                </button>
+                <button @click="remove(p)" :disabled="busyId===p.id"
+                        class="text-center rounded-lg py-2 border border-red-600 text-red-600 hover:bg-red-50">Eliminar</button>
+              </div>
             </div>
           </div>
         </div>
@@ -65,4 +88,3 @@ export default {
   overflow: hidden;
 }
 </style>
-

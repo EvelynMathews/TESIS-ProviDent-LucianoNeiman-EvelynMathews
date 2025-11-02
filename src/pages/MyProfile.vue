@@ -1,6 +1,6 @@
 <script>
 import { subscribeToAuthStateChanges, logout } from '../services/auth'
-import { isCurrentUserSeller, grantSellerSelf } from '../services/sellers'
+import { isCurrentUserSeller, grantSellerSelf, connectDummyPaymentAccount } from '../services/sellers'
 import { supabase } from '../services/supabase'
 import { listMyProducts } from '../services/products'
 
@@ -126,11 +126,11 @@ export default {
         async becomeSeller() {
             try {
                 await grantSellerSelf()
+                await connectDummyPaymentAccount('MERCADOPAGO')
                 this.isSeller = true
                 this.userProfile.roles = ['Comprador', 'Vendedor']
-                this.sellerMessage = 'Listo, ahora sos vendedor.'
                 try { window.dispatchEvent(new CustomEvent('seller:changed')) } catch {}
-                setTimeout(() => { this.sellerMessage = '' }, 3000)
+                this.$router.push('/seller-setup')
             } catch (e) {
                 this.sellerMessage = 'No se pudo activar vendedor.'
                 console.error(e)
@@ -246,7 +246,7 @@ export default {
                         </svg>
                     </div>
                     <h2 class="font-heading text-2xl font-bold text-gray-800 mb-2">¿Querés empezar a vender en ProviDent?</h2>
-                    <p class="text-gray-600 mb-6">Completá tus datos de cobro y elegí qué tipo de oferta querés publicar.</p>
+                    <p class="text-gray-600 mb-6">Vamos a conectar una cuenta de pagos dummy para habilitar ventas.</p>
                     <button @click="becomeSeller"
                         class="px-8 py-3 text-white font-semibold rounded-lg shadow-lg hover:opacity-90 transition"
                         style="background-color: #2A6FAF;">

@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS public.user_sellers (
   user_id uuid PRIMARY KEY REFERENCES public.users(id),
   display_name text,
   rating_avg numeric(3,2),
+  enabled boolean DEFAULT false,
   created_at timestamptz DEFAULT now()
 );
 

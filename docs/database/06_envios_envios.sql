@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS public.shipments (
   label_url text,
   shipping_price_charged numeric(12,2),
   shipping_cost_estimated numeric(12,2),
+  package_volume_cm3 numeric(12,2),
   status shipment_status NOT NULL DEFAULT 'READY',
   delivered_at timestamptz,
   proof_of_delivery_url text,
