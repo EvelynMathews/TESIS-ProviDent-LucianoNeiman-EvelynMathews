@@ -399,7 +399,7 @@ package "Carrito & Órdenes" #FDEEF4 {
 ' ENVÍOS
 ' =========================
 package "Envíos" #F2FFEE {
-  entity "shipping_profiles" as shipping_profiles {
+  entity "shipping_methods" as shipping_methods {
     + id : UUID <<PK>>
     --
     seller_user_id : UUID <<FK>>    ' -> user_sellers.user_id
@@ -409,38 +409,36 @@ package "Envíos" #F2FFEE {
     volume_max_cm3 : NUMERIC(12,2)
     created_at : TIMESTAMPTZ = now()
   }
-  user_sellers ||--o{ shipping_profiles
+  user_sellers ||--o{ shipping_methods
 
-  entity "product_shipping_profiles" as product_shipping_profiles {
+  entity "product_shipping_methods" as product_shipping_methods {
     + product_id : UUID NOT NULL <<FK>>      ' -> products.id
-    + profile_id : UUID NOT NULL <<FK>>      ' -> shipping_profiles.id
+    + method_id : UUID NOT NULL <<FK>>       ' -> shipping_methods.id
     --
-    ' PK compuesta (product_id, profile_id)
+    ' PK compuesta (product_id, method_id)
   }
-  products ||--|{ product_shipping_profiles
-  shipping_profiles ||--o{ product_shipping_profiles
+  products ||--|{ product_shipping_methods
+  shipping_methods ||--o{ product_shipping_methods
 
-  
+
 
   entity "shipping_zones" as shipping_zones {
     + id : UUID <<PK>>
     --
-    profile_id : UUID NOT NULL <<FK>>
+    method_id : UUID NOT NULL <<FK>>
     province_id : UUID NOT NULL <<FK>>
     postal_code_min : TEXT NOT NULL
     postal_code_max : TEXT NOT NULL
     zone_name : TEXT NOT NULL
   }
-  shipping_profiles ||--o{ shipping_zones
+  shipping_methods ||--o{ shipping_zones
   provinces ||--o{ shipping_zones
 
   entity "shipping_rates" as shipping_rates {
     + id : UUID <<PK>>
     --
-    profile_id : UUID NOT NULL <<FK>>
+    method_id : UUID NOT NULL <<FK>>
     zone_id : UUID <<FK>>
-    carrier : TEXT NOT NULL
-    service : TEXT NOT NULL
     price : NUMERIC(12,2) NOT NULL
     weight_min : NUMERIC(12,3)
     weight_max : NUMERIC(12,3)
@@ -449,7 +447,7 @@ package "Envíos" #F2FFEE {
     eta_days : INT
     active : BOOLEAN = TRUE
   }
-  shipping_profiles ||--o{ shipping_rates
+  shipping_methods ||--o{ shipping_rates
   shipping_zones ||--o{ shipping_rates
 
   entity "shipments" as shipments {

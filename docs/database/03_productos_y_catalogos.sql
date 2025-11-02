@@ -245,7 +245,7 @@ CREATE OR REPLACE FUNCTION public.handle_product_deleted()
 RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN
   DELETE FROM public.product_prices WHERE product_id = OLD.id;
-  DELETE FROM public.product_shipping_profiles WHERE product_id = OLD.id;
+  DELETE FROM public.product_shipping_methods WHERE product_id = OLD.id;
   DELETE FROM public.product_images WHERE product_id = OLD.id;
   DELETE FROM public.prosthesis_products WHERE product_id = OLD.id;
   DELETE FROM public.supply_products WHERE product_id = OLD.id;
