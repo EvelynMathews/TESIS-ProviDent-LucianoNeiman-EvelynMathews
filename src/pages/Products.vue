@@ -118,46 +118,43 @@ export default {
 </script>
 
 <template>
-    <div class="min-h-screen bg-gray-50 pt-20">
-        <div class="bg-white border-b border-gray-200 py-6">
-            <div class="max-w-7xl mx-auto px-4">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                        <h1 class="text-3xl font-bold text-gray-800 mb-2">Catálogo de Productos</h1>
-                        <p class="text-gray-600">{{ filteredProducts.length }} productos disponibles</p>
-                    </div>
+    <section class="pt-20 min-h-screen pb-12 relative overflow-hidden" style="background-color: #F5FEFF;">
+        <div class="organic-shape organic-shape-1"></div>
+        <div class="organic-shape organic-shape-2"></div>
+        <div class="organic-shape organic-shape-3"></div>
+        <div class="organic-shape organic-shape-4"></div>
+        <div class="organic-shape organic-shape-5"></div>
+        <div class="organic-shape organic-shape-6"></div>
 
-                    <div>
-                        <RouterLink v-if="user.id && isSeller" to="/publicar"
-                            class="px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 transition">
-                            Publicar producto
-                        </RouterLink>
-                        <button v-else-if="user.id && !isSeller" @click="becomeSeller"
-                            class="px-6 py-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition">
-                            Quiero vender
-                        </button>
-                    </div>
-                </div>
-                <div v-if="sellerMessage" class="mt-3 p-3 rounded border border-green-200 bg-green-50 text-green-700">
-                    {{ sellerMessage }}
-                </div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
+            <div class="flex items-center justify-between mb-6">
+                <h1 class="text-2xl font-bold text-gray-800">Catálogo de Productos</h1>
+                <RouterLink v-if="user.id && isSeller" to="/publicar"
+                    class="px-4 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 transition">
+                    Publicar nuevo
+                </RouterLink>
+                <button v-else-if="user.id && !isSeller" @click="becomeSeller"
+                    class="px-4 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 transition">
+                    Quiero vender
+                </button>
             </div>
-        </div>
 
-        <div class="max-w-7xl mx-auto px-4 py-8">
+            <div v-if="sellerMessage" class="mb-4 p-3 rounded border border-green-200 bg-green-50 text-green-700">
+                {{ sellerMessage }}
+            </div>
             <div class="mb-6 flex flex-col md:flex-row gap-4">
                 <div class="flex-1">
                     <div class="relative">
                         <input v-model="searchQuery" @input="handleSearch" type="text"
                             placeholder="Buscar por nombre, marca o categoría..."
-                            class="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500">
-                        <svg class="w-5 h-5 text-gray-400 absolute left-4 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            class="w-full px-4 py-3 pl-12 bg-white border-2 border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 shadow-sm">
+                        <svg class="w-5 h-5 text-gray-500 absolute left-4 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
                     </div>
                 </div>
 
-                <select v-model="sortBy" class="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500">
+                <select v-model="sortBy" class="px-4 py-3 bg-white border-2 border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 shadow-sm">
                     <option value="recent">Más recientes</option>
                     <option value="price-asc">Menor precio</option>
                     <option value="price-desc">Mayor precio</option>
@@ -218,5 +215,85 @@ export default {
                 </button>
             </div>
         </div>
-    </div>
+    </section>
 </template>
+
+<style scoped>
+.organic-shape {
+    position: absolute;
+    border-radius: 50% 40% 60% 50%;
+    opacity: 0.6;
+    z-index: 0;
+}
+
+.organic-shape-1 {
+    width: 500px;
+    height: 500px;
+    background: #A4C5DF;
+    top: 100px;
+    right: -100px;
+    animation: float 20s ease-in-out infinite;
+}
+
+.organic-shape-2 {
+    width: 700px;
+    height: 700px;
+    background: #D4F4EC;
+    bottom: -200px;
+    left: -150px;
+    border-radius: 60% 50% 40% 60%;
+    animation: float 25s ease-in-out infinite reverse;
+}
+
+.organic-shape-3 {
+    width: 400px;
+    height: 400px;
+    background: #F8E8E2;
+    top: 50%;
+    left: -100px;
+    border-radius: 40% 60% 50% 40%;
+    animation: float 30s ease-in-out infinite;
+}
+
+.organic-shape-4 {
+    width: 350px;
+    height: 350px;
+    background: #E3EEF8;
+    top: 30%;
+    right: 10%;
+    border-radius: 55% 45% 60% 40%;
+    animation: float 22s ease-in-out infinite;
+}
+
+.organic-shape-5 {
+    width: 600px;
+    height: 600px;
+    background: #A4C5DF;
+    bottom: -250px;
+    right: -200px;
+    border-radius: 45% 55% 40% 60%;
+    animation: float 28s ease-in-out infinite reverse;
+}
+
+.organic-shape-6 {
+    width: 300px;
+    height: 300px;
+    background: #D4F4EC;
+    top: 70%;
+    right: -80px;
+    border-radius: 50% 50% 45% 55%;
+    animation: float 35s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+    33% {
+        transform: translate(30px, -30px) rotate(5deg);
+    }
+    66% {
+        transform: translate(-20px, 20px) rotate(-5deg);
+    }
+}
+</style>

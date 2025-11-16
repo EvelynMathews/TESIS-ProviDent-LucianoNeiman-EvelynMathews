@@ -41,8 +41,15 @@ export default {
 </script>
 
 <template>
-  <section class="pt-20 bg-gray-50 min-h-screen pb-12">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <section class="pt-20 min-h-screen pb-12 relative overflow-hidden" style="background-color: #F5FEFF;">
+    <div class="organic-shape organic-shape-1"></div>
+    <div class="organic-shape organic-shape-2"></div>
+    <div class="organic-shape organic-shape-3"></div>
+    <div class="organic-shape organic-shape-4"></div>
+    <div class="organic-shape organic-shape-5"></div>
+    <div class="organic-shape organic-shape-6"></div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
       <div class="flex items-center justify-between mb-6">
         <h1 class="text-2xl font-bold text-gray-800">Mis Productos</h1>
         <button @click="goPublish" class="px-4 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 transition">
@@ -79,6 +86,86 @@ export default {
     </div>
   </section>
 </template>
+
+<style scoped>
+.organic-shape {
+    position: absolute;
+    border-radius: 50% 40% 60% 50%;
+    opacity: 0.6;
+    z-index: 0;
+}
+
+.organic-shape-1 {
+    width: 500px;
+    height: 500px;
+    background: #A4C5DF;
+    top: 100px;
+    right: -100px;
+    animation: float 20s ease-in-out infinite;
+}
+
+.organic-shape-2 {
+    width: 700px;
+    height: 700px;
+    background: #D4F4EC;
+    bottom: -200px;
+    left: -150px;
+    border-radius: 60% 50% 40% 60%;
+    animation: float 25s ease-in-out infinite reverse;
+}
+
+.organic-shape-3 {
+    width: 400px;
+    height: 400px;
+    background: #F8E8E2;
+    top: 50%;
+    left: -100px;
+    border-radius: 40% 60% 50% 40%;
+    animation: float 30s ease-in-out infinite;
+}
+
+.organic-shape-4 {
+    width: 350px;
+    height: 350px;
+    background: #E3EEF8;
+    top: 30%;
+    right: 10%;
+    border-radius: 55% 45% 60% 40%;
+    animation: float 22s ease-in-out infinite;
+}
+
+.organic-shape-5 {
+    width: 600px;
+    height: 600px;
+    background: #A4C5DF;
+    bottom: -250px;
+    right: -200px;
+    border-radius: 45% 55% 40% 60%;
+    animation: float 28s ease-in-out infinite reverse;
+}
+
+.organic-shape-6 {
+    width: 300px;
+    height: 300px;
+    background: #D4F4EC;
+    top: 70%;
+    right: -80px;
+    border-radius: 50% 50% 45% 55%;
+    animation: float 35s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+    33% {
+        transform: translate(30px, -30px) rotate(5deg);
+    }
+    66% {
+        transform: translate(-20px, 20px) rotate(-5deg);
+    }
+}
+</style>
 
 <style scoped>
 .line-clamp-2 {

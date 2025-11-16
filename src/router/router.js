@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { subscribeToAuthStateChanges } from "../services/auth";
 import { supabase } from "../services/supabase";
+import { requireAdmin } from "../middleware/admin";
 import Home from "../pages/Home.vue";
 import Login from "../pages/Login.vue";
 import Register from "../pages/Register.vue";
@@ -17,6 +18,10 @@ import MyProducts from "../pages/MyProducts.vue";
 import SellerSetup from "../pages/SellerSetup.vue";
 import ShippingMethodEdit from "../pages/ShippingMethodEdit.vue";
 import AuthCallback from "../pages/AuthCallback.vue";
+import AdminLogin from "../pages/admin/Login.vue";
+import AdminDashboard from "../pages/admin/Dashboard.vue";
+import AdminProducts from "../pages/admin/Products.vue";
+import AdminProfile from "../pages/admin/Profile.vue";
 
 const routes = [
     { path: '/',                        name: 'Home',                       component: Home },
@@ -35,6 +40,10 @@ const routes = [
     { path: '/mis-productos',           name: 'MyProducts',                 component: MyProducts,            meta: { requiresAuth: true, }, },
     { path: '/seller-setup',            name: 'SellerSetup',                component: SellerSetup,           meta: { requiresAuth: true, }, },
     { path: '/metodos-envio/:id',       name: 'ShippingMethodEdit',         component: ShippingMethodEdit,    meta: { requiresAuth: true, }, },
+    { path: '/admin/login',             name: 'AdminLogin',                 component: AdminLogin, },
+    { path: '/admin/dashboard',         name: 'AdminDashboard',             component: AdminDashboard,        beforeEnter: requireAdmin, },
+    { path: '/admin/products',          name: 'AdminProducts',              component: AdminProducts,         beforeEnter: requireAdmin, },
+    { path: '/admin/profile',           name: 'AdminProfile',               component: AdminProfile,          beforeEnter: requireAdmin, },
 ];
 
 

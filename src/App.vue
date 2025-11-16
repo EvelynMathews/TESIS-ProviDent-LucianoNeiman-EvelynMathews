@@ -5,11 +5,19 @@ import Navbar from './components/Navbar.vue';
 export default {
   name: 'App',
   components: { Navbar, Footer },
+  computed: {
+    isAdminRoute() {
+      return this.$route.path.startsWith('/admin')
+    }
+  }
 }
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 flex flex-col">
+  <div v-if="isAdminRoute" class="min-h-screen">
+    <RouterView />
+  </div>
+  <div v-else class="min-h-screen bg-gray-50 flex flex-col">
     <header>
       <Navbar />
     </header>

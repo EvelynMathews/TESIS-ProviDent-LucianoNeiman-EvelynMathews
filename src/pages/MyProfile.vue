@@ -199,13 +199,20 @@ export default {
 </script>
 
 <template>
-    <section class="pt-20 bg-gray-50 min-h-screen pb-12">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <section class="pt-20 min-h-screen pb-12 relative overflow-hidden" style="background-color: #F5FEFF;">
+        <div class="organic-shape organic-shape-1"></div>
+        <div class="organic-shape organic-shape-2"></div>
+        <div class="organic-shape organic-shape-3"></div>
+        <div class="organic-shape organic-shape-4"></div>
+        <div class="organic-shape organic-shape-5"></div>
+        <div class="organic-shape organic-shape-6"></div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
             <div v-if="sellerMessage" class="mb-4 p-3 rounded border border-green-200 bg-green-50 text-green-700">
                 {{ sellerMessage }}
             </div>
             <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-                <div class="h-32" style="background: linear-gradient(135deg, #2A6FAF 0%, #29A68C 50%, #DC8C73 100%);"></div>
+                <div class="h-32" style="background: linear-gradient(135deg, #A4C5DF 0%, #D4F4EC 50%, #F8E8E2 100%);"></div>
                 <div class="px-6 pb-6">
                     <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6 -mt-16">
                         <div class="w-32 h-32 rounded-full overflow-hidden shadow-lg flex-shrink-0 border-4 border-white" style="background-color: #E3EEF8;">
@@ -238,9 +245,9 @@ export default {
                 </div>
             </div>
 
-            <div v-if="!isSeller" class="bg-gradient-to-br from-blue-50 to-teal-50 rounded-lg shadow-md p-8 mb-6 border-2" style="border-color: #2A6FAF;">
+            <div v-if="!isSeller" class="rounded-lg shadow-md p-8 mb-6 border-2" style="background-color: #F8E8E2; border-color: #DC8C73;">
                 <div class="text-center">
-                    <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background-color: #2A6FAF;">
+                    <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background-color: #DC8C73;">
                         <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"></path>
                         </svg>
@@ -249,7 +256,7 @@ export default {
                     <p class="text-gray-600 mb-6">Vamos a conectar una cuenta de pagos dummy para habilitar ventas.</p>
                     <button @click="becomeSeller"
                         class="px-8 py-3 text-white font-semibold rounded-lg shadow-lg hover:opacity-90 transition"
-                        style="background-color: #2A6FAF;">
+                        style="background-color: #DC8C73;">
                         Quiero ser vendedor
                     </button>
                 </div>
@@ -257,7 +264,7 @@ export default {
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div class="p-4" style="background: linear-gradient(135deg, #E3EEF8 0%, #D4F4EC 100%);">
+                    <div class="p-4" style="background-color: #E3EEF8;">
                         <h2 class="font-heading text-xl font-bold flex items-center gap-2" style="color: #2A6FAF;">
                             <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
@@ -311,7 +318,7 @@ export default {
                 </div>
 
                 <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div class="p-4" style="background: linear-gradient(135deg, #D4F4EC 0%, #F8E8E2 100%);">
+                    <div class="p-4" style="background-color: #D4F4EC;">
                         <h2 class="font-heading text-xl font-bold flex items-center gap-2" style="color: #29A68C;">
                             <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path>
@@ -341,7 +348,7 @@ export default {
             </div>
 
             <div v-if="isSeller" class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-                <div class="p-4" style="background: linear-gradient(135deg, #F8E8E2 0%, #E3EEF8 100%);">
+                <div class="p-4" style="background-color: #F8E8E2;">
                     <h2 class="font-heading text-xl font-bold flex items-center gap-2" style="color: #DC8C73;">
                         <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"></path>
@@ -512,3 +519,83 @@ export default {
         </div>
     </section>
 </template>
+
+<style scoped>
+.organic-shape {
+    position: absolute;
+    border-radius: 50% 40% 60% 50%;
+    opacity: 0.6;
+    z-index: 0;
+}
+
+.organic-shape-1 {
+    width: 500px;
+    height: 500px;
+    background: #A4C5DF;
+    top: 100px;
+    right: -100px;
+    animation: float 20s ease-in-out infinite;
+}
+
+.organic-shape-2 {
+    width: 700px;
+    height: 700px;
+    background: #D4F4EC;
+    bottom: -200px;
+    left: -150px;
+    border-radius: 60% 50% 40% 60%;
+    animation: float 25s ease-in-out infinite reverse;
+}
+
+.organic-shape-3 {
+    width: 400px;
+    height: 400px;
+    background: #F8E8E2;
+    top: 50%;
+    left: -100px;
+    border-radius: 40% 60% 50% 40%;
+    animation: float 30s ease-in-out infinite;
+}
+
+.organic-shape-4 {
+    width: 350px;
+    height: 350px;
+    background: #E3EEF8;
+    top: 30%;
+    right: 10%;
+    border-radius: 55% 45% 60% 40%;
+    animation: float 22s ease-in-out infinite;
+}
+
+.organic-shape-5 {
+    width: 600px;
+    height: 600px;
+    background: #A4C5DF;
+    bottom: -250px;
+    right: -200px;
+    border-radius: 45% 55% 40% 60%;
+    animation: float 28s ease-in-out infinite reverse;
+}
+
+.organic-shape-6 {
+    width: 300px;
+    height: 300px;
+    background: #D4F4EC;
+    top: 70%;
+    right: -80px;
+    border-radius: 50% 50% 45% 55%;
+    animation: float 35s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+    33% {
+        transform: translate(30px, -30px) rotate(5deg);
+    }
+    66% {
+        transform: translate(-20px, 20px) rotate(-5deg);
+    }
+}
+</style>
