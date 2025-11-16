@@ -529,7 +529,7 @@ export default {
                 <div class="space-y-6">
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            📦 Nombre del producto *
+                            Nombre del producto *
                         </label>
                         <input type="text" v-model="productData.name" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
@@ -539,7 +539,7 @@ export default {
 
                     <div v-if="false">
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            🏷️ Marca o fabricante
+                            Marca o fabricante
                         </label>
                         <input type="text" v-model="productData.brand"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
@@ -549,7 +549,7 @@ export default {
 
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            ✏️ Descripción detallada *
+                            Descripción detallada *
                         </label>
                         <textarea v-model="productData.description" required rows="4"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
@@ -559,7 +559,7 @@ export default {
 
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            🖼️ Imágenes (mínimo una)
+                            Imágenes (mínimo una)
                         </label>
                         <div :class="['border-2 border-dashed rounded-lg p-6 text-center', productData.images.length ? 'border-gray-300' : 'border-red-400']">
                             <input type="file" ref="productImageInput" @change="handleImageUpload($event, 'product')" accept="image/*"
@@ -587,7 +587,7 @@ export default {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                💰 Precio unitario *
+                                Precio unitario *
                             </label>
                             <div class="relative">
                                 <span class="absolute left-4 top-3 text-gray-500">$</span>
@@ -600,7 +600,7 @@ export default {
 
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                ⚖️ Unidad de medida
+                                Unidad de medida
                             </label>
                             <select v-model="productData.unit"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
@@ -622,7 +622,7 @@ export default {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                🔢 Stock disponible *
+                                Stock disponible *
                             </label>
                             <input type="number" v-model="productData.stock" required min="1"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
@@ -632,7 +632,7 @@ export default {
 
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                🧾 SKU o código interno
+                                SKU o código interno
                             </label>
                             <input type="text" v-model="productData.sku"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
@@ -643,7 +643,7 @@ export default {
 
                     <div v-if="false">
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            💳 Cuenta de cobro
+                            Cuenta de cobro
                         </label>
                         <select v-model="productData.paymentAccount"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
@@ -657,7 +657,7 @@ export default {
 
                     <div v-if="false">
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            📍 Ubicación del producto
+                            Ubicación del producto
                         </label>
                         <input type="text" v-model="productData.location"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
@@ -668,7 +668,7 @@ export default {
                     <!-- Shipping method selection/creation -->
                     <div class="mt-6">
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            🚚 Método de envío para este producto
+                            Método de envío para este producto
                         </label>
                         <div v-if="shippingMethods.length > 0" class="space-y-3">
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
@@ -754,7 +754,7 @@ export default {
 
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            🖼️ Imágenes (mínimo una) *
+                            Imágenes (mínimo una) *
                         </label>
                         <div :class="['border-2 border-dashed rounded-lg p-6 text-center', prosthesisData.images.length ? 'border-gray-300' : 'border-red-400']">
                             <input type="file" ref="prosthesisImageInput" @change="handleImageUpload($event, 'prosthesis')" accept="image/*"
@@ -925,7 +925,7 @@ export default {
 
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            🖼️ Imágenes (mínimo una) *
+                            Imágenes (mínimo una) *
                         </label>
                         <div :class="['border-2 border-dashed rounded-lg p-6 text-center', plasterData.images.length ? 'border-gray-300' : 'border-red-400']">
                             <input type="file" ref="plasterImageInput" @change="handleImageUpload($event, 'plaster')" accept="image/*"
@@ -952,7 +952,7 @@ export default {
 
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            💰 Precio base *
+                            Precio base *
                         </label>
                         <div class="relative">
                             <span class="absolute left-4 top-3 text-gray-500">$</span>
@@ -1008,7 +1008,7 @@ export default {
 
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            🖼️ Imágenes (mínimo una) *
+                            Imágenes (mínimo una) *
                         </label>
                         <div :class="['border-2 border-dashed rounded-lg p-6 text-center', rentalData.images.length ? 'border-gray-300' : 'border-red-400']">
                             <input type="file" ref="rentalImageInput" @change="handleImageUpload($event, 'rental')" accept="image/*"
@@ -1074,7 +1074,7 @@ export default {
 
                     <div v-if="rentalData.insuranceType === 'insurance'">
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            📄 Archivo de póliza de seguro
+                            Archivo de póliza de seguro
                         </label>
                         <div class="border-2 border-dashed border-gray-300 rounded-lg p-6">
                             <input type="file" @change="handleInsuranceFileUpload"

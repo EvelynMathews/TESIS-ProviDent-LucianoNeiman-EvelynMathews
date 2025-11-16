@@ -1,0 +1,221 @@
+.dashboard-header {
+    margin-bottom: 2rem;
+}
+
+.dashboard-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #2A6FAF;
+    margin-bottom: 0.5rem;
+}
+
+.dashboard-subtitle {
+    color: #6B7280;
+    font-size: 1rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    border: 2px solid #E3EEF8;
+    transition: all 0.2s;
+}
+
+.stat-card:hover {
+    border-color: #A4C5DF;
+    box-shadow: 0 4px 12px rgba(42, 111, 175, 0.1);
+}
+
+.stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6B7280;
+    font-weight: 500;
+}
+
+.stat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.stat-icon.products {
+    background: #E3EEF8;
+    color: #2A6FAF;
+}
+
+.stat-icon.users {
+    background: #D4F4EC;
+    color: #29A68C;
+}
+
+.stat-icon.active {
+    background: #FBF5F2;
+    color: #EBD0C7;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1F2937;
+}
+
+.section-card {
+    background: white;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    border: 2px solid #E3EEF8;
+    margin-bottom: 1.5rem;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #2A6FAF;
+}
+
+.view-all-link {
+    font-size: 0.875rem;
+    color: #2A6FAF;
+    text-decoration: none;
+    font-weight: 500;
+    transition: opacity 0.2s;
+}
+
+.view-all-link:hover {
+    opacity: 0.7;
+}
+
+.products-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.products-table thead {
+    background: #F5FEFF;
+    border-bottom: 2px solid #E3EEF8;
+}
+
+.products-table th {
+    padding: 0.75rem;
+    text-align: left;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #4B5563;
+}
+
+.products-table td {
+    padding: 0.875rem 0.75rem;
+    border-bottom: 1px solid #F3F4F6;
+    color: #374151;
+}
+
+.products-table tbody tr:hover {
+    background: #F5FEFF;
+}
+
+.product-name {
+    font-weight: 500;
+    color: #1F2937;
+}
+
+.product-type {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.product-type.supply {
+    background: #E3EEF8;
+    color: #2A6FAF;
+}
+
+.product-type.prosthesis {
+    background: #D4F4EC;
+    color: #29A68C;
+}
+
+.product-type.plaster {
+    background: #FBF5F2;
+    color: #EBD0C7;
+}
+
+.product-type.rental {
+    background: #F3E8FF;
+    color: #9333EA;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-badge.active {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.status-badge.inactive {
+    background: #FEE2E2;
+    color: #991B1B;
+}
+
+.loading-spinner {
+    text-align: center;
+    padding: 3rem;
+    color: #6B7280;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #6B7280;
+}
+
+@media (max-width: 768px) {
+    .dashboard-title {
+        font-size: 1.5rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .products-table {
+        font-size: 0.875rem;
+    }
+
+    .products-table th,
+    .products-table td {
+        padding: 0.5rem;
+    }
+}
