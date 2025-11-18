@@ -200,6 +200,7 @@ package "Productos & Catálogos" #F0F5FF {
       + product_id : UUID <<PK, FK>>  ' -> products.id
       --
       material_id : UUID <<FK>>
+      manufacturing_days : INTEGER
     }
     products ||--o| prosthesis_products
     materials ||--o{ prosthesis_products
@@ -235,6 +236,7 @@ package "Productos & Catálogos" #F0F5FF {
       --
       base_price : NUMERIC(12,2) NOT NULL
       notes : TEXT
+      manufacturing_days : INTEGER
     }
     products ||--o| plaster_service_products
   }

@@ -163,6 +163,7 @@ CREATE TABLE public.plaster_service_products (
                                                  product_id uuid NOT NULL,
                                                  base_price numeric NOT NULL,
                                                  notes text,
+                                                 manufacturing_days integer,
                                                  CONSTRAINT plaster_service_products_pkey PRIMARY KEY (product_id),
                                                  CONSTRAINT plaster_service_products_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
 );
@@ -213,6 +214,7 @@ CREATE TABLE public.products (
 CREATE TABLE public.prosthesis_products (
                                             product_id uuid NOT NULL,
                                             material_id uuid,
+                                            manufacturing_days integer,
                                             CONSTRAINT prosthesis_products_pkey PRIMARY KEY (product_id),
                                             CONSTRAINT prosthesis_products_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
                                             CONSTRAINT prosthesis_products_material_id_fkey FOREIGN KEY (material_id) REFERENCES public.materials(id)

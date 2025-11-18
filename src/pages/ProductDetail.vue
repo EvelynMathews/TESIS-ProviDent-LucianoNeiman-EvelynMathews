@@ -1,6 +1,6 @@
 <script>
 import { subscribeToAuthStateChanges } from '../services/auth'
-import { getProductById, listActiveProducts } from '../services/products'
+import { getProductById, listActiveProducts, loadMaterials, loadWorkTypes, loadToothGroups, loadTeeth } from '../services/products'
 import ProductCard from '../components/ProductCard.vue'
 
 export default {
@@ -17,12 +17,74 @@ export default {
             product: null,
             quantity: 1,
             loading: false,
-            relatedProducts: []
+            relatedProducts: [],
+            // For prosthesis products
+            materials: [],
+            workTypes: [],
+            toothGroups: [],
+            teeth: [],
+            selectedWorkType: null,
+            selectedTeethIds: [],
         }
     },
     computed: {
         totalPrice() {
-            return this.product.price * this.quantity
+            if (this.product.product_type === 'SUPPLY') {
+                return this.product.price * this.quantity
+            } else if (this.product.product_type === 'PROSTHESIS') {
+                // Sum prices of all selected teeth
+                return this.selectedTeethIds.reduce((total, toothId) => {
+                    const tooth = this.availableTeethForWorkType.find(t => t.tooth.id === toothId)
+                    return total + (tooth?.price || 0)
+                }, 0)
+            } else if (this.product.product_type === 'PLASTER_SERVICE') {
+                return this.product.base_price || 0
+            }
+            return 0
+        },
+        availableTeethForWorkType() {
+            if (!this.product || this.product.product_type !== 'PROSTHESIS') return []
+            if (!this.selectedWorkType) return []
+            if (!this.teeth || this.teeth.length === 0) return []
+
+            // Get groups that have prices for the selected work type
+            const groupPrices = {}
+            this.product.pricing_matrix.forEach(p => {
+                if (p.work_type_id === this.selectedWorkType && p.unit_price > 0) {
+                    groupPrices[p.tooth_group_id] = p.unit_price
+                }
+            })
+
+            // Filter teeth and add price info
+            return this.teeth
+                .filter(tooth => groupPrices[tooth.tooth_group_id])
+                .map(tooth => {
+                    const group = this.toothGroups.find(g => g.id === tooth.tooth_group_id)
+                    return {
+                        tooth: tooth,
+                        group_name: group?.name || '',
+                        price: groupPrices[tooth.tooth_group_id]
+                    }
+                })
+        },
+        priceSummaryForWorkType() {
+            if (!this.product || this.product.product_type !== 'PROSTHESIS') return []
+            if (!this.selectedWorkType) return []
+            if (!this.product.pricing_matrix) return []
+
+            const uniqueGroups = {}
+            this.product.pricing_matrix.forEach(p => {
+                if (p.work_type_id === this.selectedWorkType) {
+                    const group = this.toothGroups.find(g => g.id === p.tooth_group_id)
+                    if (group && !uniqueGroups[p.tooth_group_id]) {
+                        uniqueGroups[p.tooth_group_id] = {
+                            groupName: group.name,
+                            price: p.unit_price
+                        }
+                    }
+                }
+            })
+            return Object.values(uniqueGroups)
         }
     },
     methods: {
@@ -47,7 +109,18 @@ export default {
             }
         },
         addToCart() {
-            alert(`Agregado al carrito: ${this.quantity} ${this.product.unit} de ${this.product.name}`)
+            if (this.product.product_type === 'SUPPLY') {
+                alert(`Agregado al carrito: ${this.quantity} ${this.product.unit} de ${this.product.name}`)
+            } else if (this.product.product_type === 'PROSTHESIS') {
+                const workType = this.workTypes.find(wt => wt.id === this.selectedWorkType)
+                const selectedTeeth = this.availableTeethForWorkType
+                    .filter(t => this.selectedTeethIds.includes(t.tooth.id))
+                    .map(t => t.tooth.fdi_code)
+                    .join(', ')
+                alert(`Solicitud de prótesis: ${this.product.name}\nTipo: ${workType?.name}\nDientes: ${selectedTeeth}\nTotal: $${this.formatPrice(this.totalPrice)}`)
+            } else if (this.product.product_type === 'PLASTER_SERVICE') {
+                alert(`Solicitud de servicio: ${this.product.name}\nPrecio: $${this.formatPrice(this.product.base_price)}`)
+            }
         },
         async loadRelatedProducts() {
             try {
@@ -62,6 +135,20 @@ export default {
                 const id = this.$route.params.id
                 const p = await getProductById(id)
                 this.product = p
+
+                // Load catalogs for prosthesis products
+                if (p.product_type === 'PROSTHESIS') {
+                    this.materials = await loadMaterials()
+                    this.workTypes = await loadWorkTypes()
+                    this.toothGroups = await loadToothGroups()
+                    this.teeth = await loadTeeth()
+
+                    // Set default selections if available
+                    if (this.workTypes.length > 0) {
+                        this.selectedWorkType = this.workTypes[0].id
+                    }
+                }
+
                 await this.loadRelatedProducts()
             } catch (e) {
                 console.error('Failed to load product', e)
@@ -113,9 +200,16 @@ export default {
                             <span class="text-sm text-gray-600">{{ product.seller.sales_count }} ventas</span>
                         </div>
 
-                        <div class="mb-6">
+                        <!-- Price section for SUPPLY products -->
+                        <div v-if="product.product_type === 'SUPPLY'" class="mb-6">
                             <p class="text-4xl font-bold text-secondary mb-2">${{ formatPrice(product.price) }}</p>
                             <p class="text-sm text-gray-600">{{ product.unit || 'unidad' }}</p>
+                        </div>
+
+                        <!-- Price section for PLASTER_SERVICE products -->
+                        <div v-if="product.product_type === 'PLASTER_SERVICE'" class="mb-6">
+                            <p class="text-4xl font-bold text-secondary mb-2">${{ formatPrice(product.base_price) }}</p>
+                            <p class="text-sm text-gray-600">Precio base</p>
                         </div>
 
                         <div class="mb-6">
@@ -123,7 +217,81 @@ export default {
                             <p class="text-gray-600 leading-relaxed">{{ product.description }}</p>
                         </div>
 
-                        <div v-if="product.stock > 0" class="mb-6">
+                        <!-- Configuration section for PROSTHESIS products -->
+                        <div v-if="product.product_type === 'PROSTHESIS'" class="mb-6 bg-gray-50 p-4 rounded-lg">
+                            <h3 class="font-heading font-semibold text-gray-800 mb-3">Configurar prótesis</h3>
+
+                            <div class="mb-4">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo de trabajo:</label>
+                                <select v-model="selectedWorkType"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                                    <option v-for="wt in workTypes" :key="wt.id" :value="wt.id">
+                                        {{ wt.name }}
+                                    </option>
+                                </select>
+                            </div>
+
+                            <!-- Price Summary Table -->
+                            <div v-if="priceSummaryForWorkType.length > 0" class="mb-4">
+                                <h4 class="text-sm font-semibold text-gray-700 mb-2">Precios por grupo de diente:</h4>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full border-collapse border border-gray-300 rounded-lg">
+                                        <thead>
+                                            <tr class="bg-gray-100">
+                                                <th class="border border-gray-300 px-4 py-2 text-left text-sm font-semibold text-gray-700">Grupo de Diente</th>
+                                                <th class="border border-gray-300 px-4 py-2 text-right text-sm font-semibold text-gray-700">Precio por Pieza</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="item in priceSummaryForWorkType" :key="item.groupName">
+                                                <td class="border border-gray-300 px-4 py-2 text-sm text-gray-700">{{ item.groupName }}</td>
+                                                <td class="border border-gray-300 px-4 py-2 text-sm text-gray-700 text-right font-semibold">${{ formatPrice(item.price) }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Seleccionar piezas dentales:</label>
+                                <div v-if="!selectedWorkType" class="text-sm text-gray-500 italic">
+                                    Primero seleccioná un tipo de trabajo
+                                </div>
+                                <div v-else-if="availableTeethForWorkType.length === 0" class="text-sm text-gray-500 italic">
+                                    No hay piezas disponibles para este tipo de trabajo
+                                </div>
+                                <div v-else class="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                                    <div v-for="item in availableTeethForWorkType" :key="item.tooth.id"
+                                         class="flex items-center gap-3 p-2 hover:bg-gray-100 rounded">
+                                        <input
+                                            type="checkbox"
+                                            :id="`tooth-${item.tooth.id}`"
+                                            :value="item.tooth.id"
+                                            v-model="selectedTeethIds"
+                                            class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-2 focus:ring-primary"
+                                        />
+                                        <label :for="`tooth-${item.tooth.id}`" class="flex-1 flex items-center justify-between cursor-pointer">
+                                            <span class="text-sm font-medium text-gray-700">
+                                                Diente {{ item.tooth.fdi_code }} <span class="text-gray-500">({{ item.group_name }})</span>
+                                            </span>
+                                            <span class="text-sm font-semibold text-secondary">
+                                                ${{ formatPrice(item.price) }}
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pt-4 border-t border-gray-200">
+                                <p class="text-lg text-gray-700 mb-2">
+                                    Total: <span class="font-bold text-3xl text-secondary">${{ formatPrice(totalPrice) }}</span>
+                                </p>
+                                <p class="text-xs text-gray-500">{{ selectedTeethIds.length }} pieza(s) seleccionada(s)</p>
+                            </div>
+                        </div>
+
+                        <!-- Stock and quantity section for SUPPLY products -->
+                        <div v-if="product.product_type === 'SUPPLY' && product.stock > 0" class="mb-6">
                             <p class="text-sm text-green-600 mb-3">
                                 <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
@@ -161,9 +329,25 @@ export default {
                             </button>
                         </div>
 
-                        <div v-else class="mb-6">
+                        <!-- Out of stock message for SUPPLY products only -->
+                        <div v-if="product.product_type === 'SUPPLY' && (!product.stock || product.stock === 0)" class="mb-6">
                             <p class="text-red-600 font-extrabold tracking-wide">SIN STOCK</p>
                         </div>
+
+                        <!-- Action button for PROSTHESIS -->
+                        <button v-if="product.product_type === 'PROSTHESIS'" @click="addToCart"
+                            :disabled="selectedTeethIds.length === 0"
+                            class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed mb-6"
+                            style="background-color: #2A6FAF;">
+                            Solicitar prótesis
+                        </button>
+
+                        <!-- Action button for PLASTER_SERVICE -->
+                        <button v-if="product.product_type === 'PLASTER_SERVICE'" @click="addToCart"
+                            class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90 mb-6"
+                            style="background-color: #2A6FAF;">
+                            Solicitar servicio
+                        </button>
 
                         <div class="border-t border-gray-200 pt-6">
                             <h3 class="font-heading font-semibold text-gray-800 mb-3">Vendido por</h3>

@@ -283,6 +283,9 @@ export default {
                             name: this.prosthesisData.name,
                             description: this.prosthesisData.description,
                             imageFile,
+                            pricingMatrix: this.prosthesisData.pricingMatrix,
+                            materialId: this.prosthesisData.material || null,
+                            deliveryTime: this.prosthesisData.deliveryTime || null,
                         })
                     } else if (this.serviceType === 'plaster') {
                         const imageFile = this.plasterData.imageFile || null
@@ -294,6 +297,7 @@ export default {
                             name: this.plasterData.name,
                             description: this.plasterData.description,
                             base_price: Number(this.plasterData.basePrice) || 0,
+                            deliveryTime: this.plasterData.deliveryTime || null,
                             imageFile,
                         })
                     } else if (this.serviceType === 'rental') {
@@ -883,7 +887,7 @@ export default {
 
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            Tiempo de entrega (días hábiles)
+                            Días de fabricación
                         </label>
                         <input type="number" v-model="prosthesisData.deliveryTime" min="1"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
@@ -966,7 +970,7 @@ export default {
 
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            Tiempo de entrega (días hábiles)
+                            Días de fabricación
                         </label>
                         <input type="number" v-model="plasterData.deliveryTime" min="1"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
@@ -1231,7 +1235,7 @@ export default {
                                 <p><span class="font-semibold">Nombre:</span> {{ prosthesisData.name }}</p>
                                 <p><span class="font-semibold">Material:</span> {{ prosthesisData.material }}</p>
                                 <p><span class="font-semibold">Descripción:</span> {{ prosthesisData.description }}</p>
-                                <p v-if="prosthesisData.deliveryTime"><span class="font-semibold">Tiempo de entrega:</span> {{ prosthesisData.deliveryTime }} días hábiles</p>
+                                <p v-if="prosthesisData.deliveryTime"><span class="font-semibold">Días de fabricación:</span> {{ prosthesisData.deliveryTime }} días</p>
                             </div>
                         </div>
 
@@ -1323,7 +1327,7 @@ export default {
                                 <p><span class="font-semibold">Nombre:</span> {{ plasterData.name }}</p>
                                 <p><span class="font-semibold">Descripción:</span> {{ plasterData.description }}</p>
                                 <p><span class="font-semibold">Precio:</span> ${{ formatPrice(plasterData.basePrice) }}</p>
-                                <p v-if="plasterData.deliveryTime"><span class="font-semibold">Tiempo de entrega:</span> {{ plasterData.deliveryTime }} días hábiles</p>
+                                <p v-if="plasterData.deliveryTime"><span class="font-semibold">Días de fabricación:</span> {{ plasterData.deliveryTime }} días</p>
                             </div>
                         </div>
 

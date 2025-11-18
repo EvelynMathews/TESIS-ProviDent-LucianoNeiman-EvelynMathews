@@ -125,33 +125,90 @@ export async function listMyProducts() {
 }
 
 export async function getProductById(id) {
+  // Load base product with all related tables
   const { data, error } = await supabase
     .from('products')
-    .select('id, name, description, product_type, owner_user_id, created_at, supply_products(unit_price, unit_label, stock_qty), product_images(path, is_primary, position)')
+    .select(`
+      id, name, description, product_type, owner_user_id, created_at,
+      supply_products(unit_price, unit_label, stock_qty),
+      prosthesis_products(material_id, manufacturing_days),
+      plaster_service_products(base_price, notes, manufacturing_days),
+      rental_products(stock_qty, refundable_deposit_amount),
+      product_images(path, is_primary, position)
+    `)
     .eq('id', id)
     .limit(1)
   if (error) throw error
   if (!Array.isArray(data) || data.length === 0) return null
+
   const p = data[0]
+
+  // Load image
   let imgPath = pickPrimaryImage(p.product_images || [])
   if (!imgPath) {
     imgPath = await guessImagePath(p.owner_user_id, p.id)
   }
   const image = await signedImageUrl(imgPath)
-  const supply = p.supply_products || {}
+
+  // Load owner
   const owners = await fetchOwnerNames([p.owner_user_id])
   const owner = owners[p.owner_user_id] || { name: 'Vendedor', avatar_url: null }
-  return {
+
+  // Base result
+  const result = {
     id: p.id,
     name: p.name,
     description: p.description,
     product_type: p.product_type,
     image,
-    price: supply.unit_price || 0,
-    unit: supply.unit_label || 'unit',
-    stock: supply.stock_qty ?? null,
-    seller: { id: p.owner_user_id, username: owner.name, rating: 0, sales_count: 0, avatar_url: owner.avatar_url, location: '' },
+    seller: {
+      id: p.owner_user_id,
+      username: owner.name,
+      rating: 0,
+      sales_count: 0,
+      avatar_url: owner.avatar_url,
+      location: ''
+    },
   }
+
+  // Add type-specific data
+  if (p.product_type === 'SUPPLY') {
+    const supply = p.supply_products || {}
+    result.price = supply.unit_price || 0
+    result.unit = supply.unit_label || 'unit'
+    result.stock = supply.stock_qty ?? null
+  } else if (p.product_type === 'PROSTHESIS') {
+    const prosthesis = p.prosthesis_products || {}
+    result.material_id = prosthesis.material_id
+    result.manufacturing_days = prosthesis.manufacturing_days
+
+    // Load pricing matrix
+    const { data: prices } = await supabase
+      .from('product_prices')
+      .select('work_type_id, tooth_group_id, unit_price')
+      .eq('product_id', id)
+
+    result.pricing_matrix = prices || []
+  } else if (p.product_type === 'PLASTER_SERVICE') {
+    const service = p.plaster_service_products || {}
+    result.base_price = service.base_price || 0
+    result.notes = service.notes
+    result.manufacturing_days = service.manufacturing_days
+  } else if (p.product_type === 'RENTAL') {
+    const rental = p.rental_products || {}
+    result.stock = rental.stock_qty ?? null
+    result.deposit = rental.refundable_deposit_amount || 0
+
+    // Load rental pricing
+    const { data: pricing } = await supabase
+      .from('rental_pricing')
+      .select('period, price')
+      .eq('product_id', id)
+
+    result.rental_pricing = pricing || []
+  }
+
+  return result
 }
 
 export async function listShippingMethods() {
@@ -360,9 +417,10 @@ export async function createSupplyProduct({ name, description, unit_price, unit_
   await linkProductShippingMethod(prod.id, shipping_method_id)
 }
 
-export async function createProsthesisProduct({ name, description, imageFile }) {
+export async function createProsthesisProduct({ name, description, imageFile, pricingMatrix, materialId, deliveryTime }) {
   const { data: me, error: uerr } = await supabase.auth.getUser()
   if (uerr || !me?.user?.id) throw new Error('No auth user')
+
   const insert = {
     name,
     description,
@@ -372,6 +430,71 @@ export async function createProsthesisProduct({ name, description, imageFile }) 
   }
   const { data: prod, error: perr } = await supabase.from('products').insert(insert).select('id').single()
   if (perr) throw perr
+
+  // Update material_id and manufacturing_days if provided
+  const prosthesisUpdates = {}
+  if (materialId) prosthesisUpdates.material_id = materialId
+  if (deliveryTime) prosthesisUpdates.manufacturing_days = parseInt(deliveryTime, 10) || null
+
+  if (Object.keys(prosthesisUpdates).length > 0) {
+    const { error: matErr } = await supabase
+      .from('prosthesis_products')
+      .update(prosthesisUpdates)
+      .eq('product_id', prod.id)
+    if (matErr) throw matErr
+  }
+
+  // Save pricing matrix
+  if (pricingMatrix) {
+    // Load catalogs to map names to IDs
+    const workTypes = await loadWorkTypes()
+    const toothGroups = await loadToothGroups()
+
+    // Map work type names to IDs
+    const workTypeMap = {
+      'corona_total': workTypes.find(wt => wt.name.toLowerCase().includes('corona'))?.id,
+      'carilla': workTypes.find(wt => wt.name.toLowerCase().includes('carilla'))?.id,
+      'incrustacion': workTypes.find(wt => wt.name.toLowerCase().includes('incrusta'))?.id,
+      'puente': workTypes.find(wt => wt.name.toLowerCase().includes('puente'))?.id,
+    }
+
+    // Map tooth group names to IDs
+    const groupMap = {
+      'anterior': toothGroups.find(tg => tg.name.toLowerCase().includes('anterior'))?.id,
+      'premolar': toothGroups.find(tg => tg.name.toLowerCase().includes('premolar'))?.id,
+      'molar': toothGroups.find(tg => tg.name.toLowerCase().includes('molar'))?.id,
+    }
+
+    // Build product_prices rows
+    const priceRows = []
+    for (const [workTypeName, groups] of Object.entries(pricingMatrix)) {
+      const workTypeId = workTypeMap[workTypeName]
+      if (!workTypeId) continue
+
+      for (const [groupName, price] of Object.entries(groups)) {
+        const groupId = groupMap[groupName]
+        const numPrice = parseFloat(price)
+        if (groupId && numPrice > 0) {
+          priceRows.push({
+            product_id: prod.id,
+            work_type_id: workTypeId,
+            tooth_group_id: groupId,
+            unit_price: numPrice
+          })
+        }
+      }
+    }
+
+    // Insert all price rows
+    if (priceRows.length > 0) {
+      const { error: priceErr } = await supabase
+        .from('product_prices')
+        .insert(priceRows)
+      if (priceErr) throw priceErr
+    }
+  }
+
+  // Upload image
   if (imageFile) {
     const type = (imageFile.type || 'image/png').toLowerCase()
     const ext = type.includes('jpeg') ? 'jpg' : type.split('/')[1] || 'png'
@@ -381,10 +504,357 @@ export async function createProsthesisProduct({ name, description, imageFile }) 
     const { error: piErr } = await supabase.from('product_images').insert({ product_id: prod.id, path: storagePath, alt_text: name, position: 1, is_primary: true })
     if (piErr) throw piErr
   }
+
   return prod.id
 }
 
-export async function createPlasterServiceProduct({ name, description, base_price, imageFile }) {
+export async function updateProsthesisProduct(productId, { name, description, imageFile, pricingMatrix, materialId, deliveryTime, is_active }) {
+  const { data: me, error: uerr } = await supabase.auth.getUser()
+  if (uerr || !me?.user?.id) throw new Error('No auth user')
+
+  // Update basic product info
+  const productUpdates = {}
+  if (name !== undefined) productUpdates.name = name
+  if (description !== undefined) productUpdates.description = description
+  if (is_active !== undefined) productUpdates.is_active = is_active
+
+  if (Object.keys(productUpdates).length > 0) {
+    const { error: prodErr } = await supabase
+      .from('products')
+      .update(productUpdates)
+      .eq('id', productId)
+      .eq('owner_user_id', me.user.id) // Security: only owner can update
+    if (prodErr) throw prodErr
+  }
+
+  // Update prosthesis-specific fields (material_id and manufacturing_days)
+  const prosthesisUpdates = {}
+  if (materialId !== undefined) prosthesisUpdates.material_id = materialId
+  if (deliveryTime !== undefined) prosthesisUpdates.manufacturing_days = parseInt(deliveryTime, 10) || null
+
+  if (Object.keys(prosthesisUpdates).length > 0) {
+    const { error: matErr } = await supabase
+      .from('prosthesis_products')
+      .update(prosthesisUpdates)
+      .eq('product_id', productId)
+    if (matErr) throw matErr
+  }
+
+  // Update pricing matrix if provided
+  if (pricingMatrix) {
+    // Delete existing prices
+    const { error: delErr } = await supabase
+      .from('product_prices')
+      .delete()
+      .eq('product_id', productId)
+    if (delErr) throw delErr
+
+    // Re-insert new prices
+    const workTypes = await loadWorkTypes()
+    const toothGroups = await loadToothGroups()
+
+    const workTypeMap = {
+      'corona_total': workTypes.find(wt => wt.name.toLowerCase().includes('corona'))?.id,
+      'carilla': workTypes.find(wt => wt.name.toLowerCase().includes('carilla'))?.id,
+      'incrustacion': workTypes.find(wt => wt.name.toLowerCase().includes('incrusta'))?.id,
+      'puente': workTypes.find(wt => wt.name.toLowerCase().includes('puente'))?.id,
+    }
+
+    const groupMap = {
+      'anterior': toothGroups.find(tg => tg.name.toLowerCase().includes('anterior'))?.id,
+      'premolar': toothGroups.find(tg => tg.name.toLowerCase().includes('premolar'))?.id,
+      'molar': toothGroups.find(tg => tg.name.toLowerCase().includes('molar'))?.id,
+    }
+
+    const priceRows = []
+    for (const [workTypeName, groups] of Object.entries(pricingMatrix)) {
+      const workTypeId = workTypeMap[workTypeName]
+      if (!workTypeId) continue
+
+      for (const [groupName, price] of Object.entries(groups)) {
+        const groupId = groupMap[groupName]
+        const numPrice = parseFloat(price)
+        if (groupId && numPrice > 0) {
+          priceRows.push({
+            product_id: productId,
+            work_type_id: workTypeId,
+            tooth_group_id: groupId,
+            unit_price: numPrice
+          })
+        }
+      }
+    }
+
+    if (priceRows.length > 0) {
+      const { error: priceErr } = await supabase
+        .from('product_prices')
+        .insert(priceRows)
+      if (priceErr) throw priceErr
+    }
+  }
+
+  // Update image if provided
+  if (imageFile) {
+    const type = (imageFile.type || 'image/png').toLowerCase()
+    const ext = type.includes('jpeg') ? 'jpg' : type.split('/')[1] || 'png'
+    const storagePath = `${me.user.id}/${productId}.${ext}`
+
+    // Upload new image (upsert will replace if exists)
+    const { error: upErr } = await supabase.storage
+      .from('product-images')
+      .upload(storagePath, imageFile, { contentType: type, upsert: true })
+    if (upErr) throw upErr
+
+    // Update or insert product_images record
+    const { data: existing } = await supabase
+      .from('product_images')
+      .select('id')
+      .eq('product_id', productId)
+      .eq('is_primary', true)
+      .single()
+
+    if (existing) {
+      // Update existing
+      const { error: piErr } = await supabase
+        .from('product_images')
+        .update({ path: storagePath, alt_text: name })
+        .eq('id', existing.id)
+      if (piErr) throw piErr
+    } else {
+      // Insert new
+      const { error: piErr } = await supabase
+        .from('product_images')
+        .insert({ product_id: productId, path: storagePath, alt_text: name, position: 1, is_primary: true })
+      if (piErr) throw piErr
+    }
+  }
+
+  return true
+}
+
+export async function updateSupplyProduct(productId, { name, description, unit_price, unit_label, stock_qty, sku, imageFile, is_active }) {
+  const { data: me, error: uerr } = await supabase.auth.getUser()
+  if (uerr || !me?.user?.id) throw new Error('No auth user')
+
+  // Update basic product info
+  const productUpdates = {}
+  if (name !== undefined) productUpdates.name = name
+  if (description !== undefined) productUpdates.description = description
+  if (is_active !== undefined) productUpdates.is_active = is_active
+
+  if (Object.keys(productUpdates).length > 0) {
+    const { error: prodErr } = await supabase
+      .from('products')
+      .update(productUpdates)
+      .eq('id', productId)
+      .eq('owner_user_id', me.user.id)
+    if (prodErr) throw prodErr
+  }
+
+  // Update supply-specific fields
+  const supplyUpdates = {}
+  if (unit_price !== undefined) supplyUpdates.unit_price = parseFloat(unit_price)
+  if (unit_label !== undefined) supplyUpdates.unit_label = unit_label
+  if (stock_qty !== undefined) supplyUpdates.stock_qty = parseFloat(stock_qty)
+  if (sku !== undefined) supplyUpdates.sku = sku
+
+  if (Object.keys(supplyUpdates).length > 0) {
+    const { error: supErr } = await supabase
+      .from('supply_products')
+      .update(supplyUpdates)
+      .eq('product_id', productId)
+    if (supErr) throw supErr
+  }
+
+  // Update image if provided
+  if (imageFile) {
+    const type = (imageFile.type || 'image/png').toLowerCase()
+    const ext = type.includes('jpeg') ? 'jpg' : type.split('/')[1] || 'png'
+    const storagePath = `${me.user.id}/${productId}.${ext}`
+
+    const { error: upErr } = await supabase.storage
+      .from('product-images')
+      .upload(storagePath, imageFile, { contentType: type, upsert: true })
+    if (upErr) throw upErr
+
+    const { data: existing } = await supabase
+      .from('product_images')
+      .select('id')
+      .eq('product_id', productId)
+      .eq('is_primary', true)
+      .single()
+
+    if (existing) {
+      const { error: piErr } = await supabase
+        .from('product_images')
+        .update({ path: storagePath, alt_text: name })
+        .eq('id', existing.id)
+      if (piErr) throw piErr
+    } else {
+      const { error: piErr } = await supabase
+        .from('product_images')
+        .insert({ product_id: productId, path: storagePath, alt_text: name, position: 1, is_primary: true })
+      if (piErr) throw piErr
+    }
+  }
+
+  return true
+}
+
+export async function updatePlasterServiceProduct(productId, { name, description, base_price, deliveryTime, imageFile, is_active }) {
+  const { data: me, error: uerr } = await supabase.auth.getUser()
+  if (uerr || !me?.user?.id) throw new Error('No auth user')
+
+  // Update basic product info
+  const productUpdates = {}
+  if (name !== undefined) productUpdates.name = name
+  if (description !== undefined) productUpdates.description = description
+  if (is_active !== undefined) productUpdates.is_active = is_active
+
+  if (Object.keys(productUpdates).length > 0) {
+    const { error: prodErr } = await supabase
+      .from('products')
+      .update(productUpdates)
+      .eq('id', productId)
+      .eq('owner_user_id', me.user.id)
+    if (prodErr) throw prodErr
+  }
+
+  // Update plaster service specific fields
+  const plasterUpdates = {}
+  if (base_price !== undefined) plasterUpdates.base_price = parseFloat(base_price)
+  if (deliveryTime !== undefined) plasterUpdates.manufacturing_days = parseInt(deliveryTime, 10) || null
+
+  if (Object.keys(plasterUpdates).length > 0) {
+    const { error: plErr } = await supabase
+      .from('plaster_service_products')
+      .update(plasterUpdates)
+      .eq('product_id', productId)
+    if (plErr) throw plErr
+  }
+
+  // Update image if provided
+  if (imageFile) {
+    const type = (imageFile.type || 'image/png').toLowerCase()
+    const ext = type.includes('jpeg') ? 'jpg' : type.split('/')[1] || 'png'
+    const storagePath = `${me.user.id}/${productId}.${ext}`
+
+    const { error: upErr } = await supabase.storage
+      .from('product-images')
+      .upload(storagePath, imageFile, { contentType: type, upsert: true })
+    if (upErr) throw upErr
+
+    const { data: existing } = await supabase
+      .from('product_images')
+      .select('id')
+      .eq('product_id', productId)
+      .eq('is_primary', true)
+      .single()
+
+    if (existing) {
+      const { error: piErr } = await supabase
+        .from('product_images')
+        .update({ path: storagePath, alt_text: name })
+        .eq('id', existing.id)
+      if (piErr) throw piErr
+    } else {
+      const { error: piErr } = await supabase
+        .from('product_images')
+        .insert({ product_id: productId, path: storagePath, alt_text: name, position: 1, is_primary: true })
+      if (piErr) throw piErr
+    }
+  }
+
+  return true
+}
+
+export async function updateRentalProduct(productId, { name, description, stock_qty, priceDay, priceWeek, priceMonth, imageFile, is_active }) {
+  const { data: me, error: uerr } = await supabase.auth.getUser()
+  if (uerr || !me?.user?.id) throw new Error('No auth user')
+
+  // Update basic product info
+  const productUpdates = {}
+  if (name !== undefined) productUpdates.name = name
+  if (description !== undefined) productUpdates.description = description
+  if (is_active !== undefined) productUpdates.is_active = is_active
+
+  if (Object.keys(productUpdates).length > 0) {
+    const { error: prodErr } = await supabase
+      .from('products')
+      .update(productUpdates)
+      .eq('id', productId)
+      .eq('owner_user_id', me.user.id)
+    if (prodErr) throw prodErr
+  }
+
+  // Update rental specific fields
+  if (stock_qty !== undefined) {
+    const { error: renErr } = await supabase
+      .from('rental_products')
+      .update({ stock_qty: parseInt(stock_qty) })
+      .eq('product_id', productId)
+    if (renErr) throw renErr
+  }
+
+  // Update pricing if provided
+  if (priceDay !== undefined || priceWeek !== undefined || priceMonth !== undefined) {
+    // Delete existing pricing
+    const { error: delErr } = await supabase
+      .from('rental_pricing')
+      .delete()
+      .eq('product_id', productId)
+    if (delErr) throw delErr
+
+    // Re-insert new pricing
+    const pricing = []
+    if (priceDay) pricing.push({ product_id: productId, period: '1 day', price: parseFloat(priceDay) })
+    if (priceWeek) pricing.push({ product_id: productId, period: '7 days', price: parseFloat(priceWeek) })
+    if (priceMonth) pricing.push({ product_id: productId, period: '30 days', price: parseFloat(priceMonth) })
+
+    if (pricing.length > 0) {
+      const { error: priceErr } = await supabase
+        .from('rental_pricing')
+        .insert(pricing)
+      if (priceErr) throw priceErr
+    }
+  }
+
+  // Update image if provided
+  if (imageFile) {
+    const type = (imageFile.type || 'image/png').toLowerCase()
+    const ext = type.includes('jpeg') ? 'jpg' : type.split('/')[1] || 'png'
+    const storagePath = `${me.user.id}/${productId}.${ext}`
+
+    const { error: upErr } = await supabase.storage
+      .from('product-images')
+      .upload(storagePath, imageFile, { contentType: type, upsert: true })
+    if (upErr) throw upErr
+
+    const { data: existing } = await supabase
+      .from('product_images')
+      .select('id')
+      .eq('product_id', productId)
+      .eq('is_primary', true)
+      .single()
+
+    if (existing) {
+      const { error: piErr } = await supabase
+        .from('product_images')
+        .update({ path: storagePath, alt_text: name })
+        .eq('id', existing.id)
+      if (piErr) throw piErr
+    } else {
+      const { error: piErr } = await supabase
+        .from('product_images')
+        .insert({ product_id: productId, path: storagePath, alt_text: name, position: 1, is_primary: true })
+      if (piErr) throw piErr
+    }
+  }
+
+  return true
+}
+
+export async function createPlasterServiceProduct({ name, description, base_price, deliveryTime, imageFile }) {
   const { data: me, error: uerr } = await supabase.auth.getUser()
   if (uerr || !me?.user?.id) throw new Error('No auth user')
   const insert = {
@@ -396,7 +866,11 @@ export async function createPlasterServiceProduct({ name, description, base_pric
   }
   const { data: prod, error: perr } = await supabase.from('products').insert(insert).select('id').single()
   if (perr) throw perr
-  const { error: upd } = await supabase.from('plaster_service_products').update({ base_price }).eq('product_id', prod.id)
+
+  const plasterUpdates = { base_price }
+  if (deliveryTime) plasterUpdates.manufacturing_days = parseInt(deliveryTime, 10) || null
+
+  const { error: upd } = await supabase.from('plaster_service_products').update(plasterUpdates).eq('product_id', prod.id)
   if (upd) throw upd
   if (imageFile) {
     const type = (imageFile.type || 'image/png').toLowerCase()
@@ -442,4 +916,41 @@ export async function createRentalProduct({ name, description, stock_qty, priceD
     if (piErr) throw piErr
   }
   return prod.id
+}
+
+// Catalog loaders
+export async function loadMaterials() {
+  const { data, error } = await supabase
+    .from('materials')
+    .select('id, name')
+    .order('name')
+  if (error) throw error
+  return data || []
+}
+
+export async function loadWorkTypes() {
+  const { data, error } = await supabase
+    .from('work_types')
+    .select('id, name')
+    .order('name')
+  if (error) throw error
+  return data || []
+}
+
+export async function loadToothGroups() {
+  const { data, error } = await supabase
+    .from('tooth_groups')
+    .select('id, name')
+    .order('name')
+  if (error) throw error
+  return data || []
+}
+
+export async function loadTeeth() {
+  const { data, error } = await supabase
+    .from('teeth')
+    .select('id, fdi_code, tooth_group_id')
+    .order('fdi_code')
+  if (error) throw error
+  return data || []
 }

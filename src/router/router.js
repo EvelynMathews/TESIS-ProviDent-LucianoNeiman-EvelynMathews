@@ -11,6 +11,7 @@ import MyProfileEdit from "../pages/MyProfileEdit.vue";
 import UserProfile from "../pages/UserProfile.vue";
 import Products from "../pages/Products.vue";
 import ProductDetail from "../pages/ProductDetail.vue";
+import ProductEdit from "../pages/ProductEdit.vue";
 import ServiceDetail from "../pages/ServiceDetail.vue";
 import Cart from "../pages/Cart.vue";
 import Publish from "../pages/Publish.vue";
@@ -34,6 +35,7 @@ const routes = [
     { path: '/chat',                    name: 'GlobalChat',                 component: GlobalChat,            meta: { requiresAuth: true, }, },
     { path: '/productos',               name: 'Products',                   component: Products, },
     { path: '/productos/:id',           name: 'ProductDetail',              component: ProductDetail, },
+    { path: '/productos/:id/editar',    name: 'ProductEdit',                component: ProductEdit,           meta: { requiresAuth: true, }, },
     { path: '/servicios/:id',           name: 'ServiceDetail',              component: ServiceDetail, },
     { path: '/carrito',                 name: 'Cart',                       component: Cart,                  meta: { requiresAuth: true, }, },
     { path: '/publicar',                name: 'Publish',                    component: Publish,               meta: { requiresAuth: true, }, },
