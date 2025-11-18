@@ -70,8 +70,9 @@ export default {
                 <span class="text-sm text-gray-700">${{ new Intl.NumberFormat('es-AR').format(p.price) }} · {{ p.unit || 'unidad' }}</span>
                 <span :class="p.is_active ? 'text-green-600' : 'text-gray-500'" class="text-xs font-semibold">{{ p.is_active ? 'Activo' : 'Pausado' }}</span>
               </div>
-              <div class="mt-3 grid grid-cols-3 gap-2">
+              <div class="mt-3 grid grid-cols-2 gap-2">
                 <RouterLink :to="`/productos/${p.id}`" class="text-center text-white bg-sky-600 hover:bg-sky-700 rounded-lg py-2">Ver</RouterLink>
+                <RouterLink :to="`/productos/${p.id}/editar`" class="text-center text-white bg-sky-600 hover:bg-sky-700 rounded-lg py-2">Editar</RouterLink>
                 <button @click="toggleActive(p)" :disabled="busyId===p.id"
                         class="text-center rounded-lg py-2 border" :class="p.is_active ? 'border-yellow-600 text-yellow-700 hover:bg-yellow-50' : 'border-emerald-600 text-emerald-700 hover:bg-emerald-50'">
                   {{ p.is_active ? 'Pausar' : 'Activar' }}
