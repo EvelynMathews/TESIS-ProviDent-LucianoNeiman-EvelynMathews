@@ -32,10 +32,10 @@ export default {
             return (this.currentStep / this.totalSteps) * 100
         },
         canGoNext() {
-            switch(this.currentStep) {
+            switch (this.currentStep) {
                 case 1:
                     return this.user.email && this.user.password && this.user.confirmPassword &&
-                           this.user.password === this.user.confirmPassword && this.user.password.length >= 6
+                        this.user.password === this.user.confirmPassword && this.user.password.length >= 6
                 case 2:
                     return this.user.name && this.user.lastName
                 default:
@@ -101,7 +101,8 @@ export default {
                 <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center shadow-lg"
                     style="background: linear-gradient(135deg, #2A6FAF 0%, #29A68C 100%);">
                     <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        <path
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                     </svg>
                 </div>
                 <h1 class="font-heading text-3xl font-bold text-gray-800 mb-2">Creá tu cuenta en ProviDent</h1>
@@ -118,17 +119,19 @@ export default {
                                     color: step <= currentStep ? 'white' : '#9CA3AF'
                                 }">
                                 <svg v-if="step < currentStep" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                    <path fill-rule="evenodd"
+                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                        clip-rule="evenodd"></path>
                                 </svg>
                                 <span v-else>{{ step }}</span>
                             </div>
                             <p class="text-xs mt-2 text-center font-semibold"
-                                :style="{color: step <= currentStep ? '#2A6FAF' : '#9CA3AF'}">
-                                {{ step === 1 ? 'Acceso' : step === 2 ? 'Datos' : step === 3 ? 'Dirección' : 'Confirmar' }}
+                                :style="{ color: step <= currentStep ? '#2A6FAF' : '#9CA3AF' }">
+                                {{ step === 1 ? 'Acceso' : step === 2 ? 'Datos' : step === 3 ? 'Dirección' : 'Confirmar'}}
                             </p>
                         </div>
                         <div v-if="step < totalSteps" class="flex-1 h-1 mx-2 rounded"
-                            :style="{backgroundColor: step < currentStep ? '#2A6FAF' : '#E5E7EB'}">
+                            :style="{ backgroundColor: step < currentStep ? '#2A6FAF' : '#E5E7EB' }">
                         </div>
                     </div>
                 </div>
@@ -181,7 +184,8 @@ export default {
                 <form @submit.prevent="currentStep === totalSteps ? handleSubmit() : nextStep()">
                     <div v-if="currentStep === 1" class="space-y-6">
                         <div class="p-4 rounded-lg" style="background-color: #E3EEF8;">
-                            <h2 class="font-heading text-xl font-bold mb-2" style="color: #2A6FAF;">Paso 1: Datos de acceso</h2>
+                            <h2 class="font-heading text-xl font-bold mb-2" style="color: #2A6FAF;">Paso 1: Datos de
+                                acceso</h2>
                             <p class="text-sm text-gray-600">Creá tu usuario y contraseña</p>
                         </div>
 
@@ -191,7 +195,6 @@ export default {
                             </label>
                             <input type="email" id="email" v-model="user.email" required
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                style="focus:ring-color: #2A6FAF;"
                                 placeholder="tu@email.com" />
                         </div>
 
@@ -201,7 +204,6 @@ export default {
                             </label>
                             <input type="password" id="password" v-model="user.password" required minlength="6"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                style="focus:ring-color: #2A6FAF;"
                                 placeholder="Mínimo 6 caracteres" />
                             <p class="text-xs text-gray-500 mt-1">Debe tener al menos 6 caracteres</p>
                         </div>
@@ -213,7 +215,6 @@ export default {
                             <input type="password" id="confirmPassword" v-model="user.confirmPassword" required
                                 class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition"
                                 :class="passwordMatch ? 'border-gray-300' : 'border-red-300'"
-                                style="focus:ring-color: #2A6FAF;"
                                 placeholder="Repetí tu contraseña" />
                             <p v-if="!passwordMatch" class="text-xs text-red-600 mt-1">Las contraseñas no coinciden</p>
                         </div>
@@ -221,7 +222,8 @@ export default {
 
                     <div v-if="currentStep === 2" class="space-y-6">
                         <div class="p-4 rounded-lg" style="background-color: #D4F4EC;">
-                            <h2 class="font-heading text-xl font-bold mb-2" style="color: #29A68C;">Paso 2: Datos personales</h2>
+                            <h2 class="font-heading text-xl font-bold mb-2" style="color: #29A68C;">Paso 2: Datos
+                                personales</h2>
                             <p class="text-sm text-gray-600">Contanos sobre vos</p>
                         </div>
 
@@ -232,7 +234,6 @@ export default {
                                 </label>
                                 <input type="text" id="name" v-model="user.name" required
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                    style="focus:ring-color: #29A68C;"
                                     placeholder="Juan" />
                             </div>
 
@@ -242,7 +243,6 @@ export default {
                                 </label>
                                 <input type="text" id="lastName" v-model="user.lastName" required
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                    style="focus:ring-color: #29A68C;"
                                     placeholder="Pérez" />
                             </div>
                         </div>
@@ -250,9 +250,10 @@ export default {
                         <div v-if="false"></div>
                     </div>
 
-            <div v-if="false" class="space-y-6">
+                    <div v-if="false" class="space-y-6">
                         <div class="p-4 rounded-lg" style="background-color: #F8E8E2;">
-                            <h2 class="font-heading text-xl font-bold mb-2" style="color: #DC8C73;">Paso 3: Dirección</h2>
+                            <h2 class="font-heading text-xl font-bold mb-2" style="color: #DC8C73;">Paso 3: Dirección
+                            </h2>
                             <p class="text-sm text-gray-600">¿Dónde te encontrás?</p>
                         </div>
 
@@ -262,7 +263,6 @@ export default {
                             </label>
                             <input type="text" id="street" v-model="user.street" required
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                style="focus:ring-color: #DC8C73;"
                                 placeholder="Av. Corrientes 1234" />
                         </div>
 
@@ -273,7 +273,6 @@ export default {
                                 </label>
                                 <input type="text" id="city" v-model="user.city" required
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                    style="focus:ring-color: #DC8C73;"
                                     placeholder="CABA" />
                             </div>
 
@@ -283,7 +282,6 @@ export default {
                                 </label>
                                 <input type="text" id="province" v-model="user.province" required
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                    style="focus:ring-color: #DC8C73;"
                                     placeholder="Buenos Aires" />
                             </div>
                         </div>
@@ -295,7 +293,6 @@ export default {
                                 </label>
                                 <input type="text" id="postalCode" v-model="user.postalCode" required
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                    style="focus:ring-color: #DC8C73;"
                                     placeholder="C1043" />
                             </div>
 
@@ -310,7 +307,8 @@ export default {
                     </div>
 
                     <div v-if="currentStep === 4" class="space-y-6">
-                        <div class="p-4 rounded-lg" style="background: linear-gradient(135deg, #2A6FAF 0%, #29A68C 100%);">
+                        <div class="p-4 rounded-lg"
+                            style="background: linear-gradient(135deg, #2A6FAF 0%, #29A68C 100%);">
                             <h2 class="font-heading text-xl font-bold text-white mb-2">Paso 4: Confirmación</h2>
                             <p class="text-sm text-white opacity-90">Revisá tus datos antes de continuar</p>
                         </div>
@@ -318,13 +316,13 @@ export default {
                         <div class="space-y-4">
                             <div class="p-4 rounded-lg bg-gray-50">
                                 <h3 class="font-semibold text-gray-800 mb-3">Datos de acceso</h3>
-                                <p class="text-sm text-gray-600"><span class="font-semibold">Email:</span> {{ user.email }}</p>
+                                <p class="text-sm text-gray-600"><span class="font-semibold">Email:</span> {{ user.email}}</p>
                             </div>
 
                             <div class="p-4 rounded-lg bg-gray-50">
                                 <h3 class="font-semibold text-gray-800 mb-3">Datos personales</h3>
-                                <p class="text-sm text-gray-600"><span class="font-semibold">Nombre:</span> {{ user.name }} {{ user.lastName }}</p>
-                                <p class="text-sm text-gray-600"><span class="font-semibold">Teléfono:</span> {{ user.phone }}</p>
+                                <p class="text-sm text-gray-600"><span class="font-semibold">Nombre:</span> {{ user.name}} {{ user.lastName }}</p>
+                                <p class="text-sm text-gray-600"><span class="font-semibold">Teléfono:</span> {{user.phone }}</p>
                             </div>
 
                             <div class="p-4 rounded-lg bg-gray-50">

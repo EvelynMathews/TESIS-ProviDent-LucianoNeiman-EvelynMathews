@@ -137,19 +137,19 @@ export default {
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre</label>
                             <input v-model="formData.first_name" placeholder="Ingresá tu nombre"
                                 class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
-                                style="focus:border-color: #2A6FAF;" />
+                                 />
                         </div>
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Apellido</label>
                             <input v-model="formData.last_name" placeholder="Ingresá tu apellido"
                                 class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
-                                style="focus:border-color: #2A6FAF;" />
+                                 />
                         </div>
                         <div class="md:col-span-2">
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Correo electrónico</label>
                             <input v-model="formData.email" type="email" placeholder="correo@ejemplo.com" disabled
                                 class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed"
-                                style="focus:border-color: #2A6FAF;" />
+                                 />
                             <p class="text-xs text-gray-500 mt-1">El email no puede modificarse</p>
                         </div>
                     </div>
@@ -162,13 +162,13 @@ export default {
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Biografía</label>
                             <textarea v-model="formData.bio" rows="4" placeholder="Contanos un poco sobre vos"
                                 class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition resize-none"
-                                style="focus:border-color: #2A6FAF;"></textarea>
+                                ></textarea>
                         </div>
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Ubicación</label>
                             <input v-model="formData.location" placeholder="Ciudad, Provincia"
                                 class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
-                                style="focus:border-color: #2A6FAF;" />
+                                 />
                         </div>
                     </div>
                 </div>

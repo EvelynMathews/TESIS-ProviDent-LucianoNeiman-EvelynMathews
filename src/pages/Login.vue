@@ -58,7 +58,7 @@ export default {
                         </label>
                         <input type="email" id="email" v-model="user.email" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            style="focus:ring-color: #2A6FAF;"
+                            
                             placeholder="tu@email.com" />
                     </div>
 
@@ -68,7 +68,7 @@ export default {
                         </label>
                         <input type="password" id="password" v-model="user.password" required minlength="6"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            style="focus:ring-color: #2A6FAF;"
+                            
                             placeholder="••••••••" />
                     </div>
 
