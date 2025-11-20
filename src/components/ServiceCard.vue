@@ -2,7 +2,7 @@
     <div class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
         <div class="relative flex-shrink-0">
             <img :src="service.image" :alt="service.name" class="w-full h-48 object-cover" />
-            <span class="absolute top-2 right-2 bg-secondary text-white text-xs px-3 py-1 rounded-full font-medium">
+            <span class="service-category-badge" :class="getCategoryClass()">
                 {{ service.category }}
             </span>
         </div>
@@ -36,17 +36,17 @@
             </div>
 
             <div class="mb-3">
-                <div v-if="service.service_type === 'equipment_rental'">
+                <div v-if="service.product_type === 'RENTAL' || service.service_type === 'equipment_rental'">
                     <p class="text-lg font-bold text-primary">${{ formatPrice(service.price_day) }}/día</p>
-                    <p class="text-xs text-gray-500">${{ formatPrice(service.price_week) }}/sem | ${{ formatPrice(service.price_month) }}/mes</p>
+                    <p v-if="service.price_week" class="text-xs text-gray-500">${{ formatPrice(service.price_week) }}/sem | ${{ formatPrice(service.price_month) }}/mes</p>
                 </div>
-                <div v-else-if="service.service_type === 'prosthesis'">
-                    <p class="text-lg font-bold text-secondary">Desde ${{ formatPrice(getMinPrice(service.pricing_matrix)) }}</p>
+                <div v-else-if="service.product_type === 'PROSTHESIS' || service.service_type === 'prosthesis'">
+                    <p class="text-lg font-bold text-secondary">Desde ${{ formatPrice(service.pricing_matrix ? getMinPrice(service.pricing_matrix) : service.price) }}</p>
                     <p class="text-xs text-gray-500">Precio según tipo y ubicación</p>
                 </div>
                 <div v-else-if="service.price">
                     <p class="text-lg font-bold text-secondary">${{ formatPrice(service.price) }}</p>
-                    <p class="text-xs text-gray-500">{{ service.unit }}</p>
+                    <p v-if="service.unit" class="text-xs text-gray-500">{{ service.unit }}</p>
                 </div>
             </div>
 
@@ -89,6 +89,17 @@ export default {
                 })
             })
             return minPrice === Infinity ? 0 : minPrice
+        },
+        getCategoryClass() {
+            const category = this.service.category || ''
+            if (category.toLowerCase().includes('prótesis') || category.toLowerCase().includes('protesis')) {
+                return 'badge-prosthesis'
+            } else if (category.toLowerCase().includes('modelado') || category.toLowerCase().includes('vaciado')) {
+                return 'badge-plaster'
+            } else if (category.toLowerCase().includes('alquiler')) {
+                return 'badge-rental'
+            }
+            return 'badge-default'
         }
     }
 }
@@ -100,5 +111,33 @@ export default {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+}
+
+.service-category-badge {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    color: white;
+    font-size: 0.75rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 9999px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.badge-prosthesis {
+    background-color: #DC8C73;
+}
+
+.badge-plaster {
+    background-color: #29A68C;
+}
+
+.badge-rental {
+    background-color: #6B9BC4;
+}
+
+.badge-default {
+    background-color: #2A6FAF;
 }
 </style>
