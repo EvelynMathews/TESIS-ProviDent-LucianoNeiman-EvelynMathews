@@ -189,12 +189,12 @@ CREATE TABLE public.product_prices (
                                        CONSTRAINT product_prices_tooth_group_id_fkey FOREIGN KEY (tooth_group_id) REFERENCES public.tooth_groups(id),
                                        CONSTRAINT product_prices_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.prosthesis_products(product_id)
 );
-CREATE TABLE public.product_shipping_profiles (
-                                                  product_id uuid NOT NULL,
-                                                  profile_id uuid NOT NULL,
-                                                  CONSTRAINT product_shipping_profiles_pkey PRIMARY KEY (product_id, profile_id),
-                                                  CONSTRAINT product_shipping_profiles_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
-                                                  CONSTRAINT product_shipping_profiles_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.shipping_profiles(id)
+CREATE TABLE public.product_shipping_methods (
+                                                 product_id uuid NOT NULL,
+                                                 method_id uuid NOT NULL,
+                                                 CONSTRAINT product_shipping_methods_pkey PRIMARY KEY (product_id, method_id),
+                                                 CONSTRAINT product_shipping_profiles_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id),
+                                                 CONSTRAINT product_shipping_profiles_profile_id_fkey FOREIGN KEY (method_id) REFERENCES public.shipping_methods(id)
 );
 CREATE TABLE public.products (
                                  id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -271,41 +271,41 @@ CREATE TABLE public.shipments (
                                   CONSTRAINT shipments_pkey PRIMARY KEY (id),
                                   CONSTRAINT shipments_order_item_id_fkey FOREIGN KEY (order_item_id) REFERENCES public.order_items(id)
 );
-CREATE TABLE public.shipping_profiles (
-                                          id uuid NOT NULL DEFAULT gen_random_uuid(),
-                                          seller_user_id uuid NOT NULL,
-                                          name text NOT NULL,
-                                          active boolean DEFAULT true,
-                                          created_at timestamp with time zone DEFAULT now(),
-                                          volume_min_cm3 numeric,
-                                          volume_max_cm3 numeric,
-                                          CONSTRAINT shipping_profiles_pkey PRIMARY KEY (id),
-                                          CONSTRAINT shipping_profiles_seller_user_id_fkey FOREIGN KEY (seller_user_id) REFERENCES public.user_sellers(user_id)
+CREATE TABLE public.shipping_methods (
+                                         id uuid NOT NULL DEFAULT gen_random_uuid(),
+                                         seller_user_id uuid NOT NULL,
+                                         name text NOT NULL,
+                                         active boolean DEFAULT true,
+                                         created_at timestamp with time zone DEFAULT now(),
+                                         volume_min_cm3 numeric,
+                                         volume_max_cm3 numeric,
+                                         CONSTRAINT shipping_methods_pkey PRIMARY KEY (id),
+                                         CONSTRAINT shipping_profiles_seller_user_id_fkey FOREIGN KEY (seller_user_id) REFERENCES public.user_sellers(user_id)
 );
 CREATE TABLE public.shipping_rates (
                                        id uuid NOT NULL DEFAULT gen_random_uuid(),
-                                       profile_id uuid NOT NULL,
+                                       method_id uuid NOT NULL,
                                        zone_id uuid,
-                                       carrier text NOT NULL,
-                                       service text NOT NULL,
                                        price numeric NOT NULL,
                                        weight_min numeric,
                                        weight_max numeric,
                                        eta_days integer,
                                        active boolean DEFAULT true,
+                                       volume_min_cm3 numeric,
+                                       volume_max_cm3 numeric,
                                        CONSTRAINT shipping_rates_pkey PRIMARY KEY (id),
-                                       CONSTRAINT shipping_rates_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.shipping_profiles(id),
+                                       CONSTRAINT shipping_rates_profile_id_fkey FOREIGN KEY (method_id) REFERENCES public.shipping_methods(id),
                                        CONSTRAINT shipping_rates_zone_id_fkey FOREIGN KEY (zone_id) REFERENCES public.shipping_zones(id)
 );
 CREATE TABLE public.shipping_zones (
                                        id uuid NOT NULL DEFAULT gen_random_uuid(),
-                                       profile_id uuid NOT NULL,
+                                       method_id uuid NOT NULL,
                                        province_id uuid NOT NULL,
                                        zone_name text NOT NULL,
                                        postal_code_min text NOT NULL,
                                        postal_code_max text NOT NULL,
                                        CONSTRAINT shipping_zones_pkey PRIMARY KEY (id),
-                                       CONSTRAINT shipping_zones_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.shipping_profiles(id),
+                                       CONSTRAINT shipping_zones_profile_id_fkey FOREIGN KEY (method_id) REFERENCES public.shipping_methods(id),
                                        CONSTRAINT shipping_zones_province_id_fkey FOREIGN KEY (province_id) REFERENCES public.provinces(id)
 );
 CREATE TABLE public.simple_material_products (
@@ -372,6 +372,7 @@ CREATE TABLE public.user_sellers (
                                      display_name text,
                                      rating_avg numeric,
                                      created_at timestamp with time zone DEFAULT now(),
+                                     enabled boolean DEFAULT false,
                                      CONSTRAINT user_sellers_pkey PRIMARY KEY (user_id),
                                      CONSTRAINT user_sellers_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
@@ -386,17 +387,16 @@ CREATE TABLE public.users (
                               CONSTRAINT users_pkey PRIMARY KEY (id),
                               CONSTRAINT users_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
-CREATE TABLE public.work_types (
-                                   id uuid NOT NULL DEFAULT gen_random_uuid(),
-                                   name text NOT NULL UNIQUE,
-                                   CONSTRAINT work_types_pkey PRIMARY KEY (id)
-);
 CREATE TABLE public.work_type_tooth_group_combinations (
                                                            id uuid NOT NULL DEFAULT gen_random_uuid(),
                                                            work_type_id uuid NOT NULL,
                                                            tooth_group_id uuid NOT NULL,
                                                            CONSTRAINT work_type_tooth_group_combinations_pkey PRIMARY KEY (id),
-                                                           CONSTRAINT work_type_tooth_group_combinations_work_type_id_fkey FOREIGN KEY (work_type_id) REFERENCES public.work_types(id) ON DELETE CASCADE,
-                                                           CONSTRAINT work_type_tooth_group_combinations_tooth_group_id_fkey FOREIGN KEY (tooth_group_id) REFERENCES public.tooth_groups(id) ON DELETE CASCADE,
-                                                           CONSTRAINT work_type_tooth_group_combinations_unique UNIQUE (work_type_id, tooth_group_id)
+                                                           CONSTRAINT work_type_tooth_group_combinations_work_type_id_fkey FOREIGN KEY (work_type_id) REFERENCES public.work_types(id),
+                                                           CONSTRAINT work_type_tooth_group_combinations_tooth_group_id_fkey FOREIGN KEY (tooth_group_id) REFERENCES public.tooth_groups(id)
+);
+CREATE TABLE public.work_types (
+                                   id uuid NOT NULL DEFAULT gen_random_uuid(),
+                                   name text NOT NULL UNIQUE,
+                                   CONSTRAINT work_types_pkey PRIMARY KEY (id)
 );
