@@ -196,6 +196,17 @@ package "Productos & Catálogos" #F0F5FF {
       tooth_group_id: UUID NOT NULL <<FK>>
     }
     tooth_groups ||--o{ teeth
+
+    entity "work_type_tooth_group_combinations" as wttgc #E6F7FF {
+      + id : UUID <<PK>>
+      --
+      work_type_id   : UUID NOT NULL <<FK>>
+      tooth_group_id : UUID NOT NULL <<FK>>
+      <<UNIQUE (work_type_id, tooth_group_id)>>
+    }
+    work_types ||--o{ wttgc
+    tooth_groups ||--o{ wttgc
+
     entity "prosthesis_products" as prosthesis_products {
       + product_id : UUID <<PK, FK>>  ' -> products.id
       --

@@ -391,3 +391,12 @@ CREATE TABLE public.work_types (
                                    name text NOT NULL UNIQUE,
                                    CONSTRAINT work_types_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.work_type_tooth_group_combinations (
+                                                           id uuid NOT NULL DEFAULT gen_random_uuid(),
+                                                           work_type_id uuid NOT NULL,
+                                                           tooth_group_id uuid NOT NULL,
+                                                           CONSTRAINT work_type_tooth_group_combinations_pkey PRIMARY KEY (id),
+                                                           CONSTRAINT work_type_tooth_group_combinations_work_type_id_fkey FOREIGN KEY (work_type_id) REFERENCES public.work_types(id) ON DELETE CASCADE,
+                                                           CONSTRAINT work_type_tooth_group_combinations_tooth_group_id_fkey FOREIGN KEY (tooth_group_id) REFERENCES public.tooth_groups(id) ON DELETE CASCADE,
+                                                           CONSTRAINT work_type_tooth_group_combinations_unique UNIQUE (work_type_id, tooth_group_id)
+);

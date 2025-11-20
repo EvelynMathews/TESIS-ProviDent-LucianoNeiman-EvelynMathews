@@ -954,3 +954,11 @@ export async function loadTeeth() {
   if (error) throw error
   return data || []
 }
+
+export async function loadValidWorkGroupCombinations() {
+  const { data, error } = await supabase
+    .from('work_type_tooth_group_combinations')
+    .select('work_type_id, tooth_group_id')
+  if (error) throw error
+  return data || []
+}
