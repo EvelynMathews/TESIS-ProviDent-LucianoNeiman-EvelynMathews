@@ -1,6 +1,6 @@
 <script>
 import { subscribeToAuthStateChanges } from '../services/auth'
-import { getProductById, listActiveProducts, loadMaterials, loadWorkTypes, loadToothGroups, loadTeeth } from '../services/products'
+import { getProductById, listActiveProducts, loadMaterials, loadWorkTypes, loadToothGroups, loadTeeth, loadValidWorkGroupCombinations } from '../services/products'
 import ProductCard from '../components/ProductCard.vue'
 
 export default {
@@ -23,20 +23,37 @@ export default {
             workTypes: [],
             toothGroups: [],
             teeth: [],
+            validCombinations: [],
+            // For variant A (default)
             selectedWorkType: null,
             selectedTeethIds: [],
+            // For variants B and C (matrix modes)
+            selectedCombinations: [] // [{toothId, workTypeId, price}]
         }
     },
     computed: {
+        uiMode() {
+            return this.$route.query.ui || 'default'
+        },
+        isMatrixMode() {
+            return this.uiMode === 'matrix' || this.uiMode === 'matrix4'
+        },
         totalPrice() {
             if (this.product.product_type === 'SUPPLY') {
                 return this.product.price * this.quantity
             } else if (this.product.product_type === 'PROSTHESIS') {
-                // Sum prices of all selected teeth
-                return this.selectedTeethIds.reduce((total, toothId) => {
-                    const tooth = this.availableTeethForWorkType.find(t => t.tooth.id === toothId)
-                    return total + (tooth?.price || 0)
-                }, 0)
+                if (this.isMatrixMode) {
+                    // Matrix mode: sum prices from selectedCombinations
+                    return this.selectedCombinations.reduce((total, combo) => {
+                        return total + (combo.price || 0)
+                    }, 0)
+                } else {
+                    // Default mode: sum prices of selected teeth for the current work type
+                    return this.selectedTeethIds.reduce((total, toothId) => {
+                        const tooth = this.availableTeethForWorkType.find(t => t.tooth.id === toothId)
+                        return total + (tooth?.price || 0)
+                    }, 0)
+                }
             } else if (this.product.product_type === 'PLASTER_SERVICE') {
                 return this.product.base_price || 0
             }
@@ -85,6 +102,15 @@ export default {
                 }
             })
             return Object.values(uniqueGroups)
+        },
+        teethByQuadrant() {
+            if (!this.teeth || this.teeth.length === 0) return {}
+            return {
+                1: this.teeth.filter(t => t.fdi_code >= 11 && t.fdi_code <= 18).sort((a, b) => a.fdi_code - b.fdi_code),
+                2: this.teeth.filter(t => t.fdi_code >= 21 && t.fdi_code <= 28).sort((a, b) => a.fdi_code - b.fdi_code),
+                3: this.teeth.filter(t => t.fdi_code >= 31 && t.fdi_code <= 38).sort((a, b) => a.fdi_code - b.fdi_code),
+                4: this.teeth.filter(t => t.fdi_code >= 41 && t.fdi_code <= 48).sort((a, b) => a.fdi_code - b.fdi_code)
+            }
         }
     },
     methods: {
@@ -112,12 +138,23 @@ export default {
             if (this.product.product_type === 'SUPPLY') {
                 alert(`Agregado al carrito: ${this.quantity} ${this.product.unit} de ${this.product.name}`)
             } else if (this.product.product_type === 'PROSTHESIS') {
-                const workType = this.workTypes.find(wt => wt.id === this.selectedWorkType)
-                const selectedTeeth = this.availableTeethForWorkType
-                    .filter(t => this.selectedTeethIds.includes(t.tooth.id))
-                    .map(t => t.tooth.fdi_code)
-                    .join(', ')
-                alert(`Solicitud de prótesis: ${this.product.name}\nTipo: ${workType?.name}\nDientes: ${selectedTeeth}\nTotal: $${this.formatPrice(this.totalPrice)}`)
+                if (this.isMatrixMode) {
+                    // Matrix mode: show all combinations
+                    const combinations = this.selectedCombinations.map(combo => {
+                        const tooth = this.teeth.find(t => t.id === combo.toothId)
+                        const workType = this.workTypes.find(wt => wt.id === combo.workTypeId)
+                        return `${tooth?.fdi_code} (${workType?.name}): $${this.formatPrice(combo.price)}`
+                    }).join('\n')
+                    alert(`Solicitud de prótesis: ${this.product.name}\n\nCombinaciones:\n${combinations}\n\nTotal: $${this.formatPrice(this.totalPrice)}`)
+                } else {
+                    // Default mode: single work type
+                    const workType = this.workTypes.find(wt => wt.id === this.selectedWorkType)
+                    const selectedTeeth = this.availableTeethForWorkType
+                        .filter(t => this.selectedTeethIds.includes(t.tooth.id))
+                        .map(t => t.tooth.fdi_code)
+                        .join(', ')
+                    alert(`Solicitud de prótesis: ${this.product.name}\nTipo: ${workType?.name}\nDientes: ${selectedTeeth}\nTotal: $${this.formatPrice(this.totalPrice)}`)
+                }
             } else if (this.product.product_type === 'PLASTER_SERVICE') {
                 alert(`Solicitud de servicio: ${this.product.name}\nPrecio: $${this.formatPrice(this.product.base_price)}`)
             }
@@ -142,9 +179,10 @@ export default {
                     this.workTypes = await loadWorkTypes()
                     this.toothGroups = await loadToothGroups()
                     this.teeth = await loadTeeth()
+                    this.validCombinations = await loadValidWorkGroupCombinations()
 
-                    // Set default selections if available
-                    if (this.workTypes.length > 0) {
+                    // Set default selections if available (variant A only)
+                    if (!this.isMatrixMode && this.workTypes.length > 0) {
                         this.selectedWorkType = this.workTypes[0].id
                     }
                 }
@@ -154,6 +192,60 @@ export default {
                 console.error('Failed to load product', e)
             } finally {
                 this.loading = false
+            }
+        },
+        isValidToothWorkTypeCombination(toothId, workTypeId) {
+            // Check if this tooth-workType combination is valid
+            if (!this.validCombinations || this.validCombinations.length === 0) return true
+
+            const tooth = this.teeth.find(t => t.id === toothId)
+            if (!tooth) return false
+
+            return this.validCombinations.some(
+                c => c.work_type_id === workTypeId && c.tooth_group_id === tooth.tooth_group_id
+            )
+        },
+        getPriceForToothAndWorkType(toothId, workTypeId) {
+            if (!this.product || !this.product.pricing_matrix) return 0
+
+            const tooth = this.teeth.find(t => t.id === toothId)
+            if (!tooth) return 0
+
+            const price = this.product.pricing_matrix.find(
+                p => p.work_type_id === workTypeId && p.tooth_group_id === tooth.tooth_group_id
+            )
+
+            return price?.unit_price || 0
+        },
+        isCombinationSelected(toothId, workTypeId) {
+            return this.selectedCombinations.some(
+                c => c.toothId === toothId && c.workTypeId === workTypeId
+            )
+        },
+        toggleCombination(toothId, workTypeId) {
+            const index = this.selectedCombinations.findIndex(
+                c => c.toothId === toothId && c.workTypeId === workTypeId
+            )
+
+            if (index >= 0) {
+                // Remove if already selected
+                this.selectedCombinations.splice(index, 1)
+            } else {
+                // Add new combination
+                const price = this.getPriceForToothAndWorkType(toothId, workTypeId)
+                this.selectedCombinations.push({
+                    toothId,
+                    workTypeId,
+                    price
+                })
+            }
+        }
+    },
+    watch: {
+        selectedWorkType() {
+            // Clear tooth selection when work type changes (variant A only)
+            if (!this.isMatrixMode) {
+                this.selectedTeethIds = []
             }
         }
     },
@@ -217,8 +309,8 @@ export default {
                             <p class="text-gray-600 leading-relaxed">{{ product.description }}</p>
                         </div>
 
-                        <!-- Configuration section for PROSTHESIS products -->
-                        <div v-if="product.product_type === 'PROSTHESIS'" class="mb-6 bg-gray-50 p-4 rounded-lg">
+                        <!-- Configuration section for PROSTHESIS products - Variant A (Default) -->
+                        <div v-if="product.product_type === 'PROSTHESIS' && uiMode === 'default'" class="mb-6 bg-gray-50 p-4 rounded-lg">
                             <h3 class="font-heading font-semibold text-gray-800 mb-3">Configurar prótesis</h3>
 
                             <div class="mb-4">
@@ -290,6 +382,105 @@ export default {
                             </div>
                         </div>
 
+                        <!-- Configuration section for PROSTHESIS products - Variant B (Matrix) -->
+                        <div v-if="product.product_type === 'PROSTHESIS' && uiMode === 'matrix'" class="mb-6 bg-gray-50 p-4 rounded-lg">
+                            <h3 class="font-heading font-semibold text-gray-800 mb-3">Configurar prótesis - Vista Matriz</h3>
+
+                            <div class="overflow-x-auto">
+                                <table class="w-full border-collapse border border-gray-300 text-sm">
+                                    <thead>
+                                        <tr class="bg-gray-200">
+                                            <th class="border border-gray-300 px-2 py-2 text-left font-semibold sticky left-0 bg-gray-200">Diente</th>
+                                            <th v-for="wt in workTypes" :key="wt.id"
+                                                class="border border-gray-300 px-2 py-2 text-center font-semibold">
+                                                {{ wt.name }}
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="tooth in teeth" :key="tooth.id" class="hover:bg-gray-100">
+                                            <td class="border border-gray-300 px-2 py-2 font-medium sticky left-0 bg-white">
+                                                {{ tooth.fdi_code }}
+                                            </td>
+                                            <td v-for="wt in workTypes" :key="wt.id"
+                                                class="border border-gray-300 px-2 py-2 text-center">
+                                                <div v-if="isValidToothWorkTypeCombination(tooth.id, wt.id)">
+                                                    <input
+                                                        type="checkbox"
+                                                        :checked="isCombinationSelected(tooth.id, wt.id)"
+                                                        @change="toggleCombination(tooth.id, wt.id)"
+                                                        class="w-4 h-4 text-primary border-gray-300 rounded cursor-pointer"
+                                                    />
+                                                    <div class="text-xs text-gray-600 mt-1">
+                                                        ${{ formatPrice(getPriceForToothAndWorkType(tooth.id, wt.id)) }}
+                                                    </div>
+                                                </div>
+                                                <span v-else class="text-gray-300 text-xs">-</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="pt-4 border-t border-gray-200 mt-4">
+                                <p class="text-lg text-gray-700 mb-2">
+                                    Total: <span class="font-bold text-3xl text-secondary">${{ formatPrice(totalPrice) }}</span>
+                                </p>
+                                <p class="text-xs text-gray-500">{{ selectedCombinations.length }} combinación(es) seleccionada(s)</p>
+                            </div>
+                        </div>
+
+                        <!-- Configuration section for PROSTHESIS products - Variant C (Matrix by Quadrant) -->
+                        <div v-if="product.product_type === 'PROSTHESIS' && uiMode === 'matrix4'" class="mb-6 bg-gray-50 p-4 rounded-lg">
+                            <h3 class="font-heading font-semibold text-gray-800 mb-3">Configurar prótesis - Vista por Cuadrante</h3>
+
+                            <div v-for="(quadrantTeeth, quadrant) in teethByQuadrant" :key="quadrant" class="mb-6">
+                                <h4 class="font-semibold text-gray-700 mb-2">Cuadrante {{ quadrant }}</h4>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full border-collapse border border-gray-300 text-sm">
+                                        <thead>
+                                            <tr class="bg-gray-200">
+                                                <th class="border border-gray-300 px-2 py-2 text-left font-semibold">Diente</th>
+                                                <th v-for="wt in workTypes" :key="wt.id"
+                                                    class="border border-gray-300 px-2 py-2 text-center font-semibold">
+                                                    {{ wt.name }}
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="tooth in quadrantTeeth" :key="tooth.id" class="hover:bg-gray-100">
+                                                <td class="border border-gray-300 px-2 py-2 font-medium">
+                                                    {{ tooth.fdi_code }}
+                                                </td>
+                                                <td v-for="wt in workTypes" :key="wt.id"
+                                                    class="border border-gray-300 px-2 py-2 text-center">
+                                                    <div v-if="isValidToothWorkTypeCombination(tooth.id, wt.id)">
+                                                        <input
+                                                            type="checkbox"
+                                                            :checked="isCombinationSelected(tooth.id, wt.id)"
+                                                            @change="toggleCombination(tooth.id, wt.id)"
+                                                            class="w-4 h-4 text-primary border-gray-300 rounded cursor-pointer"
+                                                        />
+                                                        <div class="text-xs text-gray-600 mt-1">
+                                                            ${{ formatPrice(getPriceForToothAndWorkType(tooth.id, wt.id)) }}
+                                                        </div>
+                                                    </div>
+                                                    <span v-else class="text-gray-300 text-xs">-</span>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="pt-4 border-t border-gray-200">
+                                <p class="text-lg text-gray-700 mb-2">
+                                    Total: <span class="font-bold text-3xl text-secondary">${{ formatPrice(totalPrice) }}</span>
+                                </p>
+                                <p class="text-xs text-gray-500">{{ selectedCombinations.length }} combinación(es) seleccionada(s)</p>
+                            </div>
+                        </div>
+
                         <!-- Stock and quantity section for SUPPLY products -->
                         <div v-if="product.product_type === 'SUPPLY' && product.stock > 0" class="mb-6">
                             <p class="text-sm text-green-600 mb-3">
@@ -336,7 +527,7 @@ export default {
 
                         <!-- Action button for PROSTHESIS -->
                         <button v-if="product.product_type === 'PROSTHESIS'" @click="addToCart"
-                            :disabled="selectedTeethIds.length === 0"
+                            :disabled="isMatrixMode ? selectedCombinations.length === 0 : selectedTeethIds.length === 0"
                             class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed mb-6"
                             style="background-color: #2A6FAF;">
                             Solicitar prótesis
