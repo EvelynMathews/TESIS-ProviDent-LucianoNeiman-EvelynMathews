@@ -1,3 +1,15 @@
+/**
+ * Servicio de gestión del sistema de seguimiento entre usuarios.
+ * Propósito: Implementar la lógica de negocio para la funcionalidad
+ * de "seguir" y "dejar de seguir" a otros usuarios, y obtener estadísticas
+ * de seguidores y seguidos.
+ * Funcionamiento: Interactúa con la tabla `follows` de Supabase. `followUser`
+ * y `unfollowUser` insertan/eliminan registros en la tabla.
+ * `isFollowing` verifica el estado de la relación. `getFollowStats`
+ * obtiene el conteo total de seguidores/seguidos. Requiere que el usuario
+ * esté autenticado para realizar cualquier acción.
+ */
+
 import { supabase } from './supabase'
 
 export async function followUser(followingId) {

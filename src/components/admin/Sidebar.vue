@@ -1,3 +1,12 @@
+<!-- 
+ * Lógica del componente de la barra de navegación lateral (Sidebar) del panel de administración.
+ * Propósito: Definir la estructura y los enlaces del menú de navegación del panel
+ * para acceder a las diferentes secciones de gestión (Dashboard, Productos, Perfil).
+ * Funcionamiento: Almacena la lista de `menuItems` (nombre, ruta, ícono) y utiliza
+ * la propiedad computada `currentPath` para determinar qué elemento del menú
+ * debe estar marcado como activo (`active`).
+ -->
+
 <script src="./sidebar.js"></script>
 
 <template>

@@ -1,3 +1,12 @@
+<!--
+ * Componente reutilizable para mostrar iconos SVG basados en la categoría del producto.
+ * Propósito: Proporcionar una representación visual clara y rápida de las categorías
+ * principales de productos (Insumos, Equipamiento, Prótesis, Servicios) en las vistas
+ * como el Home o el listado de Productos.
+ * Funcionamiento: Recibe un prop `icon` (string como 'materials', 'equipment', etc.)
+ * y utiliza directivas `v-if` para renderizar el código SVG correspondiente a cada categoría.
+ -->
+
 <template>
     <svg v-if="icon === 'materials'" class="w-full h-full" fill="currentColor" viewBox="0 0 24 24">
         <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5zm0 10c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
