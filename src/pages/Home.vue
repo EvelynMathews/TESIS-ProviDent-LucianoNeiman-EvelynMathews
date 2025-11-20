@@ -3,7 +3,8 @@ import { subscribeToAuthStateChanges } from '../services/auth'
 import ProductCard from '../components/ProductCard.vue'
 import ServiceCard from '../components/ServiceCard.vue'
 import CategoryIcon from '../components/CategoryIcon.vue'
-import { products, services, categories, news } from '../data/mockProducts'
+import { listActiveProducts } from '../services/products'
+import { services, categories, news } from '../data/mockProducts'
 
 export default {
     name: 'Home',
@@ -28,15 +29,23 @@ export default {
         }
     },
     methods: {
-        loadMockData() {
-            this.loading = true
-            setTimeout(() => {
-                this.featuredProducts = products.slice(0, 4)
+        async loadData() {
+            try {
+                this.loading = true
+
+                // Cargar productos reales desde el backend
+                const allProducts = await listActiveProducts()
+                this.featuredProducts = allProducts.slice(0, 4)
+
+                // Por ahora, servicios y noticias siguen siendo mock
                 this.featuredServices = services.slice(0, 4)
                 this.categories = categories
                 this.news = news
+            } catch (error) {
+                console.error('Error cargando datos:', error)
+            } finally {
                 this.loading = false
-            }, 500)
+            }
         },
         formatDate(dateString) {
             const date = new Date(dateString)
@@ -47,7 +56,7 @@ export default {
         subscribeToAuthStateChanges(newUserState => {
             this.user = newUserState
         })
-        this.loadMockData()
+        this.loadData()
     }
 }
 </script>
