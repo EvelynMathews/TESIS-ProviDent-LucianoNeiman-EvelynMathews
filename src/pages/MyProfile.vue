@@ -338,10 +338,10 @@ export default {
                             <div v-else class="space-y-3">
                                 <input v-model="newPassword" type="password" placeholder="Nueva contraseña"
                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
-                                    style="focus:ring-color: #2A6FAF;" />
+                                    />
                                 <input v-model="confirmPassword" type="password" placeholder="Confirmar contraseña"
                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
-                                    style="focus:ring-color: #2A6FAF;" />
+                                    />
                                 <div class="flex gap-2">
                                     <button @click="changePassword"
                                         class="px-4 py-2 text-sm text-white font-semibold rounded-lg transition hover:opacity-90"
