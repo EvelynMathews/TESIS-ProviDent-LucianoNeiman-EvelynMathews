@@ -3,17 +3,38 @@ import { getUserProfileById } from '../services/user-profiles'
 import { supabase } from '../services/supabase'
 import { subscribeToAuthStateChanges } from '../services/auth'
 
-// Helper function to get image URL (simple public URL)
-function getImageUrl(path, bucket = 'product-images') {
-    if (!path) return 'https://placehold.co/600x400?text=Producto'
-    if (path.startsWith('http')) return path // Already a full URL
+function getImageUrl(path, bucket = 'avatars') {
+    if (!path) return null
+    if (path.startsWith('http')) return path
     const { data } = supabase.storage.from(bucket).getPublicUrl(path)
-    return data?.publicUrl || 'https://placehold.co/600x400?text=Producto'
+    return data?.publicUrl || null
 }
 
 function pickPrimaryImage(images) {
     const primary = images.find(img => img.is_primary)
     return primary?.path || images[0]?.path || null
+}
+
+async function guessImagePath(ownerId, productId) {
+    try {
+        const { data, error } = await supabase.storage.from('product-images').list(`${ownerId}`, { limit: 100 })
+        if (error || !Array.isArray(data)) return null
+        const found = data.find(obj => obj.name?.includes(productId))
+        return found ? `${ownerId}/${found.name}` : null
+    } catch {
+        return null
+    }
+}
+
+async function signedImageUrl(path) {
+    if (!path) return null
+    const { data, error } = await supabase.storage.from('product-images').createSignedUrl(path, 60 * 60)
+    if (!error && data?.signedUrl) return data.signedUrl
+    const dl = await supabase.storage.from('product-images').download(path)
+    if (!dl.error && dl.data) {
+        try { return URL.createObjectURL(dl.data) } catch {}
+    }
+    return null
 }
 
 export default {
@@ -34,9 +55,8 @@ export default {
             // Load user profile
             const profileData = await getUserProfileById(userId)
 
-            // Get avatar URL
             if (profileData.avatar_url && !profileData.avatar_url.startsWith('http')) {
-                profileData.avatar_url = getImageUrl(profileData.avatar_url, 'avatars')
+                profileData.avatar_url = getImageUrl(profileData.avatar_url)
             }
 
             this.user = profileData
@@ -71,10 +91,15 @@ export default {
                 return
             }
 
-            // Transform data with public image URLs
-            this.products = (data || []).map(p => {
+            this.products = await Promise.all((data || []).map(async p => {
                 const supply = p.supply_products || {}
-                const imgPath = pickPrimaryImage(p.product_images || [])
+                let imgPath = pickPrimaryImage(p.product_images || [])
+
+                if (!imgPath) {
+                    imgPath = await guessImagePath(userId, p.id)
+                }
+
+                const image = await signedImageUrl(imgPath)
 
                 return {
                     id: p.id,
@@ -84,10 +109,10 @@ export default {
                     price: supply.unit_price || 0,
                     unit: supply.unit_label || 'unidad',
                     stock: supply.stock_qty ?? 0,
-                    image: getImageUrl(imgPath, 'product-images'),
+                    image: image || 'https://placehold.co/600x400?text=Producto',
                     created_at: p.created_at,
                 }
-            })
+            }))
         },
 
         formatPrice(price) {
