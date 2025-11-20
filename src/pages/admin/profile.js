@@ -1,3 +1,15 @@
+/**
+ * Lógica de la vista de perfil para el Administrador.
+ * Propósito: Permitir al administrador ver sus estadísticas de gestión y
+ * actualizar su información personal y contraseña.
+ * Funcionamiento: `loadAdminStats` obtiene métricas clave (productos gestionados/activos).
+ * Se suscribe a los cambios de autenticación (`subscribeToAuthStateChanges`)
+ * para obtener y precargar los datos del perfil.
+ * `updateProfile` utiliza `updateAuthUser` del servicio de autenticación para guardar
+ * los cambios de nombre/apellido. `changePassword` utiliza el SDK de Supabase
+ * para cambiar la contraseña, con validaciones de longitud y coincidencia.
+ */
+
 import { subscribeToAuthStateChanges, updateAuthUser } from '../../services/auth'
 import { supabase } from '../../services/supabase'
 import AdminLayout from '../../components/admin/AdminLayout.vue'

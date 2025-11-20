@@ -1,3 +1,14 @@
+/**
+ * Lógica de la vista de gestión de Productos en el Panel de Administración.
+ * Propósito: Permitir a los administradores ver, filtrar, buscar y gestionar
+ * todos los productos de todos los vendedores en la plataforma (activar/desactivar, eliminar).
+ * Funcionamiento: `loadProducts` obtiene la lista completa de productos junto
+ * con información clave de sus subtipos (precio, stock). `applyFilters` implementa
+ * el filtrado por búsqueda (`searchQuery`), tipo (`filterType`) y estado (`filterStatus`).
+ * `toggleProductStatus` y `deleteProduct` permiten realizar acciones de moderación
+ * en el catálogo. Las propiedades calculadas (`productStats`) ofrecen un resumen rápido.
+ */
+
 import { supabase } from '../../services/supabase'
 import { updateProduct, deleteProductById } from '../../services/products'
 import AdminLayout from '../../components/admin/AdminLayout.vue'

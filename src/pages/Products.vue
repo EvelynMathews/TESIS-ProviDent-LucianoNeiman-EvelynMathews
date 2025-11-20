@@ -1,4 +1,9 @@
 <script>
+/**
+ * Propósito: Vista principal del catálogo de productos y servicios del marketplace (público).
+ * Función: Mostrar una lista de todos los productos activos, con herramientas para filtrado por categoría, búsqueda por texto y ordenamiento. Ofrece opciones para el usuario no vendedor (`becomeSeller`).
+ * Cómo funciona: `loadProducts` obtiene la lista activa de productos. Los métodos `filterByCategory`, `handleSearch` y `handleSort` manipulan la lista `filteredProducts` de forma reactiva. `becomeSeller` autootorga el rol de vendedor y redirige al setup inicial, usando los servicios de `sellers.js`.
+ */
 import { subscribeToAuthStateChanges } from '../services/auth'
 import ProductCard from '../components/ProductCard.vue'
 import CategoryIcon from '../components/CategoryIcon.vue'

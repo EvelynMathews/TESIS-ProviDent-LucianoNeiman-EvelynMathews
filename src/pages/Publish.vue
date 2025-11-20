@@ -1,4 +1,9 @@
 <script>
+/**
+ * Propósito: Flujo de formulario multi-paso para que un vendedor cree una nueva publicación (producto o servicio).
+ * Función: Guiar al usuario a través de la selección de tipo de publicación, la recolección de datos específicos (precios, stock, matriz de precios, imágenes) y la publicación final.
+ * Cómo funciona: Gestiona el estado de los pasos (`currentStep`, `nextStep`, `prevStep`). `validateCurrentForm` asegura que los campos obligatorios de cada formulario (incluyendo la lógica de precios y la subida de imágenes) estén correctos. `publishListing` invoca la función `create...Product` apropiada del servicio de productos para guardar los datos y la imagen en el backend.
+ */
 import { subscribeToAuthStateChanges } from '../services/auth'
 import { createSupplyProduct, createProsthesisProduct, createPlasterServiceProduct, createRentalProduct, listShippingMethods, createShippingMethod, loadWorkTypes, loadToothGroups, loadValidWorkGroupCombinations } from '../services/products'
 import { isCurrentUserSeller } from '../services/sellers'

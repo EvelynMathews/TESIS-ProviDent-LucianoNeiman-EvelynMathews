@@ -1,4 +1,9 @@
 <script>
+/**
+ * Propósito: Vista principal de la aplicación (Landing Page).
+ * Función: Mostrar una introducción a la plataforma, categorías, productos/servicios destacados y noticias, invitando al usuario a explorar el marketplace o registrarse/vender.
+ * Cómo funciona: Combina la carga de productos activos reales (`listActiveProducts`) con datos de mock (servicios, categorías y noticias) para poblar las secciones. Se suscribe al estado de autenticación (`subscribeToAuthStateChanges`) para mostrar llamadas a la acción (CTA) dinámicas.
+ */
 import { subscribeToAuthStateChanges } from '../services/auth'
 import ProductCard from '../components/ProductCard.vue'
 import ServiceCard from '../components/ServiceCard.vue'

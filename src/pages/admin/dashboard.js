@@ -1,3 +1,16 @@
+/**
+ * Lógica de la vista principal del Panel de Administración (Dashboard).
+ * Propósito: Obtener y mostrar un resumen de las métricas clave de la plataforma
+ * y una lista de los productos más recientes.
+ * Funcionamiento: El método `loadDashboardData` realiza varias consultas asíncronas
+ * a la base de datos (Supabase) en paralelo (`Promise.all`) para obtener:
+ * 1. Conteo total de productos.
+ * 2. Conteo total de usuarios.
+ * 3. Conteo de productos activos.
+ * 4. Los 5 productos más recientes.
+ * Las funciones `formatDate` y `getProductTypeName` ayudan a presentar los datos de forma legible.
+ */
+
 import { supabase } from '../../services/supabase'
 import AdminLayout from '../../components/admin/AdminLayout.vue'
 

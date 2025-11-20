@@ -1,4 +1,9 @@
 <script>
+/**
+ * Propósito: Flujo de configuración inicial para un usuario que se convierte en vendedor.
+ * Función: Guía al usuario a través de los pasos obligatorios: activar el rol de vendedor, conectar una cuenta de pago y configurar los métodos de envío.
+ * Cómo funciona: `refreshStatus` verifica el estado del vendedor (`isSeller`) y la conexión de una cuenta de pago (`hasPayment`). `activateSeller` y `connectPayment` invocan los servicios correspondientes. Permite la gestión básica de métodos de envío (`createMethod`, `toggleActive`, `startEdit`) y alerta si se intenta desactivar un método en uso (`warnDisableId`).
+ */
 import { listShippingMethods, createShippingMethod, updateShippingMethod, countShippingMethodUsage } from '../services/products'
 import { isCurrentUserSeller, grantSellerSelf, hasPaymentAccount, connectDummyPaymentAccount } from '../services/sellers'
 

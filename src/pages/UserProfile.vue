@@ -1,4 +1,9 @@
 <script>
+/**
+ * Propósito: Vista del perfil público de otro usuario (vendedor).
+ * Función: Mostrar la información pública de un usuario (`username`, `bio`, `avatar`) y listar sus publicaciones de productos activas en el marketplace.
+ * Cómo funciona: `mounted` carga el `profileData` por ID de ruta usando `getUserProfileById`. `fetchProducts` consulta los productos activos del usuario, obtiene la imagen principal (incluyendo lógica de signed URLs o public URLs desde Storage) y construye la lista de productos con precios y stock para mostrar en el feed del perfil.
+ */
 import { getUserProfileById } from '../services/user-profiles'
 import { supabase } from '../services/supabase'
 import { subscribeToAuthStateChanges } from '../services/auth'

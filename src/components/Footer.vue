@@ -1,3 +1,12 @@
+<!--
+ * Componente de pie de página estático.
+ * Propósito: Mostrar información legal, de marca, un mensaje inspirador
+ * y enlaces a redes sociales, proporcionando un cierre consistente
+ * al contenido de la aplicación pública. También incluye la autoría del proyecto.
+ * Funcionamiento: Componente de presentación simple que utiliza HTML y CSS
+ * para mostrar contenido fijo en la parte inferior de todas las páginas (excepto admin).
+ -->
+
 <script>
 export default {
     name: 'Footer',

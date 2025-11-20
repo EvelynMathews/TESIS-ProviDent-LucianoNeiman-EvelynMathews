@@ -1,4 +1,13 @@
 <script>
+/**
+ * Vista de inicio de sesión exclusiva para administradores.
+ * Propósito: Autenticar usuarios y restringir el acceso al panel de administración
+ * solo a aquellos que tienen el rol 'admin'.
+ * Funcionamiento: Llama a `supabase.auth.signInWithPassword`. Si el login es exitoso,
+ * verifica el `user_metadata.role`. Si el rol NO es 'admin', cierra inmediatamente
+ * la sesión para evitar accesos no autorizados y muestra un error. Si es 'admin',
+ * redirige al dashboard. También verifica si ya existe una sesión de admin al montarse.
+ */
 import { supabase } from '../../services/supabase'
 
 export default {

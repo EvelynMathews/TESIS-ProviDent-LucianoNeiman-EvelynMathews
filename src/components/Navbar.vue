@@ -1,4 +1,13 @@
 <script>
+/**
+ * Componente de la barra de navegación superior.
+ * Propósito: Proporcionar navegación principal, un indicador del carrito de compras y acceso
+ * condicional a rutas (login/registro vs. perfil/vendedor) dependiendo del estado de autenticación.
+ * Funcionamiento: Se suscribe a los cambios de estado de autenticación (`subscribeToAuthStateChanges`)
+ * para actualizar dinámicamente los enlaces. Muestra el conteo del carrito (`cartCount`)
+ * y enlaces específicos para vendedores (`isSeller`). Incluye lógica para cargar el avatar
+ * con URL firmada de Supabase Storage.
+ */
 import { logout, subscribeToAuthStateChanges } from '../services/auth';
 import { isCurrentUserSeller } from '../services/sellers';
 import { getCartCount } from '../services/cart';
