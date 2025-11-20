@@ -5,43 +5,48 @@ import { supabase } from './supabase'
  * Combina datos de las tablas users y user_profiles.
  */
 export async function getUserProfileById(id) {
-    // Obtener datos de users
-    const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, first_name, last_name, email, photo_url, is_active, created_at')
+    // Obtener datos combinados de public_user_profiles (view)
+    const { data: profileData, error: profileError } = await supabase
+        .from('public_user_profiles')
+        .select('*')
         .eq('id', id)
         .single()
 
-    if (userError) {
-        console.error('[user-profiles.js getUserProfileById] Error al traer datos de users:', id, userError)
-        throw new Error(userError.message)
+    if (profileError) {
+        console.error('[user-profiles.js getUserProfileById] Error al traer datos de public_user_profiles:', id, profileError)
+        throw new Error(profileError.message)
     }
 
-    // Obtener datos de user_profiles
-    const { data: profileData, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('bio, location, avatar, is_public, created_at, updated_at')
-        .eq('user_id', id)
-        .single()
+    // Combinar nombre completo como username si no existe
+    const username = profileData.username || `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || 'Usuario'
 
-    // Si no existe el perfil, devolver solo los datos de users
-    if (profileError && profileError.code !== 'PGRST116') { // PGRST116 = no rows returned
-        console.error('[user-profiles.js getUserProfileById] Error al traer user_profiles:', id, profileError)
+    // Obtener URL del avatar si existe
+    let avatarUrl = ''
+    if (profileData.avatar_url) {
+        try {
+            // Try to get public URL from storage
+            const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(profileData.avatar_url)
+            avatarUrl = urlData?.publicUrl || ''
+        } catch (e) {
+            console.warn('Error getting avatar URL:', e)
+            avatarUrl = profileData.avatar_url // Fallback to original path
+        }
+    } else if (profileData.photo_url) {
+        avatarUrl = profileData.photo_url
     }
 
-    // Combinar ambos resultados
     return {
-        id: userData.id,
-        email: userData.email,
-        first_name: userData.first_name,
-        last_name: userData.last_name,
-        photo_url: userData.photo_url,
-        avatar_url: profileData?.avatar || userData.photo_url || '',
-        bio: profileData?.bio || '',
-        location: profileData?.location || '',
-        is_public: profileData?.is_public ?? true,
-        is_active: userData.is_active,
-        created_at: userData.created_at,
+        id: profileData.id,
+        username: username,
+        email: profileData.email,
+        first_name: profileData.first_name,
+        last_name: profileData.last_name,
+        photo_url: profileData.photo_url,
+        avatar_url: avatarUrl,
+        bio: profileData.bio || '',
+        location: profileData.location || '',
+        is_active: profileData.is_active,
+        created_at: profileData.created_at,
     }
 }
 

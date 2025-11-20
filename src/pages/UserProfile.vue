@@ -2,20 +2,28 @@
 import { getUserProfileById } from '../services/user-profiles'
 import { supabase } from '../services/supabase'
 import { subscribeToAuthStateChanges } from '../services/auth'
-import { followUser, unfollowUser, isFollowing, getFollowStats } from '../services/follows'
+
+// Helper function to get image URL (simple public URL)
+function getImageUrl(path, bucket = 'product-images') {
+    if (!path) return 'https://placehold.co/600x400?text=Producto'
+    if (path.startsWith('http')) return path // Already a full URL
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path)
+    return data?.publicUrl || 'https://placehold.co/600x400?text=Producto'
+}
+
+function pickPrimaryImage(images) {
+    const primary = images.find(img => img.is_primary)
+    return primary?.path || images[0]?.path || null
+}
 
 export default {
     name: 'UserProfile',
     data() {
         return {
             user: {},
-            movies: [],
+            products: [],
             loading: false,
             currentUser: { id: null },
-            isFollowingUser: false,
-            followersCount: 0,
-            followingCount: 0,
-            followLoading: false,
         }
     },
     async mounted() {
@@ -23,244 +31,149 @@ export default {
             this.loading = true
             const userId = this.$route.params.id
 
-            this.user = await getUserProfileById(userId)
-            await this.fetchMovies(userId)
-            await this.fetchFollowStats(userId)
+            // Load user profile
+            const profileData = await getUserProfileById(userId)
+
+            // Get avatar URL
+            if (profileData.avatar_url && !profileData.avatar_url.startsWith('http')) {
+                profileData.avatar_url = getImageUrl(profileData.avatar_url, 'avatars')
+            }
+
+            this.user = profileData
+            await this.fetchProducts(userId)
 
         } catch (error) {
+            console.error('Error loading user profile:', error)
         } finally {
             this.loading = false
         }
 
-        // Suscribirse a cambios de autenticación DESPUÉS de cargar el usuario
         subscribeToAuthStateChanges(async (newUserState) => {
             this.currentUser = newUserState
-            if (newUserState.id && this.user.id) {
-                await this.checkFollowStatus()
-            }
         })
     },
     methods: {
-        async fetchMovies(userId) {
+        async fetchProducts(userId) {
             const { data, error } = await supabase
-                .from('movies')
-                .select('*')
-                .eq('user_id', userId)
+                .from('products')
+                .select(`
+                    id, name, description, product_type, created_at,
+                    supply_products(unit_price, unit_label, stock_qty),
+                    product_images(path, is_primary, position)
+                `)
+                .eq('owner_user_id', userId)
+                .eq('is_active', true)
+                .order('created_at', { ascending: false })
+
             if (error) {
-            }
-            this.movies = data || []
-
-            // Cargar likes y comentarios para cada película
-            if (this.movies.length > 0) {
-                await this.fetchMovieStats()
-            }
-        },
-
-        async fetchMovieStats() {
-            // Crear todas las promesas para likes y comentarios en paralelo
-            const statsPromises = this.movies.map(async (movie) => {
-                const [likesResult, commentsResult] = await Promise.all([
-                    supabase
-                        .from('likes')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('movie_id', movie.id),
-                    supabase
-                        .from('comments')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('movie_id', movie.id)
-                ])
-
-                // Agregar las estadísticas al objeto de la película
-                movie.likesCount = likesResult.count || 0
-                movie.commentsCount = commentsResult.count || 0
-            })
-
-            // Ejecutar todas las promesas en paralelo
-            await Promise.all(statsPromises)
-        },
-
-        async fetchFollowStats(userId) {
-            try {
-                const stats = await getFollowStats(userId)
-                this.followersCount = stats.followersCount
-                this.followingCount = stats.followingCount
-            } catch (error) {
-            }
-        },
-
-        async checkFollowStatus() {
-            if (!this.currentUser.id || !this.user.id) return
-            try {
-                this.isFollowingUser = await isFollowing(this.user.id)
-            } catch (error) {
-            }
-        },
-
-        async toggleFollow() {
-            if (!this.currentUser.id) {
-                alert('Tenés que iniciar sesión para seguir usuarios')
+                console.error('Error fetching products:', error)
+                this.products = []
                 return
             }
 
-            if (this.currentUser.id === this.user.id) {
-                alert('No podés seguirte a vos mismo')
-                return
-            }
+            // Transform data with public image URLs
+            this.products = (data || []).map(p => {
+                const supply = p.supply_products || {}
+                const imgPath = pickPrimaryImage(p.product_images || [])
 
-            this.followLoading = true
-            try {
-                if (this.isFollowingUser) {
-                    await unfollowUser(this.user.id)
-                    this.isFollowingUser = false
-                    this.followersCount--
-                } else {
-                    await followUser(this.user.id)
-                    this.isFollowingUser = true
-                    this.followersCount++
+                return {
+                    id: p.id,
+                    name: p.name,
+                    description: p.description,
+                    product_type: p.product_type,
+                    price: supply.unit_price || 0,
+                    unit: supply.unit_label || 'unidad',
+                    stock: supply.stock_qty ?? 0,
+                    image: getImageUrl(imgPath, 'product-images'),
+                    created_at: p.created_at,
                 }
-            } catch (error) {
-                alert('Error al actualizar el seguimiento')
-            } finally {
-                this.followLoading = false
-            }
+            })
+        },
+
+        formatPrice(price) {
+            return new Intl.NumberFormat('es-AR').format(price)
         },
     },
 }
 </script>
 
 <template>
-    <section class="pt-20 bg-[#121212] text-white min-h-screen">
-        <div v-if="loading" class="flex justify-center items-center h-64">
-            <div class="animate-spin rounded-full h-12 w-12 border-4 border-[#EFB810] border-t-transparent"></div>
+    <section class="pt-20 min-h-screen pb-12 relative overflow-hidden" style="background-color: #F5FEFF;">
+        <div class="organic-shape organic-shape-1"></div>
+        <div class="organic-shape organic-shape-2"></div>
+        <div class="organic-shape organic-shape-3"></div>
+        <div class="organic-shape organic-shape-4"></div>
+        <div class="organic-shape organic-shape-5"></div>
+        <div class="organic-shape organic-shape-6"></div>
+
+        <div v-if="loading" class="flex justify-center items-center h-64 relative z-10">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-sky-600 border-t-transparent"></div>
         </div>
 
-        <div v-else class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <!-- CABECERA PERFIL -->
-            <div
-                class="flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8 py-8 border-b border-gray-800">
-                <div class="relative">
-                    <div
-                        class="w-20 h-20 sm:w-32 sm:h-32 md:w-36 md:h-36 rounded-full bg-gradient-to-tr from-yellow-400 via-red-500 to-pink-500 p-0.5">
-                        <img :src="user.avatar_url || '/default-avatar.png'" alt="Avatar" loading="lazy"
-                            class="w-full h-full rounded-full object-cover bg-[#121212]" />
-                    </div>
-                </div>
+        <div v-else class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
+            <div class="mb-6">
+                <button @click="$router.go(-1)"
+                    class="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition font-medium">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    Volver
+                </button>
+            </div>
 
-                <div class="flex-1 text-center sm:text-left space-y-4">
-                    <!-- Username y acciones -->
-                    <div class="flex flex-col sm:flex-row sm:items-center gap-4">
-                        <h1 class="text-xl sm:text-2xl font-light">{{ user.username }}</h1>
-                        <div v-if="currentUser.id && currentUser.id !== user.id" class="flex gap-2">
-                            <button @click="toggleFollow" :disabled="followLoading"
-                                :class="isFollowingUser ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-[#EFB810] text-black hover:bg-yellow-400'"
-                                class="px-4 py-1.5 text-sm font-medium rounded transition disabled:opacity-50">
-                                {{ followLoading ? 'Cargando...' : (isFollowingUser ? 'Siguiendo' : 'Seguir') }}
-                            </button>
-                            <span v-if="user.verified"
-                                class="inline-flex items-center px-2 py-1 bg-blue-600 text-xs font-medium rounded-full text-white">
-                                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd"
-                                        d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                        clip-rule="evenodd"></path>
-                                </svg>
-                                Verificado
-                            </span>
+            <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+                <div class="h-32" style="background: linear-gradient(135deg, #A4C5DF 0%, #D4F4EC 50%, #F8E8E2 100%);"></div>
+                <div class="px-6 pb-6">
+                    <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6 -mt-16">
+                        <div class="w-32 h-32 rounded-full overflow-hidden shadow-lg flex-shrink-0 border-4 border-white" style="background-color: #E3EEF8;">
+                            <img v-if="user.avatar_url" :src="user.avatar_url" alt="Avatar" class="w-full h-full object-cover" />
+                            <div v-else class="w-full h-full flex items-center justify-center text-4xl font-bold" style="color: #2A6FAF;">
+                                {{ user.username ? user.username.charAt(0).toUpperCase() : '?' }}
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Estadísticas -->
-                    <div class="flex justify-center sm:justify-start gap-8 text-base">
-                        <div class="text-center sm:text-left">
-                            <span class="font-semibold">{{ movies.length }}</span>
-                            <span class="text-gray-400 ml-1">publicaciones</span>
-                        </div>
-                        <div class="text-center sm:text-left cursor-pointer hover:text-gray-300 transition">
-                            <span class="font-semibold">{{ followersCount }}</span>
-                            <span class="text-gray-400 ml-1">seguidores</span>
-                        </div>
-                        <div class="text-center sm:text-left cursor-pointer hover:text-gray-300 transition">
-                            <span class="font-semibold">{{ followingCount }}</span>
-                            <span class="text-gray-400 ml-1">seguidos</span>
-                        </div>
-                    </div>
-
-                    <!-- Bio -->
-                    <div class="space-y-2">
-                        <p class="text-sm font-medium">{{ user.username }}</p>
-                        <p class="text-sm text-gray-300">{{ user.bio || 'Sin descripción...' }}</p>
-                        <div class="flex items-center gap-1 text-sm text-gray-400" v-if="user.location">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
-                                    clip-rule="evenodd"></path>
-                            </svg>
-                            <span>{{ user.location }}</span>
-                        </div>
-                        <div class="flex flex-wrap gap-2 text-xs"
-                            v-if="user.favorite_genres || user.favorite_directors">
-                            <span v-if="user.favorite_genres"
-                                class="bg-gray-800 px-2 py-1 rounded flex items-center gap-1">
-                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd"
-                                        d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                                        clip-rule="evenodd"></path>
-                                </svg>
-                                {{ user.favorite_genres }}
-                            </span>
-                            <span v-if="user.favorite_directors"
-                                class="bg-gray-800 px-2 py-1 rounded flex items-center gap-1">
-                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                    <path
-                                        d="M2 6a2 2 0 012-2h6l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z">
-                                    </path>
-                                </svg>
-                                {{ user.favorite_directors }}
-                            </span>
+                        <div class="flex-1 text-center sm:text-left mt-6">
+                            <h1 class="font-heading text-3xl font-bold text-gray-800 mb-2">
+                                {{ user.username }}
+                            </h1>
+                            <div class="flex flex-wrap gap-2 justify-center sm:justify-start mb-2">
+                                <span class="px-3 py-1 text-sm font-semibold rounded-full text-white shadow-md"
+                                    style="background: linear-gradient(135deg, #2A6FAF 0%, #29A68C 100%);">
+                                    Vendedor
+                                </span>
+                            </div>
+                            <p class="text-gray-600">{{ user.bio || 'Vendedor de productos odontológicos' }}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- PESTAÑAS -->
-            <div class="flex justify-center border-b border-gray-800">
-                <div class="flex items-center gap-8">
-                    <button class="flex items-center gap-2 py-3 text-sm font-medium text-white border-t border-white">
-                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd"
-                                d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                                clip-rule="evenodd"></path>
-                        </svg>
-                        PUBLICACIONES
-                    </button>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="font-heading text-2xl font-bold text-gray-800">
+                        Productos de {{ user.username }}
+                    </h2>
+                    <div class="text-sm text-gray-600">
+                        {{ products.length }} producto{{ products.length !== 1 ? 's' : '' }}
+                    </div>
                 </div>
-            </div>
 
-            <!-- GRID DE PUBLICACIONES -->
-            <div class="py-8">
-                <div v-if="movies.length" class="grid grid-cols-3 gap-1 sm:gap-4">
-                    <div v-for="movie in movies" :key="movie.id"
-                        class="aspect-square bg-[#1C1C1C] border border-gray-800 overflow-hidden hover:opacity-75 transition-opacity group relative">
-                        <RouterLink :to="'/movies/' + movie.id" class="block w-full h-full">
-                            <img :src="movie.poster" :alt="movie.titulo" class="w-full h-full object-cover" />
-                            <div
-                                class="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <div class="flex items-center gap-4 text-white text-sm font-semibold">
-                                    <div class="flex items-center gap-1">
-                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd"
-                                                d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
-                                                clip-rule="evenodd"></path>
-                                        </svg>
-                                        <span>{{ movie.likesCount || 0 }}</span>
-                                    </div>
-                                    <div class="flex items-center gap-1">
-                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd"
-                                                d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z"
-                                                clip-rule="evenodd"></path>
-                                        </svg>
-                                        <span>{{ movie.commentsCount || 0 }}</span>
-                                    </div>
+                <div v-if="products.length" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    <div v-for="product in products" :key="product.id"
+                        class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                        <RouterLink :to="`/productos/${product.id}`" class="block">
+                            <img :src="product.image || 'https://placehold.co/600x400?text=Producto'" :alt="product.name"
+                                class="w-full h-48 object-cover" />
+                            <div class="p-4">
+                                <h3 class="font-semibold text-gray-800 text-sm mb-2 line-clamp-2">{{ product.name }}</h3>
+                                <p class="text-2xl font-bold mb-1" style="color: #29A68C;">${{ formatPrice(product.price) }}</p>
+                                <p class="text-xs text-gray-500">{{ product.unit || 'unidad' }}</p>
+
+                                <div v-if="product.stock > 0" class="mt-2">
+                                    <p class="text-xs text-green-600">Stock: {{ product.stock }}</p>
+                                </div>
+                                <div v-else class="mt-2">
+                                    <p class="text-xs text-red-600">Sin stock</p>
                                 </div>
                             </div>
                         </RouterLink>
@@ -268,20 +181,102 @@ export default {
                 </div>
 
                 <div v-else class="text-center py-16 space-y-4">
-                    <div
-                        class="w-16 h-16 mx-auto border-2 border-gray-600 rounded-full flex items-center justify-center">
-                        <svg class="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z">
-                            </path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    <div class="w-16 h-16 mx-auto rounded-full flex items-center justify-center" style="background-color: #E3EEF8;">
+                        <svg class="w-8 h-8" style="color: #2A6FAF;" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"></path>
                         </svg>
                     </div>
-                    <h3 class="text-xl font-light">Sin publicaciones aún</h3>
-                    <p class="text-gray-400 text-sm">Cuando {{ user.username }} comparta películas, aparecerán acá.</p>
+                    <h3 class="text-xl font-semibold text-gray-800">Sin productos</h3>
+                    <p class="text-gray-600">{{ user.username }} aún no tiene productos publicados.</p>
                 </div>
             </div>
         </div>
     </section>
 </template>
+
+<style scoped>
+.organic-shape {
+    position: absolute;
+    border-radius: 50% 40% 60% 50%;
+    opacity: 0.6;
+    z-index: 0;
+}
+
+.organic-shape-1 {
+    width: 500px;
+    height: 500px;
+    background: #A4C5DF;
+    top: 100px;
+    right: -100px;
+    animation: float 20s ease-in-out infinite;
+}
+
+.organic-shape-2 {
+    width: 700px;
+    height: 700px;
+    background: #D4F4EC;
+    bottom: -200px;
+    left: -150px;
+    border-radius: 60% 50% 40% 60%;
+    animation: float 25s ease-in-out infinite reverse;
+}
+
+.organic-shape-3 {
+    width: 400px;
+    height: 400px;
+    background: #F8E8E2;
+    top: 50%;
+    left: -100px;
+    border-radius: 40% 60% 50% 40%;
+    animation: float 30s ease-in-out infinite;
+}
+
+.organic-shape-4 {
+    width: 350px;
+    height: 350px;
+    background: #E3EEF8;
+    top: 30%;
+    right: 10%;
+    border-radius: 55% 45% 60% 40%;
+    animation: float 22s ease-in-out infinite;
+}
+
+.organic-shape-5 {
+    width: 600px;
+    height: 600px;
+    background: #A4C5DF;
+    bottom: -250px;
+    right: -200px;
+    border-radius: 45% 55% 40% 60%;
+    animation: float 28s ease-in-out infinite reverse;
+}
+
+.organic-shape-6 {
+    width: 300px;
+    height: 300px;
+    background: #D4F4EC;
+    top: 70%;
+    right: -80px;
+    border-radius: 50% 50% 45% 55%;
+    animation: float 35s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+    33% {
+        transform: translate(30px, -30px) rotate(5deg);
+    }
+    66% {
+        transform: translate(-20px, 20px) rotate(-5deg);
+    }
+}
+
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+</style>
