@@ -72,6 +72,7 @@ export async function listActiveProducts() {
     .from('products')
     .select('id, name, description, product_type, owner_user_id, created_at, supply_products(unit_price, unit_label, stock_qty), product_images(path, is_primary, position)')
     .eq('is_active', true)
+    .eq('product_type', 'SUPPLY') // traer solo productos tipo SUPPLY, no servicios
     .order('created_at', { ascending: false })
 
   if (error) throw error
@@ -972,4 +973,91 @@ export async function loadValidWorkGroupCombinations() {
     .select('work_type_id, tooth_group_id')
   if (error) throw error
   return data || []
+}
+
+export async function listActiveServices() {
+  const { data, error } = await supabase
+    .from('products')
+    .select(`
+      id, name, description, product_type, owner_user_id, created_at,
+      prosthesis_products(material_id, manufacturing_days),
+      plaster_service_products(base_price, manufacturing_days),
+      rental_products(stock_qty),
+      product_images(path, is_primary, position)
+    `)
+    .eq('is_active', true)
+    .in('product_type', ['PROSTHESIS', 'PLASTER_SERVICE', 'RENTAL'])
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+
+  const ownerIds = data.map(p => p.owner_user_id)
+  const owners = await fetchOwnerNames(ownerIds)
+
+  const results = await Promise.all(data.map(async (p) => {
+    let imgPath = pickPrimaryImage(p.product_images || [])
+    if (!imgPath) imgPath = await guessImagePath(p.owner_user_id, p.id)
+    const image = await signedImageUrl(imgPath)
+    const owner = owners[p.owner_user_id] || { name: 'Vendedor', avatar_url: null }
+
+    const base = {
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      product_type: p.product_type,
+      image,
+      seller: {
+        id: p.owner_user_id,
+        username: owner.name,
+        rating: 0,
+        sales_count: 0,
+        avatar_url: owner.avatar_url
+      }
+    }
+
+    if (p.product_type === 'PROSTHESIS') {
+      const prosthesis = p.prosthesis_products || {}
+      base.delivery_time = prosthesis.manufacturing_days ? `${prosthesis.manufacturing_days} días` : null
+      base.category = 'Prótesis por encargo'
+
+      const { data: prices } = await supabase
+        .from('product_prices')
+        .select('unit_price')
+        .eq('product_id', p.id)
+        .order('unit_price', { ascending: true })
+        .limit(1)
+
+      base.price = prices && prices.length > 0 ? prices[0].unit_price : 0
+    } else if (p.product_type === 'PLASTER_SERVICE') {
+      const service = p.plaster_service_products || {}
+      base.price = service.base_price || 0
+      base.delivery_time = service.manufacturing_days ? `${service.manufacturing_days} días` : null
+      base.category = 'Modelado y vaciado'
+    } else if (p.product_type === 'RENTAL') {
+      const rental = p.rental_products || {}
+      base.stock = rental.stock_qty ?? null
+      base.category = 'Alquiler de equipos'
+
+      const { data: pricing } = await supabase
+        .from('rental_pricing')
+        .select('period, price')
+        .eq('product_id', p.id)
+        .order('price', { ascending: true })
+
+      base.rental_pricing = pricing || []
+      if (pricing && pricing.length > 0) {
+        const dayPrice = pricing.find(pr => pr.period === '1 day')
+        const weekPrice = pricing.find(pr => pr.period === '7 days')
+        const monthPrice = pricing.find(pr => pr.period === '30 days')
+
+        base.price_day = dayPrice?.price || 0
+        base.price_week = weekPrice?.price || null
+        base.price_month = monthPrice?.price || null
+      }
+    }
+
+    return base
+  }))
+
+  return results
 }

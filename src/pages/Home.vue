@@ -3,8 +3,8 @@ import { subscribeToAuthStateChanges } from '../services/auth'
 import ProductCard from '../components/ProductCard.vue'
 import ServiceCard from '../components/ServiceCard.vue'
 import CategoryIcon from '../components/CategoryIcon.vue'
-import { listActiveProducts } from '../services/products'
-import { services, categories, news } from '../data/mockProducts'
+import { listActiveProducts, listActiveServices } from '../services/products'
+import { categories, news } from '../data/mockProducts'
 
 export default {
     name: 'Home',
@@ -33,12 +33,12 @@ export default {
             try {
                 this.loading = true
 
-                // Cargar productos reales desde el backend
                 const allProducts = await listActiveProducts()
                 this.featuredProducts = allProducts.slice(0, 4)
 
-                // Por ahora, servicios y noticias siguen siendo mock
-                this.featuredServices = services.slice(0, 4)
+                const allServices = await listActiveServices()
+                this.featuredServices = allServices.slice(0, 4)
+
                 this.categories = categories
                 this.news = news
             } catch (error) {

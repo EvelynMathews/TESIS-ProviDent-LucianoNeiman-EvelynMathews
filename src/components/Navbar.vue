@@ -144,7 +144,7 @@ export default {
                         <RouterLink v-if="isSeller" to="/mis-productos"
                             class="px-4 py-2 text-gray-700 font-medium hover:text-sky-600 transition"
                             active-class="text-sky-600">
-                            Mis Productos
+                            Mis productos
                         </RouterLink>
                         <RouterLink v-if="isSeller" to="/seller-setup"
                             class="px-4 py-2 text-gray-700 font-medium hover:text-sky-600 transition"
@@ -217,7 +217,7 @@ export default {
                             <RouterLink v-if="isSeller" to="/mis-productos" @click="mobileMenuOpen = false"
                                 class="block py-2 px-3 text-gray-700 rounded hover:bg-gray-100 transition"
                                 active-class="text-sky-600 bg-sky-50">
-                                Mis Productos
+                                Mis productos
                             </RouterLink>
                         </li>
                         <li>
@@ -231,7 +231,7 @@ export default {
                             <RouterLink to="/mi-perfil" @click="mobileMenuOpen = false"
                                 class="block py-2 px-3 text-gray-700 rounded hover:bg-gray-100 transition"
                                 active-class="text-sky-600 bg-sky-50">
-                                Mi Perfil
+                                Mi perfil
                             </RouterLink>
                         </li>
                         <li v-if="isSeller">
