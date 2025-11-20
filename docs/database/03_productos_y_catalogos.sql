@@ -33,6 +33,15 @@ CREATE TABLE IF NOT EXISTS public.teeth (
   tooth_group_id uuid NOT NULL REFERENCES public.tooth_groups(id)
 );
 
+CREATE TABLE IF NOT EXISTS public.work_type_tooth_group_combinations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  work_type_id uuid NOT NULL REFERENCES public.work_types(id) ON DELETE CASCADE,
+  tooth_group_id uuid NOT NULL REFERENCES public.tooth_groups(id) ON DELETE CASCADE,
+  UNIQUE(work_type_id, tooth_group_id)
+);
+
+COMMENT ON TABLE public.work_type_tooth_group_combinations IS 'Defines which work types are valid for which tooth groups';
+
 -- Products
 CREATE TABLE IF NOT EXISTS public.products (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -106,6 +115,7 @@ ALTER TABLE public.materials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.work_types ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tooth_groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.teeth ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.work_type_tooth_group_combinations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_images ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.prosthesis_products ENABLE ROW LEVEL SECURITY;
@@ -135,6 +145,11 @@ DROP POLICY IF EXISTS "Authenticated users can read teeth catalog" ON public.tee
 CREATE POLICY "Authenticated users can read teeth catalog" ON public.teeth FOR SELECT USING (auth.uid() IS NOT NULL);
 DROP POLICY IF EXISTS "Admins can manage teeth catalog" ON public.teeth;
 CREATE POLICY "Admins can manage teeth catalog" ON public.teeth FOR ALL USING (EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='ADMIN')) WITH CHECK (EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='ADMIN'));
+
+DROP POLICY IF EXISTS "Authenticated users can read valid combinations" ON public.work_type_tooth_group_combinations;
+CREATE POLICY "Authenticated users can read valid combinations" ON public.work_type_tooth_group_combinations FOR SELECT USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "Admins can manage valid combinations" ON public.work_type_tooth_group_combinations;
+CREATE POLICY "Admins can manage valid combinations" ON public.work_type_tooth_group_combinations FOR ALL USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
 
 -- Policies: products
 DROP POLICY IF EXISTS "Public can read active or owner sees own products" ON public.products;
@@ -299,3 +314,76 @@ USING (
   AND EXISTS (SELECT 1 FROM public.user_sellers s WHERE s.user_id = auth.uid())
   AND position(auth.uid()::text || '/' IN name) = 1
 );
+
+-- Seed Data
+-- Insert the 32 permanent teeth with FDI codes
+WITH groups AS (
+  SELECT id, name FROM public.tooth_groups
+)
+INSERT INTO public.teeth (fdi_code, tooth_group_id) VALUES
+-- Quadrant 1 (Upper Right)
+(11, (SELECT id FROM groups WHERE name='Anterior')),    -- Central Incisor
+(12, (SELECT id FROM groups WHERE name='Anterior')),    -- Lateral Incisor
+(13, (SELECT id FROM groups WHERE name='Anterior')),    -- Canine
+(14, (SELECT id FROM groups WHERE name='Premolar')),    -- First Premolar
+(15, (SELECT id FROM groups WHERE name='Premolar')),    -- Second Premolar
+(16, (SELECT id FROM groups WHERE name='Molar')),       -- First Molar
+(17, (SELECT id FROM groups WHERE name='Molar')),       -- Second Molar
+(18, (SELECT id FROM groups WHERE name='Molar')),       -- Third Molar (Wisdom)
+
+-- Quadrant 2 (Upper Left)
+(21, (SELECT id FROM groups WHERE name='Anterior')),    -- Central Incisor
+(22, (SELECT id FROM groups WHERE name='Anterior')),    -- Lateral Incisor
+(23, (SELECT id FROM groups WHERE name='Anterior')),    -- Canine
+(24, (SELECT id FROM groups WHERE name='Premolar')),    -- First Premolar
+(25, (SELECT id FROM groups WHERE name='Premolar')),    -- Second Premolar
+(26, (SELECT id FROM groups WHERE name='Molar')),       -- First Molar
+(27, (SELECT id FROM groups WHERE name='Molar')),       -- Second Molar
+(28, (SELECT id FROM groups WHERE name='Molar')),       -- Third Molar (Wisdom)
+
+-- Quadrant 3 (Lower Left)
+(31, (SELECT id FROM groups WHERE name='Anterior')),    -- Central Incisor
+(32, (SELECT id FROM groups WHERE name='Anterior')),    -- Lateral Incisor
+(33, (SELECT id FROM groups WHERE name='Anterior')),    -- Canine
+(34, (SELECT id FROM groups WHERE name='Premolar')),    -- First Premolar
+(35, (SELECT id FROM groups WHERE name='Premolar')),    -- Second Premolar
+(36, (SELECT id FROM groups WHERE name='Molar')),       -- First Molar
+(37, (SELECT id FROM groups WHERE name='Molar')),       -- Second Molar
+(38, (SELECT id FROM groups WHERE name='Molar')),       -- Third Molar (Wisdom)
+
+-- Quadrant 4 (Lower Right)
+(41, (SELECT id FROM groups WHERE name='Anterior')),    -- Central Incisor
+(42, (SELECT id FROM groups WHERE name='Anterior')),    -- Lateral Incisor
+(43, (SELECT id FROM groups WHERE name='Anterior')),    -- Canine
+(44, (SELECT id FROM groups WHERE name='Premolar')),    -- First Premolar
+(45, (SELECT id FROM groups WHERE name='Premolar')),    -- Second Premolar
+(46, (SELECT id FROM groups WHERE name='Molar')),       -- First Molar
+(47, (SELECT id FROM groups WHERE name='Molar')),       -- Second Molar
+(48, (SELECT id FROM groups WHERE name='Molar'))        -- Third Molar (Wisdom)
+ON CONFLICT (fdi_code) DO NOTHING;
+
+-- Insert valid combinations based on dental practice standards
+-- Matrix:
+-- Corona Total: ✔ Anterior, ✔ Premolar, ✔ Molar
+-- Carilla:      ✔ Anterior, ✔ Premolar
+-- Incrustación: ✔ Premolar, ✔ Molar
+-- Puente:       ✔ Anterior, ✔ Premolar, ✔ Molar
+WITH wt AS (SELECT id, name FROM public.work_types),
+     tg AS (SELECT id, name FROM public.tooth_groups)
+INSERT INTO public.work_type_tooth_group_combinations (work_type_id, tooth_group_id)
+SELECT wt.id, tg.id
+FROM wt
+CROSS JOIN tg
+WHERE
+  -- Corona Total: valid for all groups
+  (wt.name LIKE '%Corona%' AND tg.name IN ('Anterior', 'Premolar', 'Molar'))
+  OR
+  -- Carilla: valid for Anterior and Premolar
+  (wt.name LIKE '%Carilla%' AND tg.name IN ('Anterior', 'Premolar'))
+  OR
+  -- Incrustación: valid for Premolar and Molar
+  (wt.name LIKE '%Incrusta%' AND tg.name IN ('Premolar', 'Molar'))
+  OR
+  -- Puente: valid for all groups
+  (wt.name LIKE '%Puente%' AND tg.name IN ('Anterior', 'Premolar', 'Molar'))
+ON CONFLICT (work_type_id, tooth_group_id) DO NOTHING;

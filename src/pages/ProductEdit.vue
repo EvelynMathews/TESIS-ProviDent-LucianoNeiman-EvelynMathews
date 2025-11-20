@@ -9,7 +9,8 @@ import {
     listShippingMethods,
     loadMaterials,
     loadWorkTypes,
-    loadToothGroups
+    loadToothGroups,
+    loadValidWorkGroupCombinations
 } from '../services/products'
 
 export default {
@@ -79,7 +80,12 @@ export default {
             },
 
             errorMessage: null,
-            successMessage: null
+            successMessage: null,
+
+            // Catalogs for validation
+            workTypes: [],
+            toothGroups: [],
+            validCombinations: []
         }
     },
     computed: {
@@ -374,6 +380,43 @@ export default {
 
         cancel() {
             this.$router.push('/mis-productos')
+        },
+
+        isValidCombination(workTypeKey, toothGroupKey) {
+            if (this.validCombinations.length === 0) return true
+
+            const workType = this.workTypes.find(wt => {
+                const name = wt.name.toLowerCase()
+                if (workTypeKey === 'corona_total' && name.includes('corona')) return true
+                if (workTypeKey === 'carilla' && name.includes('carilla')) return true
+                if (workTypeKey === 'incrustacion' && name.includes('incrusta')) return true
+                if (workTypeKey === 'puente' && name.includes('puente')) return true
+                return false
+            })
+
+            const toothGroup = this.toothGroups.find(tg => {
+                const name = tg.name.toLowerCase()
+                if (toothGroupKey === 'anterior' && name.includes('anterior')) return true
+                if (toothGroupKey === 'premolar' && name.includes('premolar')) return true
+                if (toothGroupKey === 'molar' && name.includes('molar') && !name.includes('premolar')) return true
+                return false
+            })
+
+            if (!workType || !toothGroup) return true
+
+            return this.validCombinations.some(
+                c => c.work_type_id === workType.id && c.tooth_group_id === toothGroup.id
+            )
+        },
+
+        async loadCatalogs() {
+            try {
+                this.workTypes = await loadWorkTypes()
+                this.toothGroups = await loadToothGroups()
+                this.validCombinations = await loadValidWorkGroupCombinations()
+            } catch (error) {
+                console.error('Error loading catalogs:', error)
+            }
         }
     },
     mounted() {
@@ -381,6 +424,7 @@ export default {
             this.user = newUserState
         })
         this.loadProduct()
+        this.loadCatalogs()
     }
 }
 </script>
@@ -626,7 +670,8 @@ export default {
                                                 v-model="prosthesisData.pricingMatrix[workType].anterior"
                                                 type="number"
                                                 step="0.01"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                                                :disabled="!isValidCombination(workType, 'anterior')"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-200 disabled:cursor-not-allowed"
                                                 placeholder="Precio"
                                             />
                                         </td>
@@ -635,7 +680,8 @@ export default {
                                                 v-model="prosthesisData.pricingMatrix[workType].premolar"
                                                 type="number"
                                                 step="0.01"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                                                :disabled="!isValidCombination(workType, 'premolar')"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-200 disabled:cursor-not-allowed"
                                                 placeholder="Precio"
                                             />
                                         </td>
@@ -644,7 +690,8 @@ export default {
                                                 v-model="prosthesisData.pricingMatrix[workType].molar"
                                                 type="number"
                                                 step="0.01"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                                                :disabled="!isValidCombination(workType, 'molar')"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-200 disabled:cursor-not-allowed"
                                                 placeholder="Precio"
                                             />
                                         </td>

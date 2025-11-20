@@ -1,6 +1,6 @@
 <script>
 import { subscribeToAuthStateChanges } from '../services/auth'
-import { createSupplyProduct, createProsthesisProduct, createPlasterServiceProduct, createRentalProduct, listShippingMethods, createShippingMethod } from '../services/products'
+import { createSupplyProduct, createProsthesisProduct, createPlasterServiceProduct, createRentalProduct, listShippingMethods, createShippingMethod, loadWorkTypes, loadToothGroups, loadValidWorkGroupCombinations } from '../services/products'
 import { isCurrentUserSeller } from '../services/sellers'
 
 export default {
@@ -73,7 +73,12 @@ export default {
             previewMode: false,
             published: false,
             errorMessage: null,
-            showShippingConfig: false
+            showShippingConfig: false,
+
+            // Catalogs for validation
+            workTypes: [],
+            toothGroups: [],
+            validCombinations: []
         }
     },
     computed: {
@@ -362,6 +367,43 @@ export default {
 
         formatPrice(price) {
             return new Intl.NumberFormat('es-AR').format(price)
+        },
+
+        isValidCombination(workTypeKey, toothGroupKey) {
+            if (this.validCombinations.length === 0) return true
+
+            const workType = this.workTypes.find(wt => {
+                const name = wt.name.toLowerCase()
+                if (workTypeKey === 'corona_total' && name.includes('corona')) return true
+                if (workTypeKey === 'carilla' && name.includes('carilla')) return true
+                if (workTypeKey === 'incrustacion' && name.includes('incrusta')) return true
+                if (workTypeKey === 'puente' && name.includes('puente')) return true
+                return false
+            })
+
+            const toothGroup = this.toothGroups.find(tg => {
+                const name = tg.name.toLowerCase()
+                if (toothGroupKey === 'anterior' && name.includes('anterior')) return true
+                if (toothGroupKey === 'premolar' && name.includes('premolar')) return true
+                if (toothGroupKey === 'molar' && name.includes('molar') && !name.includes('premolar')) return true
+                return false
+            })
+
+            if (!workType || !toothGroup) return true
+
+            return this.validCombinations.some(
+                c => c.work_type_id === workType.id && c.tooth_group_id === toothGroup.id
+            )
+        },
+
+        async loadCatalogs() {
+            try {
+                this.workTypes = await loadWorkTypes()
+                this.toothGroups = await loadToothGroups()
+                this.validCombinations = await loadValidWorkGroupCombinations()
+            } catch (error) {
+                console.error('Error loading catalogs:', error)
+            }
         }
     },
     async mounted() {
@@ -374,6 +416,7 @@ export default {
             return
         }
         this.loadShippingMethods()
+        this.loadCatalogs()
     }
 }
 </script>
@@ -812,17 +855,20 @@ export default {
                                         <td class="border border-gray-300 px-4 py-2 font-semibold">Corona total</td>
                                         <td class="border border-gray-300 px-2 py-2">
                                             <input type="number" v-model="prosthesisData.pricingMatrix.corona_total.anterior" step="0.01"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center"
+                                                :disabled="!isValidCombination('corona_total', 'anterior')"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
                                                 placeholder="$" />
                                         </td>
                                         <td class="border border-gray-300 px-2 py-2">
                                             <input type="number" v-model="prosthesisData.pricingMatrix.corona_total.premolar" step="0.01"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center"
+                                                :disabled="!isValidCombination('corona_total', 'premolar')"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
                                                 placeholder="$" />
                                         </td>
                                         <td class="border border-gray-300 px-2 py-2">
                                             <input type="number" v-model="prosthesisData.pricingMatrix.corona_total.molar" step="0.01"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center"
+                                                :disabled="!isValidCombination('corona_total', 'molar')"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
                                                 placeholder="$" />
                                         </td>
                                     </tr>
@@ -830,17 +876,20 @@ export default {
                                         <td class="border border-gray-300 px-4 py-2 font-semibold">Carilla</td>
                                         <td class="border border-gray-300 px-2 py-2">
                                             <input type="number" v-model="prosthesisData.pricingMatrix.carilla.anterior" step="0.01"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center"
+                                                :disabled="!isValidCombination('carilla', 'anterior')"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
                                                 placeholder="$" />
                                         </td>
                                         <td class="border border-gray-300 px-2 py-2">
                                             <input type="number" v-model="prosthesisData.pricingMatrix.carilla.premolar" step="0.01"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center"
+                                                :disabled="!isValidCombination('carilla', 'premolar')"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
                                                 placeholder="$" />
                                         </td>
                                         <td class="border border-gray-300 px-2 py-2">
                                             <input type="number" v-model="prosthesisData.pricingMatrix.carilla.molar" step="0.01"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center"
+                                                :disabled="!isValidCombination('carilla', 'molar')"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
                                                 placeholder="$" />
                                         </td>
                                     </tr>
@@ -848,17 +897,20 @@ export default {
                                         <td class="border border-gray-300 px-4 py-2 font-semibold">Incrustación</td>
                                         <td class="border border-gray-300 px-2 py-2">
                                             <input type="number" v-model="prosthesisData.pricingMatrix.incrustacion.anterior" step="0.01"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center"
+                                                :disabled="!isValidCombination('incrustacion', 'anterior')"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
                                                 placeholder="$" />
                                         </td>
                                         <td class="border border-gray-300 px-2 py-2">
                                             <input type="number" v-model="prosthesisData.pricingMatrix.incrustacion.premolar" step="0.01"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center"
+                                                :disabled="!isValidCombination('incrustacion', 'premolar')"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
                                                 placeholder="$" />
                                         </td>
                                         <td class="border border-gray-300 px-2 py-2">
                                             <input type="number" v-model="prosthesisData.pricingMatrix.incrustacion.molar" step="0.01"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center"
+                                                :disabled="!isValidCombination('incrustacion', 'molar')"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
                                                 placeholder="$" />
                                         </td>
                                     </tr>
@@ -866,17 +918,20 @@ export default {
                                         <td class="border border-gray-300 px-4 py-2 font-semibold">Puente</td>
                                         <td class="border border-gray-300 px-2 py-2">
                                             <input type="number" v-model="prosthesisData.pricingMatrix.puente.anterior" step="0.01"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center"
+                                                :disabled="!isValidCombination('puente', 'anterior')"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
                                                 placeholder="$" />
                                         </td>
                                         <td class="border border-gray-300 px-2 py-2">
                                             <input type="number" v-model="prosthesisData.pricingMatrix.puente.premolar" step="0.01"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center"
+                                                :disabled="!isValidCombination('puente', 'premolar')"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
                                                 placeholder="$" />
                                         </td>
                                         <td class="border border-gray-300 px-2 py-2">
                                             <input type="number" v-model="prosthesisData.pricingMatrix.puente.molar" step="0.01"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center"
+                                                :disabled="!isValidCombination('puente', 'molar')"
+                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
                                                 placeholder="$" />
                                         </td>
                                     </tr>
