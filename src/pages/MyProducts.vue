@@ -25,7 +25,7 @@ export default {
       } catch (e) { this.error = e?.message || String(e) } finally { this.busyId = null }
     },
     async remove(p) {
-      if (!confirm('¿Eliminar este producto?')) return
+      if (!confirm(`¿Estás seguro que querés eliminar el producto "${p.name}"?`)) return
       try {
         this.busyId = p.id
         await deleteProductById(p.id)
@@ -51,7 +51,7 @@ export default {
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
       <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold text-gray-800">Mis Productos</h1>
+        <h1 class="text-2xl font-bold text-gray-800">Mis productos</h1>
         <button @click="goPublish" class="px-4 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 transition">
           Publicar nuevo
         </button>
