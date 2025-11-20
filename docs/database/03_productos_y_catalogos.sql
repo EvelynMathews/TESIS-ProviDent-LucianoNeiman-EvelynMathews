@@ -146,8 +146,8 @@ CREATE POLICY "Authenticated users can read teeth catalog" ON public.teeth FOR S
 DROP POLICY IF EXISTS "Admins can manage teeth catalog" ON public.teeth;
 CREATE POLICY "Admins can manage teeth catalog" ON public.teeth FOR ALL USING (EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='ADMIN')) WITH CHECK (EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='ADMIN'));
 
-DROP POLICY IF EXISTS "Authenticated users can read valid combinations" ON public.work_type_tooth_group_combinations;
-CREATE POLICY "Authenticated users can read valid combinations" ON public.work_type_tooth_group_combinations FOR SELECT USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "Public can read valid combinations" ON public.work_type_tooth_group_combinations;
+CREATE POLICY "Public can read valid combinations" ON public.work_type_tooth_group_combinations FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Admins can manage valid combinations" ON public.work_type_tooth_group_combinations;
 CREATE POLICY "Admins can manage valid combinations" ON public.work_type_tooth_group_combinations FOR ALL USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
 
