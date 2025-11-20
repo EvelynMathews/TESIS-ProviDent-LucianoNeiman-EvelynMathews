@@ -1,3 +1,14 @@
+/**
+ * Servicio de mensajería para el chat global (o de soporte).
+ * Propósito: Gestionar la comunicación de mensajes en tiempo real
+ * entre todos los usuarios de la plataforma.
+ * Funcionamiento: Utiliza la tabla `chat` de Supabase. `getMessages`
+ * realiza la carga inicial de historial. `sendMessage` registra un nuevo
+ * mensaje en la base de datos. `subscribeToMessages` implementa la funcionalidad
+ * de tiempo real de Supabase para notificar a todos los clientes cuando
+ * un nuevo mensaje es insertado en la tabla `chat`.
+ */
+
 import { supabase } from './supabase.js'
 
 /**

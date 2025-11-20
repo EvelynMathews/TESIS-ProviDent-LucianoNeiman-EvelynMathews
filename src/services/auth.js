@@ -1,3 +1,15 @@
+/**
+ * Servicio de gestión del estado de autenticación y datos del usuario.
+ * Propósito: Centralizar toda la lógica de autenticación (registro, login, logout)
+ * utilizando Supabase Auth y mantener un estado reactivo (`user`) que cualquier
+ * componente puede suscribir para actualizar su interfaz.
+ * Funcionamiento: `subscribeToSupabaseAuth` escucha cambios en Supabase para
+ * mantener el estado local sincronizado. `register`, `login` y `logout` interactúan
+ * directamente con el SDK de Supabase. `fetchFullProfile` se asegura de obtener
+ * datos extendidos de `user_profiles`. El patrón Observer (`subscribeToAuthStateChanges`)
+ * notifica a los componentes sobre cualquier cambio en el estado `user`.
+ */
+
 import { supabase } from './supabase'
 import { getUserProfileById, updateUserProfile, updateUserData } from './user-profiles'
 

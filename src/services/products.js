@@ -1,3 +1,14 @@
+/**
+ * Servicio de gestión integral de productos, catálogos y logística.
+ * Propósito: Contiene la lógica para listar, crear, editar y obtener
+ * detalles de todos los tipos de productos (Insumo, Prótesis, Servicio de Yeso, Alquiler),
+ * así como la gestión de los métodos de envío, zonas y tarifas del vendedor.
+ * Funcionamiento: Utiliza múltiples funciones que consultan distintas tablas de Supabase
+ * (`products`, `supply_products`, `prosthesis_products`, `shipping_methods`, etc.).
+ * Maneja la lógica de las imágenes (URLs firmadas, rutas de Storage) y la
+ * conversión de datos específicos (ej. matriz de precios de prótesis a IDs).
+ */
+
 import { supabase } from './supabase'
 
 function pickPrimaryImage(images = []) {
