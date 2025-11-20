@@ -158,6 +158,8 @@ DROP POLICY IF EXISTS "Sellers can create own products" ON public.products;
 CREATE POLICY "Sellers can create own products" ON public.products FOR INSERT WITH CHECK (owner_user_id = auth.uid() AND EXISTS (SELECT 1 FROM public.user_sellers s WHERE s.user_id=auth.uid()));
 DROP POLICY IF EXISTS "Owners can update own products" ON public.products;
 CREATE POLICY "Owners can update own products" ON public.products FOR UPDATE USING (owner_user_id = auth.uid());
+DROP POLICY IF EXISTS "Owners can delete own products" ON public.products;
+CREATE POLICY "Owners can delete own products" ON public.products FOR DELETE USING (owner_user_id = auth.uid());
 
 -- Policies: product images
 DROP POLICY IF EXISTS "Owners can read product images" ON public.product_images;

@@ -173,7 +173,7 @@ export default {
             this.supplyData.name = product.name
             this.supplyData.description = product.description
             this.supplyData.price = product.price
-            this.supplyData.stock = product.stock_qty
+            this.supplyData.stock = product.stock
             this.supplyData.sku = product.sku || ''
             this.supplyData.is_active = product.is_active !== false
             this.supplyData.imagePreview = product.image
@@ -253,7 +253,7 @@ export default {
         async loadRentalData(product) {
             this.rentalData.name = product.name
             this.rentalData.description = product.description
-            this.rentalData.stock = product.stock_qty
+            this.rentalData.stock = product.stock
             this.rentalData.is_active = product.is_active !== false
             this.rentalData.imagePreview = product.image
 
@@ -312,7 +312,7 @@ export default {
                 }, 1500)
             } catch (e) {
                 console.error('Error saving:', e)
-                this.errorMessage = 'Error al guardar los cambios'
+                this.errorMessage = `Error al guardar: ${e?.message || String(e)}`
             } finally {
                 this.saving = false
             }
