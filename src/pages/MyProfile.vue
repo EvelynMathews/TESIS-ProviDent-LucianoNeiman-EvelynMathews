@@ -1,6 +1,6 @@
 <script>
 import { subscribeToAuthStateChanges, logout } from '../services/auth'
-import { isCurrentUserSeller, grantSellerSelf, connectDummyPaymentAccount } from '../services/sellers'
+import { isCurrentUserSeller } from '../services/sellers'
 import { supabase } from '../services/supabase'
 import { listMyProducts } from '../services/products'
 
@@ -129,20 +129,6 @@ export default {
                 try { this.myProducts = (await listMyProducts()).slice(0, 4) } catch (e) { this.myProducts = [] }
             } else {
                 this.myProducts = []
-            }
-        },
-        async becomeSeller() {
-            try {
-                await grantSellerSelf()
-                await connectDummyPaymentAccount('MERCADOPAGO')
-                this.isSeller = true
-                this.userProfile.roles = ['Comprador', 'Vendedor']
-                try { window.dispatchEvent(new CustomEvent('seller:changed')) } catch {}
-                this.$router.push('/seller-setup')
-            } catch (e) {
-                this.sellerMessage = 'No se pudo activar vendedor.'
-                console.error(e)
-                setTimeout(() => { this.sellerMessage = '' }, 3000)
             }
         },
         goToEditProfile() {
@@ -304,12 +290,12 @@ export default {
                         </svg>
                     </div>
                     <h2 class="font-heading text-2xl font-bold text-gray-800 mb-2">¿Querés empezar a vender en ProviDent?</h2>
-                    <p class="text-gray-600 mb-6">Vamos a conectar una cuenta de pagos dummy para habilitar ventas.</p>
-                    <button @click="becomeSeller"
-                        class="px-8 py-3 text-white font-semibold rounded-lg shadow-lg hover:opacity-90 transition"
+                    <p class="text-gray-600 mb-6">Configurá tu perfil de vendedor para comenzar a publicar productos.</p>
+                    <RouterLink to="/seller-setup"
+                        class="inline-block px-8 py-3 text-white font-semibold rounded-lg shadow-lg hover:opacity-90 transition"
                         style="background-color: #DC8C73;">
                         Quiero ser vendedor
-                    </button>
+                    </RouterLink>
                 </div>
             </div>
 
