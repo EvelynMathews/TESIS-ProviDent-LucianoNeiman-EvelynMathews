@@ -1,6 +1,6 @@
 <template>
-    <div class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300">
-        <div class="relative">
+    <div class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col h-full">
+        <div class="relative flex-shrink-0">
             <img :src="product.image || placeholder" :alt="product.name" class="w-full h-48 object-cover" />
             <span v-if="product.stock === 0" class="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">
                 SIN STOCK
@@ -13,7 +13,7 @@
             </span>
         </div>
 
-        <div class="p-4">
+        <div class="p-4 flex flex-col flex-1">
             <p v-if="product.brand" class="text-gray-500 text-xs mb-1">{{ product.brand }}</p>
             <h3 class="font-semibold text-gray-800 text-sm mb-2 line-clamp-2">{{ product.name }}</h3>
 
@@ -46,26 +46,28 @@
                 <p v-else class="text-xs text-red-600">Sin stock</p>
             </div>
 
-            <RouterLink :to="`/productos/${product.id}`"
-                class="block w-full text-center text-white font-medium py-2 px-4 rounded-lg transition shadow-md hover:opacity-90"
-                style="background-color: #2A6FAF;">
-                Ver detalles
-            </RouterLink>
-            <button @click="onAdd"
-                :disabled="product.stock === 0"
-                class="mt-2 w-full font-medium py-2 px-4 rounded-lg transition shadow-md"
-                :class="product.stock === 0 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-green-600 text-white hover:opacity-90'">
-                Agregar al carrito
-            </button>
-            <div class="flex items-center gap-2 mt-2">
-                <img v-if="product.seller?.avatar_url" :src="product.seller.avatar_url" alt="avatar"
-                     class="w-6 h-6 rounded-full object-cover" />
-                <div v-else class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-semibold text-gray-600">
-                    {{ initials(product.seller?.username) }}
-                </div>
-                <RouterLink :to="`/usuario/${product.seller?.id}`" class="text-xs text-gray-600 truncate hover:underline">
-                    Por {{ product.seller?.username }}
+            <div class="mt-auto space-y-2">
+                <RouterLink :to="`/productos/${product.id}`"
+                    class="block w-full text-center text-white font-medium py-2 px-4 rounded-lg transition shadow-md hover:opacity-90"
+                    style="background-color: #2A6FAF;">
+                    Ver detalles
                 </RouterLink>
+                <button @click="onAdd"
+                    :disabled="product.stock === 0"
+                    class="w-full font-medium py-2 px-4 rounded-lg transition shadow-md"
+                    :class="product.stock === 0 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-green-600 text-white hover:opacity-90'">
+                    Agregar al carrito
+                </button>
+                <div class="flex items-center gap-2">
+                    <img v-if="product.seller?.avatar_url" :src="product.seller.avatar_url" alt="avatar"
+                         class="w-6 h-6 rounded-full object-cover" />
+                    <div v-else class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-semibold text-gray-600">
+                        {{ initials(product.seller?.username) }}
+                    </div>
+                    <RouterLink :to="`/usuario/${product.seller?.id}`" class="text-xs text-gray-600 truncate hover:underline">
+                        Por {{ product.seller?.username }}
+                    </RouterLink>
+                </div>
             </div>
         </div>
     </div>

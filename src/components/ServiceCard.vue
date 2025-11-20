@@ -1,13 +1,13 @@
 <template>
-    <div class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
-        <div class="relative">
+    <div class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
+        <div class="relative flex-shrink-0">
             <img :src="service.image" :alt="service.name" class="w-full h-48 object-cover" />
             <span class="absolute top-2 right-2 bg-secondary text-white text-xs px-3 py-1 rounded-full font-medium">
                 {{ service.category }}
             </span>
         </div>
 
-        <div class="p-4">
+        <div class="p-4 flex flex-col flex-1">
             <p v-if="service.provider" class="text-gray-500 text-xs mb-1">{{ service.provider }}</p>
             <h3 class="font-heading font-semibold text-gray-800 text-base mb-2 line-clamp-2">{{ service.name }}</h3>
 
@@ -50,15 +50,17 @@
                 </div>
             </div>
 
-            <RouterLink :to="`/servicios/${service.id}`"
-                class="block w-full text-center text-white font-medium py-2 px-4 rounded-lg transition shadow-md hover:opacity-90"
-                style="background-color: #2A6FAF;">
-                Ver detalles
-            </RouterLink>
+            <div class="mt-auto space-y-2">
+                <RouterLink :to="`/servicios/${service.id}`"
+                    class="block w-full text-center text-white font-medium py-2 px-4 rounded-lg transition shadow-md hover:opacity-90"
+                    style="background-color: #2A6FAF;">
+                    Ver detalles
+                </RouterLink>
 
-            <p class="text-xs text-gray-500 mt-2 truncate">
-                Por {{ service.seller.username }}
-            </p>
+                <p class="text-xs text-gray-500 truncate">
+                    Por {{ service.seller.username }}
+                </p>
+            </div>
         </div>
     </div>
 </template>

@@ -247,6 +247,10 @@ export default {
             if (!this.isMatrixMode) {
                 this.selectedTeethIds = []
             }
+        },
+        '$route.params.id'() {
+            // Reload product when navigating to a different product
+            this.loadProduct()
         }
     },
     mounted() {
