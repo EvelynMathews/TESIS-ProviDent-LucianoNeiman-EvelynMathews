@@ -1,3 +1,14 @@
+/**
+ * Servicio de gestión de roles y cuentas de pago para vendedores.
+ * Propósito: Proporcionar funciones para verificar si el usuario actual
+ * tiene el rol de vendedor y para facilitar la activación de dicho rol
+ * y la conexión de una cuenta de pago inicial (mock/dummy).
+ * Funcionamiento: `isCurrentUserSeller` consulta la tabla `user_roles`.
+ * `grantSellerSelf` invoca una función RPC de la base de datos para
+ * autootorgar el rol de vendedor. `connectDummyPaymentAccount` simula
+ * la conexión con un proveedor de pagos al crear un registro en `payment_accounts`.
+ */
+
 import { supabase } from './supabase'
 
 export async function isCurrentUserSeller() {

@@ -1,3 +1,14 @@
+/**
+ * Configuración centralizada de las rutas de la aplicación Vue Router.
+ * Propósito: Definir la navegación de la aplicación, mapeando URLs a componentes
+ * de vista (páginas) y aplicando lógica de protección de rutas (middleware).
+ * Funcionamiento: Define un array `routes` con las rutas públicas y privadas.
+ * El hook `router.beforeEach` intercepta la navegación para verificar si la
+ * ruta requiere autenticación (`to.meta.requiresAuth`). Si es necesario y el usuario
+ * no está logueado, lo redirige a `/login`. Las rutas de `/admin` utilizan
+ * el middleware `requireAdmin` para la protección basada en roles.
+ */
+
 import { createRouter, createWebHistory } from "vue-router";
 import { subscribeToAuthStateChanges } from "../services/auth";
 import { supabase } from "../services/supabase";

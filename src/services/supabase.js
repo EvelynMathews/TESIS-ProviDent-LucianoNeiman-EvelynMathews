@@ -1,3 +1,12 @@
+/**
+ * Archivo de configuración e inicialización del cliente de Supabase.
+ * Propósito: Establecer la conexión con los servicios de backend (Auth, DB, Storage)
+ * de Supabase, utilizando las variables de entorno definidas en `.env.local`.
+ * Funcionamiento: Crea y exporta la instancia del cliente (`supabase`)
+ * utilizando `createClient` con la URL y la clave anónima. Configura
+ * el cliente para persistir la sesión y refrescar tokens automáticamente.
+ */
+
 import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL

@@ -1,3 +1,14 @@
+/**
+ * Servicio de gestión del estado local del carrito de compras.
+ * Propósito: Almacenar de forma reactiva los ítems que el usuario agrega
+ * a su carrito antes de finalizar la compra. Utiliza un modelo simple
+ * basado en `ref` de Vue para la reactividad.
+ * Funcionamiento: Mantiene un array `cartItems` (actualmente con datos de mock).
+ * Proporciona funciones CRUD (`addToCart`, `removeFromCart`, `updateQuantity`)
+ * y funciones de cálculo (`getCartCount`, `getCartTotal`) para que los
+ * componentes de la aplicación accedan y modifiquen el carrito.
+ */
+
 import { ref } from 'vue'
 
 const cartItems = ref([

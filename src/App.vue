@@ -1,3 +1,13 @@
+<!--
+ * Componente raíz de la aplicación Vue.
+ * Propósito: Determinar el layout principal de la aplicación:
+ * un layout estándar (con Navbar y Footer) para las rutas públicas/de usuario,
+ * y un layout simple (solo RouterView) para las rutas de administración,
+ * permitiendo que el AdminLayout controle su propia navegación.
+ * Funcionamiento: Utiliza la propiedad computada `isAdminRoute` para verificar
+ * si la ruta actual comienza con '/admin' y renderiza condicionalmente la estructura.
+ /-->
+  
 <script>
 import Footer from './components/Footer.vue';
 import Navbar from './components/Navbar.vue';
