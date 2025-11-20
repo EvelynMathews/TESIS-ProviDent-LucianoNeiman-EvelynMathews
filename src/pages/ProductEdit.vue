@@ -1,4 +1,9 @@
 <script>
+/**
+ * Propósito: Vista para que un vendedor edite una publicación existente.
+ * Función: Proporcionar formularios de edición específicos para cada tipo de producto (`SUPPLY`, `PROSTHESIS`, `PLASTER_SERVICE`, `RENTAL`) precargados con los datos actuales.
+ * Cómo funciona: `loadProduct` detecta el `productType` y carga los datos en el formulario correspondiente (`loadSupplyData`, `loadProsthesisData`, etc.). `handleImageChange` gestiona la previsualización de imágenes. `saveChanges` llama a la función de actualización específica (ej. `updateSupplyProduct`) para persistir los cambios, incluyendo la gestión de nuevas imágenes, la matriz de precios compleja de las prótesis y la lógica de precios de alquiler.
+ */
 import { subscribeToAuthStateChanges } from '../services/auth'
 import {
     getProductById,

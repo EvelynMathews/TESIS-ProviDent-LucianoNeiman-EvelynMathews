@@ -1,4 +1,15 @@
 <script>
+/**
+ * Vista de manejo de redirección después de la autenticación.
+ * Propósito: Capturar y procesar los tokens/parámetros de la URL
+ * que Supabase Auth utiliza para establecer la sesión del usuario
+ * después de procesos como la confirmación de correo electrónico.
+ * Funcionamiento: Al montarse, el componente inspecciona el hash de la URL
+ * para detectar tokens de sesión. Intenta obtener la sesión de Supabase.
+ * Si tiene éxito, redirige al perfil del usuario (`/mi-perfil`).
+ * Si falla (ej. link inválido o error de sesión), muestra un mensaje de error.
+ */
+
 import { supabase } from '../services/supabase'
 
 export default {

@@ -3,8 +3,10 @@
  * Propósito: Asegurar que solo los usuarios con el rol 'admin' puedan acceder
  * a las rutas dentro de `/admin`.
  * Funcionamiento: En `requireAdmin`, verifica la sesión de Supabase.
- * Si no hay sesión o el usuario no tiene `user_metadata.role` igual a 'admin',
- * cierra la sesión por seguridad y redirige al login de administración.
+ * Si no hay sesión, redirige inmediatamente a `/admin/login`. Si existe una sesión,
+ * verifica que el usuario tenga `user_metadata.role` igual a 'admin'.
+ * Si el rol no es 'admin', cierra la sesión por seguridad y redirige al login de administración.
+ * Si todo es correcto, permite la navegación (`next()`).
  */
 import { supabase } from '../services/supabase'
 

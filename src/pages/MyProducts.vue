@@ -1,4 +1,9 @@
 <script>
+/**
+ * Propósito: Vista para que un usuario con rol de vendedor administre sus publicaciones.
+ * Función: Listar todos los productos y servicios propios del usuario, y proporcionar acciones directas como activar/pausar, editar o eliminar publicaciones.
+ * Cómo funciona: El método `load` utiliza `listMyProducts` para obtener los ítems del vendedor actual. Los métodos `toggleActive` y `remove` interactúan con el servicio de productos para cambiar el estado de `is_active` o eliminar el registro permanentemente de la base de datos. Muestra un estado de carga y maneja errores.
+ */
 import { listMyProducts, updateProduct, deleteProductById } from '../services/products'
 
 export default {

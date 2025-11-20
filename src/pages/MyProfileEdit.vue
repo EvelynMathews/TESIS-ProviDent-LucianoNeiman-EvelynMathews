@@ -1,4 +1,9 @@
 <script>
+/**
+ * Propósito: Vista para que el usuario edite su información personal y avatar.
+ * Función: Permitir al usuario actualizar su nombre, apellido, biografía, ubicación y subir una nueva foto de perfil (avatar).
+ * Cómo funciona: Se suscribe al estado de autenticación para precargar los datos actuales. `handleFileChange` actualiza la previsualización del avatar. `handleSubmit` gestiona la lógica clave: si hay un `avatarFile`, lo sube a Supabase Storage con un nombre único antes de llamar a `updateAuthUser` para guardar todos los cambios en la base de datos (tablas `users` y `user_profiles`).
+ */
 import { subscribeToAuthStateChanges, updateAuthUser } from '../services/auth'
 import { supabase } from '../services/supabase'
 

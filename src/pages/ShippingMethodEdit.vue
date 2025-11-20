@@ -1,4 +1,9 @@
 <script>
+/**
+ * Propósito: Edición detallada de un método de envío específico de un vendedor.
+ * Función: Permitir al vendedor configurar los parámetros globales del método (nombre, límites de volumen), y gestionar las zonas (rangos de código postal por provincia) y las tarifas asociadas a peso/volumen para ese método.
+ * Cómo funciona: `loadAll` obtiene el método, provincias, zonas y tarifas. `saveMethod` actualiza los parámetros generales. `submitZone` y `submitRate` gestionan las operaciones CRUD (Crear, Leer, Actualizar, Borrar) para la segmentación geográfica y los precios de envío, interactuando con los servicios de `products.js`.
+ */
 import { getShippingMethodById, updateShippingMethod, listProvinces, listShippingZones, createShippingZone, updateShippingZone, deleteShippingZone, listShippingRates, createShippingRate, updateShippingRate, deleteShippingRate } from '../services/products'
 
 export default {

@@ -1,4 +1,9 @@
 <script>
+/**
+ * Propósito: Vista de detalle para un producto o servicio específico del marketplace.
+ * Función: Mostrar toda la información del producto, configurar variantes (especialmente para prótesis con su compleja lógica de selección de dientes y precios) y permitir añadir al carrito o solicitar el servicio.
+ * Cómo funciona: `loadProduct` carga el producto por ID y sus catálogos asociados (materiales, tipos de trabajo, dientes). Las propiedades computadas como `totalPrice`, `isMatrixMode` y `availableTeethForWorkType` gestionan la lógica de precios y selección de componentes de la prótesis (o la cantidad simple para insumos) de forma dinámica. `addToCart` simula la acción final de compra/solicitud.
+ */
 import { subscribeToAuthStateChanges } from '../services/auth'
 import { getProductById, listActiveProducts, loadMaterials, loadWorkTypes, loadToothGroups, loadTeeth, loadValidWorkGroupCombinations } from '../services/products'
 import ProductCard from '../components/ProductCard.vue'

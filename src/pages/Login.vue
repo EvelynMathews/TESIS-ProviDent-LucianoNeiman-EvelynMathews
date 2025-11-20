@@ -1,4 +1,9 @@
 <script>
+/**
+ * Propósito: Vista para que los usuarios inicien sesión en la aplicación.
+ * Función: Autenticar al usuario enviando sus credenciales (email y contraseña) al servicio de autenticación.
+ * Cómo funciona: Captura el `email` y `password` del formulario y llama a la función `login` de `auth.js`. Si el proceso es exitoso, redirige al usuario a la página de su perfil (`/mi-perfil`). Maneja y muestra un `errorMessage` en caso de fallo de autenticación o credenciales incorrectas.
+ */
 import { login } from '../services/auth'
 
 export default {

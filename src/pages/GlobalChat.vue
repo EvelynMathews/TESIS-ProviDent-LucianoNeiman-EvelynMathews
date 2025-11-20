@@ -1,4 +1,9 @@
 <script>
+/**
+ * Propósito: Vista del chat global de soporte (o comunidad). Permite la comunicación en tiempo real entre usuarios y/o soporte técnico.
+ * Función: Gestiona la carga inicial de mensajes, el envío de nuevos mensajes y la suscripción en tiempo real a los nuevos mensajes para actualizar la interfaz dinámicamente.
+ * Cómo funciona: Utiliza `getMessages` para el historial y `subscribeToMessages` para escuchar inserciones en la tabla `chat` de Supabase. La función `scrollToBottom` asegura que el usuario siempre vea los mensajes más recientes al cargar o al recibir un nuevo mensaje, y `handleSubmit` se encarga de enviar el mensaje a la base de datos.
+ */
 import { subscribeToAuthStateChanges } from '../services/auth'
 import { getMessages, sendMessage, subscribeToMessages } from '../services/global-chat'
 

@@ -1,4 +1,9 @@
 <script>
+/**
+ * Propósito: Vista del perfil personal del usuario logueado.
+ * Función: Servir como el centro de control del usuario, mostrando datos personales, roles, direcciones, cuentas bancarias (mock), un resumen de actividad (compras/ventas) y productos publicados.
+ * Cómo funciona: `loadProfile` carga el perfil completo, verifica el rol de vendedor (`isCurrentUserSeller`) y carga el avatar firmado desde Storage. La data es poblada a través de `userProfile` y otros arrays de mock. Ofrece navegación a la edición de perfil y manejo de acciones de cuenta como cambio de contraseña y eliminación de cuenta.
+ */
 import { subscribeToAuthStateChanges, logout } from '../services/auth'
 import { isCurrentUserSeller } from '../services/sellers'
 import { supabase } from '../services/supabase'

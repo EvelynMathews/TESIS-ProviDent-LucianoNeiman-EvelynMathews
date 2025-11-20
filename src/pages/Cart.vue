@@ -1,4 +1,15 @@
 <script>
+/**
+ * Vista del carrito de compras del usuario.
+ * Propósito: Mostrar los productos y servicios que el usuario ha agregado,
+ * permitir la modificación de cantidades, la eliminación de ítems y calcular
+ * el subtotal de la compra.
+ * Funcionamiento: Utiliza el servicio `cart.js` (basado en estado local/mock)
+ * para acceder a los ítems (`cartItems`) y realizar las operaciones CRUD
+ * (`increaseQuantity`, `removeFromCart`). Las propiedades calculadas
+ * (`cartTotal`, `isEmpty`) manejan el resumen del pedido y la lógica de la vista vacía.
+ */
+
 import { getCartItems, updateQuantity, removeFromCart, getCartTotal } from '../services/cart'
 import { subscribeToAuthStateChanges } from '../services/auth'
 

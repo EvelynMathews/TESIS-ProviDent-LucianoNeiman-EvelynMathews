@@ -1,4 +1,9 @@
 <script>
+/**
+ * Propósito: Vista de registro de nuevos usuarios (formulario multi-paso).
+ * Función: Recoger los datos básicos del usuario (acceso y personales) y registrarlo en la plataforma.
+ * Cómo funciona: Implementa un formulario de dos pasos (`currentStep`) con validaciones básicas (`canGoNext`, `passwordMatch`). Llama a la función `register` del servicio `auth.js`. Si la confirmación de email está activa (por defecto en Supabase), muestra un mensaje de éxito con instrucciones para verificar la cuenta.
+ */
 import { register } from '../services/auth'
 
 export default {

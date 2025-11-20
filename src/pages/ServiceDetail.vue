@@ -1,4 +1,9 @@
 <script>
+/**
+ * Propósito: Vista de detalle para un servicio (simulada con datos de mock).
+ * Función: Mostrar la información completa de un servicio (en este caso una prótesis), y permitir la configuración de sus variantes (tipo de trabajo, grupo dental) para calcular un precio final por pieza.
+ * Cómo funciona: Utiliza datos de mock (`this.service`). Las propiedades computadas como `currentPrice` y `availableToothGroups` calculan y filtran las opciones dinámicamente basándose en la matriz de precios del servicio. `addToCart` simula la solicitud del servicio con la configuración seleccionada.
+ */
 import { subscribeToAuthStateChanges } from '../services/auth'
 
 export default {
