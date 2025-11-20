@@ -434,42 +434,165 @@ export default {
                         <div v-if="product.product_type === 'PROSTHESIS' && uiMode === 'matrix4'" class="mb-6 bg-gray-50 p-4 rounded-lg">
                             <h3 class="font-heading font-semibold text-gray-800 mb-3">Configurar prótesis - Vista por Cuadrante</h3>
 
-                            <div v-for="(quadrantTeeth, quadrant) in teethByQuadrant" :key="quadrant" class="mb-6">
-                                <h4 class="font-semibold text-gray-700 mb-2">Cuadrante {{ quadrant }}</h4>
-                                <div class="overflow-x-auto">
-                                    <table class="w-full border-collapse border border-gray-300 text-sm">
-                                        <thead>
-                                            <tr class="bg-gray-200">
-                                                <th class="border border-gray-300 px-2 py-2 text-left font-semibold">Diente</th>
-                                                <th v-for="wt in workTypes" :key="wt.id"
-                                                    class="border border-gray-300 px-2 py-2 text-center font-semibold">
-                                                    {{ wt.name }}
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr v-for="tooth in quadrantTeeth" :key="tooth.id" class="hover:bg-gray-100">
-                                                <td class="border border-gray-300 px-2 py-2 font-medium">
-                                                    {{ tooth.fdi_code }}
-                                                </td>
-                                                <td v-for="wt in workTypes" :key="wt.id"
-                                                    class="border border-gray-300 px-2 py-2 text-center">
-                                                    <div v-if="isValidToothWorkTypeCombination(tooth.id, wt.id)">
-                                                        <input
-                                                            type="checkbox"
-                                                            :checked="isCombinationSelected(tooth.id, wt.id)"
-                                                            @change="toggleCombination(tooth.id, wt.id)"
-                                                            class="w-4 h-4 text-primary border-gray-300 rounded cursor-pointer"
-                                                        />
-                                                        <div class="text-xs text-gray-600 mt-1">
-                                                            ${{ formatPrice(getPriceForToothAndWorkType(tooth.id, wt.id)) }}
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <!-- Cuadrante 2 - Superior Izquierdo -->
+                                <div>
+                                    <h4 class="font-semibold text-gray-700 mb-2">Cuadrante 2 (Superior Izquierdo)</h4>
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full border-collapse border border-gray-300 text-sm">
+                                            <thead>
+                                                <tr class="bg-gray-200">
+                                                    <th class="border border-gray-300 px-2 py-2 text-left font-semibold">Diente</th>
+                                                    <th v-for="wt in workTypes" :key="wt.id"
+                                                        class="border border-gray-300 px-2 py-2 text-center font-semibold">
+                                                        {{ wt.name }}
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr v-for="tooth in teethByQuadrant[2]" :key="tooth.id" class="hover:bg-gray-100">
+                                                    <td class="border border-gray-300 px-2 py-2 font-medium">
+                                                        {{ tooth.fdi_code }}
+                                                    </td>
+                                                    <td v-for="wt in workTypes" :key="wt.id"
+                                                        class="border border-gray-300 px-2 py-2 text-center">
+                                                        <div v-if="isValidToothWorkTypeCombination(tooth.id, wt.id)">
+                                                            <input
+                                                                type="checkbox"
+                                                                :checked="isCombinationSelected(tooth.id, wt.id)"
+                                                                @change="toggleCombination(tooth.id, wt.id)"
+                                                                class="w-4 h-4 text-primary border-gray-300 rounded cursor-pointer"
+                                                            />
+                                                            <div class="text-xs text-gray-600 mt-1">
+                                                                ${{ formatPrice(getPriceForToothAndWorkType(tooth.id, wt.id)) }}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                    <span v-else class="text-gray-300 text-xs">-</span>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
+                                                        <span v-else class="text-gray-300 text-xs">-</span>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Cuadrante 1 - Superior Derecho -->
+                                <div>
+                                    <h4 class="font-semibold text-gray-700 mb-2">Cuadrante 1 (Superior Derecho)</h4>
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full border-collapse border border-gray-300 text-sm">
+                                            <thead>
+                                                <tr class="bg-gray-200">
+                                                    <th class="border border-gray-300 px-2 py-2 text-left font-semibold">Diente</th>
+                                                    <th v-for="wt in workTypes" :key="wt.id"
+                                                        class="border border-gray-300 px-2 py-2 text-center font-semibold">
+                                                        {{ wt.name }}
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr v-for="tooth in teethByQuadrant[1]" :key="tooth.id" class="hover:bg-gray-100">
+                                                    <td class="border border-gray-300 px-2 py-2 font-medium">
+                                                        {{ tooth.fdi_code }}
+                                                    </td>
+                                                    <td v-for="wt in workTypes" :key="wt.id"
+                                                        class="border border-gray-300 px-2 py-2 text-center">
+                                                        <div v-if="isValidToothWorkTypeCombination(tooth.id, wt.id)">
+                                                            <input
+                                                                type="checkbox"
+                                                                :checked="isCombinationSelected(tooth.id, wt.id)"
+                                                                @change="toggleCombination(tooth.id, wt.id)"
+                                                                class="w-4 h-4 text-primary border-gray-300 rounded cursor-pointer"
+                                                            />
+                                                            <div class="text-xs text-gray-600 mt-1">
+                                                                ${{ formatPrice(getPriceForToothAndWorkType(tooth.id, wt.id)) }}
+                                                            </div>
+                                                        </div>
+                                                        <span v-else class="text-gray-300 text-xs">-</span>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Cuadrante 3 - Inferior Izquierdo -->
+                                <div>
+                                    <h4 class="font-semibold text-gray-700 mb-2">Cuadrante 3 (Inferior Izquierdo)</h4>
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full border-collapse border border-gray-300 text-sm">
+                                            <thead>
+                                                <tr class="bg-gray-200">
+                                                    <th class="border border-gray-300 px-2 py-2 text-left font-semibold">Diente</th>
+                                                    <th v-for="wt in workTypes" :key="wt.id"
+                                                        class="border border-gray-300 px-2 py-2 text-center font-semibold">
+                                                        {{ wt.name }}
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr v-for="tooth in teethByQuadrant[3]" :key="tooth.id" class="hover:bg-gray-100">
+                                                    <td class="border border-gray-300 px-2 py-2 font-medium">
+                                                        {{ tooth.fdi_code }}
+                                                    </td>
+                                                    <td v-for="wt in workTypes" :key="wt.id"
+                                                        class="border border-gray-300 px-2 py-2 text-center">
+                                                        <div v-if="isValidToothWorkTypeCombination(tooth.id, wt.id)">
+                                                            <input
+                                                                type="checkbox"
+                                                                :checked="isCombinationSelected(tooth.id, wt.id)"
+                                                                @change="toggleCombination(tooth.id, wt.id)"
+                                                                class="w-4 h-4 text-primary border-gray-300 rounded cursor-pointer"
+                                                            />
+                                                            <div class="text-xs text-gray-600 mt-1">
+                                                                ${{ formatPrice(getPriceForToothAndWorkType(tooth.id, wt.id)) }}
+                                                            </div>
+                                                        </div>
+                                                        <span v-else class="text-gray-300 text-xs">-</span>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Cuadrante 4 - Inferior Derecho -->
+                                <div>
+                                    <h4 class="font-semibold text-gray-700 mb-2">Cuadrante 4 (Inferior Derecho)</h4>
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full border-collapse border border-gray-300 text-sm">
+                                            <thead>
+                                                <tr class="bg-gray-200">
+                                                    <th class="border border-gray-300 px-2 py-2 text-left font-semibold">Diente</th>
+                                                    <th v-for="wt in workTypes" :key="wt.id"
+                                                        class="border border-gray-300 px-2 py-2 text-center font-semibold">
+                                                        {{ wt.name }}
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr v-for="tooth in teethByQuadrant[4]" :key="tooth.id" class="hover:bg-gray-100">
+                                                    <td class="border border-gray-300 px-2 py-2 font-medium">
+                                                        {{ tooth.fdi_code }}
+                                                    </td>
+                                                    <td v-for="wt in workTypes" :key="wt.id"
+                                                        class="border border-gray-300 px-2 py-2 text-center">
+                                                        <div v-if="isValidToothWorkTypeCombination(tooth.id, wt.id)">
+                                                            <input
+                                                                type="checkbox"
+                                                                :checked="isCombinationSelected(tooth.id, wt.id)"
+                                                                @change="toggleCombination(tooth.id, wt.id)"
+                                                                class="w-4 h-4 text-primary border-gray-300 rounded cursor-pointer"
+                                                            />
+                                                            <div class="text-xs text-gray-600 mt-1">
+                                                                ${{ formatPrice(getPriceForToothAndWorkType(tooth.id, wt.id)) }}
+                                                            </div>
+                                                        </div>
+                                                        <span v-else class="text-gray-300 text-xs">-</span>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
 
