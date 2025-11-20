@@ -1,3 +1,13 @@
+/**
+ * Servicio de gestión de los datos detallados del perfil de usuario.
+ * Propósito: Encapsular la lógica para obtener, crear y actualizar los datos
+ * del perfil de un usuario, combinando información de las tablas `users`
+ * (datos de autenticación) y `user_profiles` (datos extendidos).
+ * Funcionamiento: `getUserProfileById` realiza consultas para combinar los datos.
+ * `updateUserData` se encarga de aplicar los cambios en las tablas correspondientes
+ * (`users` para nombre/apellido y `user_profiles` para bio/ubicación/avatar).
+ */
+
 import { supabase } from './supabase'
 
 /**

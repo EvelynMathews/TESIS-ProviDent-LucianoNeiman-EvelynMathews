@@ -1,3 +1,12 @@
+<!--
+ * Lógica del componente de layout principal para el panel de administración.
+ * Propósito: Gestionar la barra superior (header) del panel, incluyendo la
+ * información del usuario administrador logueado, el menú desplegable y la función de cierre de sesión.
+ * Funcionamiento: Utiliza `subscribeToAuthStateChanges` para obtener los datos del admin.
+ * Proporciona métodos para `toggleUserMenu` y `handleLogout`, redirigiendo
+ * al login de admin tras cerrar la sesión.
+ -->
+
 <script src="./admin-layout.js"></script>
 
 <template>
