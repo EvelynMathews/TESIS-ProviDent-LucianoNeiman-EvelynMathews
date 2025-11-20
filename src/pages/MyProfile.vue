@@ -74,7 +74,15 @@ export default {
             myProducts: [],
             showPasswordChange: false,
             newPassword: '',
-            confirmPassword: ''
+            confirmPassword: '',
+            showAddressEdit: false,
+            editingAddress: {
+                street: '',
+                city: '',
+                province: '',
+                postal_code: '',
+                country: 'Argentina'
+            }
         }
     },
     computed: {
@@ -186,6 +194,49 @@ export default {
             if (confirm('¿Estás seguro de que deseas eliminar tu cuenta? Esta acción no se puede deshacer.')) {
                 alert('Cuenta eliminada')
                 this.handleLogout()
+            }
+        },
+        editAddress() {
+            if (this.primaryAddress) {
+                this.editingAddress = { ...this.primaryAddress }
+            } else {
+                this.editingAddress = {
+                    street: '',
+                    city: '',
+                    province: '',
+                    postal_code: '',
+                    country: 'Argentina'
+                }
+            }
+            this.showAddressEdit = true
+        },
+        async saveAddress() {
+            // TODO: Implementar guardado en base de datos
+            // Por ahora solo actualizar localmente
+            const index = this.addresses.findIndex(addr => addr.is_primary)
+            if (index >= 0) {
+                this.addresses[index] = {
+                    ...this.addresses[index],
+                    ...this.editingAddress
+                }
+            } else {
+                this.addresses.push({
+                    id: Date.now(),
+                    ...this.editingAddress,
+                    is_primary: true
+                })
+            }
+            this.showAddressEdit = false
+            alert('Dirección actualizada correctamente')
+        },
+        cancelAddressEdit() {
+            this.showAddressEdit = false
+            this.editingAddress = {
+                street: '',
+                city: '',
+                province: '',
+                postal_code: '',
+                country: 'Argentina'
             }
         }
     },
@@ -334,11 +385,13 @@ export default {
                         <p class="text-gray-600 text-sm">CP: {{ primaryAddress.postal_code }} - {{ primaryAddress.country }}</p>
                     </div>
                     <div class="flex gap-2">
-                        <button class="px-4 py-2 text-sm font-semibold border-2 rounded-lg transition hover:bg-gray-50"
+                        <button @click="editAddress"
+                            class="px-4 py-2 text-sm font-semibold border-2 rounded-lg transition hover:bg-gray-50"
                             style="color: #2A6FAF; border-color: #2A6FAF;">
                             Editar
                         </button>
-                        <button class="px-4 py-2 text-sm font-semibold border-2 rounded-lg transition hover:bg-gray-50"
+                        <button @click="editAddress"
+                            class="px-4 py-2 text-sm font-semibold border-2 rounded-lg transition hover:bg-gray-50"
                             style="color: #29A68C; border-color: #29A68C;">
                             Agregar nuevo domicilio
                         </button>
@@ -515,6 +568,55 @@ export default {
                     style="color: #2A6FAF; border-color: #2A6FAF;">
                     Cerrar sesión
                 </button>
+            </div>
+        </div>
+
+        <!-- Modal de edición de dirección -->
+        <div v-if="showAddressEdit" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Editar dirección</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Calle</label>
+                        <input v-model="editingAddress.street" type="text"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Ciudad</label>
+                            <input v-model="editingAddress.city" type="text"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Provincia</label>
+                            <input v-model="editingAddress.province" type="text"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Código Postal</label>
+                            <input v-model="editingAddress.postal_code" type="text"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">País</label>
+                            <input v-model="editingAddress.country" type="text"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500">
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6 flex gap-3 justify-end">
+                    <button @click="cancelAddressEdit"
+                        class="px-4 py-2 text-sm font-semibold text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                        Cancelar
+                    </button>
+                    <button @click="saveAddress"
+                        class="px-4 py-2 text-sm font-semibold text-white rounded-lg transition hover:opacity-90"
+                        style="background-color: #2A6FAF;">
+                        Guardar
+                    </button>
+                </div>
             </div>
         </div>
     </section>
