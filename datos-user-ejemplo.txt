@@ -1,0 +1,7 @@
+ http://localhost:5173/admin/login
+ admin.provident@gmail.com
+ 123456
+
+Datos de un usuario con productos:
+ luciano.neiman@davinci.edu.ar
+12345678
