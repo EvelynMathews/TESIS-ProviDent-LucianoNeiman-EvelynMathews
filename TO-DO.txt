@@ -1,0 +1,42 @@
+COSAS A MEJORAR:
+Perfil:
+- Cuando voy editar datos personales, el form no "recuerda" los datos. (No se puede cambiar ni el teléfono y tampoco el mail)
+- Cuando voy a editar direcciones se pone un fondo negro que no va con la estética. Por otro lado, cuando recargo la pagina vuelve al dato mockeado, que es corrientes 1234. Ademas cuando agrego una nueva dirección solo aparece una y no todo el listado.
+- Eliminar datos mockeados y hacer contenido dinamico aunque este vacío.
+
+Soporte:
+- No anda el chat. Creo que es un error de global-chat y de supabase.
+
+Metodos de envio:
+- Ver si hace falta hacer todo esto o si con un simple chat con el comprador se resuelve.
+- Arreglar temitas de diseño dentro de configuración, en Tarifas (peso y volumen)
+
+Mis Productos:
+- En el editar producto no recuerda los valores de precio de alquiler. Todo lo demás sí.
+
+Productos:
+- No se porque uno de los productos que creé no aparece y esta activo.
+- Ver si en productos aparece bien la cantidad de stock que hay del producto que creaste.
+
+
+Iniciar sesión:
+- El olvide mi contraseña esta al pedo ya que no tiene funcionalidad.
+
+Registrarse:
+- Alinear la linea que divide al 1 y 2, para que este en el medio de los dos.
+
+EN GENERAL:
+- Fijarse que hacer porque cuando publicas un producto o un servicio, se muestra en el mismo lugar. Capaz haría una sección de productos publicados y otra de servicios, sino no se entiende. Al parecer ya hay una pagina de servicios, bueno yo la pondría en el navbar para que este mas ordenado y el usuario llegue mas fácil.
+-  Falta meter localStorage ya que cada vez que recargas vuelven los datos por default.
+- Hacer pasarela de pago cuando lo aprendamos.
+- Hacer funcional el buscador del navbar
+- Alinear el isotipo con ProviDent en el navbar.
+- Revisar íconos en la home, mas específicamente en la sección de Categorías principales. Hacer que sean todos del mismo tipo
+- Poner imágenes en los recuadros que no las hay (en la sección de ¿Qué es ProviDent?)
+- Sacar la sección de quiero ser vendedor, de la home, cuando el usuario ya esta como comprador y vendedor (al menos en mi caso pasa eso.)
+- Hacer noticias cuando podamos, y hacerlo estático pero que este en la base de datos.
+- Agregar Mensajes de feedback por ejemplo cuando agrega un producto al carrito.
+
+
+PRÓXIMOS PASOS:
+- Saca lo del tp anterior en el Readme.
