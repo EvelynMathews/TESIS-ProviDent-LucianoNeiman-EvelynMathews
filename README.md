@@ -1,6 +1,7 @@
 # ProviDent
 
 Marketplace de productos odontológicos - Proyecto en construcción.
+Incluye funcionalidades como CRUD de productos y servicios, relacion entre proveedor y comprador. Tambien tenemos un chat global que aún esta en produccion, pero estará para la tesis. Hay métodos de envío, hay registro e inicio de sesion verificados.
 
 ## Instalación
 
