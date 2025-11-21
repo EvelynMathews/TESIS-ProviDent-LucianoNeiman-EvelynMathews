@@ -24,10 +24,14 @@ npm install
 
 3. Configurar variables de entorno
 
-Copiar el archivo `.env.example` y renombrarlo a `.env.local`, luego completar con las credenciales de Supabase:
+Crear archivo  `.env.local`, despues completar con las credenciales de Supabase:
+
+VITE_SUPABASE_URL=https://kxgmjqeaxlrfpltanzui.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4Z21qcWVheGxyZnBsdGFuenVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1NzYxNDUsImV4cCI6MjA3NzE1MjE0NX0.gfumI0-DuO9vQJB3xL2AzFrhVjednzvpTZEVxWmnofA
+
 
 ```bash
-cp .env.example .env.local
+cp . .env.local
 ```
 
 4. Ejecutar en modo desarrollo
