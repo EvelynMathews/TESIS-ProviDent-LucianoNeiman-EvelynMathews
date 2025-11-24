@@ -10,7 +10,7 @@
  * (`cartTotal`, `isEmpty`) manejan el resumen del pedido y la lógica de la vista vacía.
  */
 
-import { getCartItems, updateQuantity, removeFromCart, getCartTotal } from '../services/cart'
+import { getCartItems, updateQuantity, removeFromCart, getCartTotal, syncCartWithSupabase } from '../services/cart'
 import { subscribeToAuthStateChanges } from '../services/auth'
 
 export default {
@@ -25,7 +25,7 @@ export default {
     },
     computed: {
         cartItems() {
-            return getCartItems()
+            return getCartItems().value
         },
         cartTotal() {
             return getCartTotal()
@@ -55,10 +55,11 @@ export default {
             alert('Funcionalidad de checkout próximamente disponible')
         }
     },
-    mounted() {
+    async mounted() {
         subscribeToAuthStateChanges(newUserState => {
             this.user = newUserState
         })
+        await syncCartWithSupabase()
     }
 }
 </script>
@@ -115,6 +116,26 @@ export default {
                                     <p class="text-sm text-gray-600">
                                         <span class="font-semibold">Configuración:</span>
                                         {{ item.config.workType }} - {{ item.config.toothGroup }}
+                                    </p>
+                                </div>
+
+                                <div v-if="item.product_type === 'RENTAL' && item.rental_details" class="mb-3 bg-blue-50 p-3 rounded-lg">
+                                    <p class="text-sm font-semibold text-gray-800 mb-2">Período de alquiler:</p>
+                                    <p class="text-sm text-gray-700">
+                                        <span class="font-medium">Desde:</span> {{ item.rental_details.start_date }} {{ item.rental_details.start_time }}
+                                    </p>
+                                    <p class="text-sm text-gray-700">
+                                        <span class="font-medium">Hasta:</span> {{ item.rental_details.end_date }} {{ item.rental_details.end_time }}
+                                    </p>
+                                    <p class="text-sm text-gray-700 mt-1">
+                                        <span class="font-medium">Duración:</span> {{ item.rental_details.total_days }} día(s)
+                                    </p>
+                                </div>
+
+                                <div v-if="item.product_type === 'PLASTER_SERVICE' && item.custom_description" class="mb-3 bg-purple-50 p-3 rounded-lg">
+                                    <p class="text-sm font-semibold text-gray-800 mb-2">Descripción del trabajo:</p>
+                                    <p class="text-sm text-gray-700 italic">
+                                        "{{ item.custom_description }}"
                                     </p>
                                 </div>
 

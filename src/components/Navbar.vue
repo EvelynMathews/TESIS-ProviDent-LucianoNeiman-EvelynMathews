@@ -10,11 +10,15 @@
  */
 import { logout, subscribeToAuthStateChanges } from '../services/auth';
 import { isCurrentUserSeller } from '../services/sellers';
-import { getCartCount } from '../services/cart';
+import { getCartCount, syncCartWithSupabase } from '../services/cart';
 import { supabase } from '../services/supabase';
+import MiniCart from './MiniCart.vue';
 
 export default {
     name: 'Navbar',
+    components: {
+        MiniCart
+    },
     data() {
         return {
             user: {
@@ -25,6 +29,7 @@ export default {
             },
             mobileMenuOpen: false,
             isSeller: false,
+            showMiniCart: false,
         };
     },
     computed: {
@@ -42,6 +47,15 @@ export default {
         },
         toggleMobileMenu() {
             this.mobileMenuOpen = !this.mobileMenuOpen;
+        },
+        toggleMiniCart() {
+            this.showMiniCart = !this.showMiniCart;
+        },
+        handleClickOutside(event) {
+            const miniCartEl = this.$el.querySelector('.relative.hidden.md\\:block');
+            if (miniCartEl && !miniCartEl.contains(event.target)) {
+                this.showMiniCart = false;
+            }
         },
         async loadAvatar() {
             const uid = this.user?.id;
@@ -71,18 +85,23 @@ export default {
             }
         },
     },
-    mounted() {
+    async mounted() {
         subscribeToAuthStateChanges(async (newUserState) => {
             this.user = newUserState;
             await this.refreshSeller();
             await this.loadAvatar();
+            await syncCartWithSupabase();
         });
         try {
             window.addEventListener('seller:changed', this.refreshSeller);
+            document.addEventListener('click', this.handleClickOutside);
         } catch {}
     },
     beforeUnmount() {
-        try { window.removeEventListener('seller:changed', this.refreshSeller); } catch {}
+        try {
+            window.removeEventListener('seller:changed', this.refreshSeller);
+            document.removeEventListener('click', this.handleClickOutside);
+        } catch {}
     }
 };
 </script>
@@ -113,12 +132,15 @@ export default {
             </div>
 
             <div class="flex items-center gap-4">
-                <RouterLink to="/carrito" class="relative text-gray-700 hover:text-sky-600 transition hidden md:block">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                    </svg>
-                    <span class="absolute -top-1 -right-1 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center" style="background-color: #2A6FAF;">{{ cartCount }}</span>
-                </RouterLink>
+                <div class="relative hidden md:block">
+                    <button @click="toggleMiniCart" class="relative text-gray-700 hover:text-sky-600 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                        <span class="absolute -top-1 -right-1 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center" style="background-color: #2A6FAF;">{{ cartCount }}</span>
+                    </button>
+                    <MiniCart v-if="showMiniCart" @click.stop />
+                </div>
 
                 <button @click="toggleMobileMenu" type="button"
                     class="inline-flex items-center p-2 w-10 h-10 justify-center text-gray-700 rounded-lg md:hidden hover:bg-gray-100">
