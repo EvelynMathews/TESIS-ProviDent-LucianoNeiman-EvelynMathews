@@ -208,16 +208,25 @@ export async function getProductById(id) {
     result.manufacturing_days = service.manufacturing_days
   } else if (p.product_type === 'RENTAL') {
     const rental = p.rental_products || {}
-    result.stock = rental.stock_qty ?? null
-    result.deposit = rental.refundable_deposit_amount || 0
+    result.stock_qty = rental.stock_qty ?? null
+    result.refundable_deposit_amount = rental.refundable_deposit_amount || 0
 
     // Load rental pricing
     const { data: pricing } = await supabase
       .from('rental_pricing')
       .select('period, price')
       .eq('product_id', id)
+      .order('price', { ascending: true })
 
     result.rental_pricing = pricing || []
+
+    // Extract daily price for UI
+    if (pricing && pricing.length > 0) {
+      const dayPrice = pricing.find(pr => pr.period === '1 day')
+      result.daily_price = dayPrice?.price || (pricing[0]?.price || 0)
+    } else {
+      result.daily_price = 0
+    }
   }
 
   return result

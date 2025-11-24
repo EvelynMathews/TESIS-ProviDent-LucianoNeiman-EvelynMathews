@@ -6,6 +6,8 @@
  */
 import { subscribeToAuthStateChanges } from '../services/auth'
 import { getProductById, listActiveProducts, loadMaterials, loadWorkTypes, loadToothGroups, loadTeeth, loadValidWorkGroupCombinations } from '../services/products'
+import { checkRentalAvailability as checkAvailability } from '../services/rental-availability'
+import { addToCart as addToCartService } from '../services/cart'
 import ProductCard from '../components/ProductCard.vue'
 
 export default {
@@ -33,7 +35,23 @@ export default {
             selectedWorkType: null,
             selectedTeethIds: [],
             // For variants B and C (matrix modes)
-            selectedCombinations: [] // [{toothId, workTypeId, price}]
+            selectedCombinations: [], // [{toothId, workTypeId, price}]
+            // For rental products
+            rentalStartDate: '',
+            rentalEndDate: '',
+            rentalStartTime: '09:00',
+            rentalEndTime: '18:00',
+            rentalErrors: {
+                startDate: '',
+                endDate: '',
+                availability: ''
+            },
+            // For plaster service products
+            plasterDescription: '',
+            plasterError: '',
+            // Cart feedback
+            cartMessage: '',
+            cartMessageType: ''
         }
     },
     computed: {
@@ -61,8 +79,18 @@ export default {
                 }
             } else if (this.product.product_type === 'PLASTER_SERVICE') {
                 return this.product.base_price || 0
+            } else if (this.product.product_type === 'RENTAL') {
+                return this.rentalTotalDays * (this.product.daily_price || 0)
             }
             return 0
+        },
+        rentalTotalDays() {
+            if (!this.rentalStartDate || !this.rentalEndDate) return 0
+            const start = new Date(this.rentalStartDate)
+            const end = new Date(this.rentalEndDate)
+            const diffTime = Math.abs(end - start)
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+            return diffDays + 1
         },
         availableTeethForWorkType() {
             if (!this.product || this.product.product_type !== 'PROSTHESIS') return []
@@ -139,29 +167,150 @@ export default {
                 this.quantity--
             }
         },
-        addToCart() {
-            if (this.product.product_type === 'SUPPLY') {
-                alert(`Agregado al carrito: ${this.quantity} ${this.product.unit} de ${this.product.name}`)
-            } else if (this.product.product_type === 'PROSTHESIS') {
-                if (this.isMatrixMode) {
-                    // Matrix mode: show all combinations
-                    const combinations = this.selectedCombinations.map(combo => {
-                        const tooth = this.teeth.find(t => t.id === combo.toothId)
-                        const workType = this.workTypes.find(wt => wt.id === combo.workTypeId)
-                        return `${tooth?.fdi_code} (${workType?.name}): $${this.formatPrice(combo.price)}`
-                    }).join('\n')
-                    alert(`Solicitud de prótesis: ${this.product.name}\n\nCombinaciones:\n${combinations}\n\nTotal: $${this.formatPrice(this.totalPrice)}`)
-                } else {
-                    // Default mode: single work type
-                    const workType = this.workTypes.find(wt => wt.id === this.selectedWorkType)
-                    const selectedTeeth = this.availableTeethForWorkType
-                        .filter(t => this.selectedTeethIds.includes(t.tooth.id))
-                        .map(t => t.tooth.fdi_code)
-                        .join(', ')
-                    alert(`Solicitud de prótesis: ${this.product.name}\nTipo: ${workType?.name}\nDientes: ${selectedTeeth}\nTotal: $${this.formatPrice(this.totalPrice)}`)
+        validateRentalDates() {
+            this.rentalErrors = { startDate: '', endDate: '', availability: '' }
+
+            if (!this.rentalStartDate) {
+                this.rentalErrors.startDate = 'Selecciona una fecha de inicio'
+                return false
+            }
+            if (!this.rentalEndDate) {
+                this.rentalErrors.endDate = 'Selecciona una fecha de fin'
+                return false
+            }
+
+            const start = new Date(this.rentalStartDate)
+            const end = new Date(this.rentalEndDate)
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+
+            if (start < today) {
+                this.rentalErrors.startDate = 'La fecha de inicio no puede ser anterior a hoy'
+                return false
+            }
+            if (end < start) {
+                this.rentalErrors.endDate = 'La fecha de fin debe ser posterior a la de inicio'
+                return false
+            }
+
+            return true
+        },
+        validatePlasterDescription() {
+            this.plasterError = ''
+
+            if (!this.plasterDescription || this.plasterDescription.trim().length === 0) {
+                this.plasterError = 'Debes describir lo que necesitas'
+                return false
+            }
+
+            if (this.plasterDescription.trim().length < 10) {
+                this.plasterError = 'La descripción debe tener al menos 10 caracteres'
+                return false
+            }
+
+            return true
+        },
+        async checkRentalAvailability() {
+            try {
+                const result = await checkAvailability(
+                    this.product.id,
+                    this.rentalStartDate,
+                    this.rentalEndDate
+                )
+                return result.available
+            } catch (error) {
+                console.error('Error checking availability:', error)
+                return false
+            }
+        },
+        async addToCart() {
+            this.cartMessage = ''
+            this.cartMessageType = ''
+
+            try {
+                let productData = {
+                    id: this.product.id,
+                    product_type: this.product.product_type,
+                    price: 0,
+                    quantity: 1
                 }
-            } else if (this.product.product_type === 'PLASTER_SERVICE') {
-                alert(`Solicitud de servicio: ${this.product.name}\nPrecio: $${this.formatPrice(this.product.base_price)}`)
+                let typeSpecificData = {}
+
+                if (this.product.product_type === 'SUPPLY') {
+                    productData.price = this.product.price
+                    productData.quantity = this.quantity
+                } else if (this.product.product_type === 'PROSTHESIS') {
+                    productData.price = this.totalPrice
+                    productData.quantity = 1
+
+                    const prosthesisConfig = {
+                        workType: this.selectedWorkType,
+                        teeth: this.selectedTeethIds,
+                        combinations: this.selectedCombinations,
+                        mode: this.uiMode
+                    }
+                    typeSpecificData.options_json = prosthesisConfig
+                } else if (this.product.product_type === 'PLASTER_SERVICE') {
+                    if (!this.validatePlasterDescription()) {
+                        return
+                    }
+                    productData.price = this.product.base_price
+                    productData.quantity = 1
+
+                    typeSpecificData.plaster = {
+                        custom_description: this.plasterDescription.trim()
+                    }
+                } else if (this.product.product_type === 'RENTAL') {
+                    if (!this.validateRentalDates()) {
+                        return
+                    }
+
+                    const isAvailable = await this.checkRentalAvailability()
+                    if (!isAvailable) {
+                        this.rentalErrors.availability = 'No hay disponibilidad para este período'
+                        return
+                    }
+
+                    productData.price = this.totalPrice
+                    productData.quantity = 1
+
+                    typeSpecificData.rental = {
+                        start_date: this.rentalStartDate,
+                        end_date: this.rentalEndDate,
+                        start_time: this.rentalStartTime,
+                        end_time: this.rentalEndTime,
+                        total_days: this.rentalTotalDays,
+                        calculated_price: this.totalPrice
+                    }
+                }
+
+                const result = await addToCartService(productData, typeSpecificData)
+
+                if (result.success) {
+                    this.cartMessage = result.message
+                    this.cartMessageType = 'success'
+
+                    if (this.product.product_type === 'PLASTER_SERVICE') {
+                        this.plasterDescription = ''
+                    }
+                    if (this.product.product_type === 'RENTAL') {
+                        this.rentalStartDate = ''
+                        this.rentalEndDate = ''
+                        this.rentalStartTime = '09:00'
+                        this.rentalEndTime = '18:00'
+                    }
+
+                    setTimeout(() => {
+                        this.cartMessage = ''
+                    }, 3000)
+                } else {
+                    this.cartMessage = result.message || 'Error al agregar al carrito'
+                    this.cartMessageType = 'error'
+                }
+            } catch (error) {
+                console.error('Error in addToCart:', error)
+                this.cartMessage = 'Error al agregar al carrito'
+                this.cartMessageType = 'error'
             }
         },
         async loadRelatedProducts() {
@@ -313,9 +462,130 @@ export default {
                             <p class="text-sm text-gray-600">Precio base</p>
                         </div>
 
+                        <!-- Price section for RENTAL products -->
+                        <div v-if="product.product_type === 'RENTAL'" class="mb-6">
+                            <p class="text-4xl font-bold text-secondary mb-2">${{ formatPrice(product.daily_price) }}</p>
+                            <p class="text-sm text-gray-600">por día</p>
+                            <p v-if="product.refundable_deposit_amount > 0" class="text-sm text-gray-600 mt-2">
+                                Depósito reembolsable: ${{ formatPrice(product.refundable_deposit_amount) }}
+                            </p>
+                        </div>
+
                         <div class="mb-6">
                             <h3 class="font-heading font-semibold text-gray-800 mb-2">Descripción</h3>
                             <p class="text-gray-600 leading-relaxed">{{ product.description }}</p>
+                        </div>
+
+                        <!-- Configuration section for PLASTER_SERVICE products -->
+                        <div v-if="product.product_type === 'PLASTER_SERVICE'" class="mb-6 bg-gray-50 p-4 rounded-lg">
+                            <h3 class="font-heading font-semibold text-gray-800 mb-3">Describe lo que necesitas</h3>
+                            <textarea
+                                v-model="plasterDescription"
+                                rows="4"
+                                placeholder="Describe con detalle el trabajo que necesitas..."
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                            ></textarea>
+                            <p v-if="plasterError" class="text-red-600 text-sm mt-2">{{ plasterError }}</p>
+                            <p class="text-xs text-gray-500 mt-2">
+                                {{ plasterDescription.length }} caracteres (mínimo 10)
+                            </p>
+                        </div>
+
+                        <!-- Configuration section for RENTAL products -->
+                        <div v-if="product.product_type === 'RENTAL'" class="mb-6 bg-gray-50 p-4 rounded-lg">
+                            <h3 class="font-heading font-semibold text-gray-800 mb-3">Configurar período de alquiler</h3>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Fecha de inicio:</label>
+                                    <input
+                                        type="date"
+                                        v-model="rentalStartDate"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                                    />
+                                    <p v-if="rentalErrors.startDate" class="text-red-600 text-sm mt-1">{{ rentalErrors.startDate }}</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Fecha de fin:</label>
+                                    <input
+                                        type="date"
+                                        v-model="rentalEndDate"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                                    />
+                                    <p v-if="rentalErrors.endDate" class="text-red-600 text-sm mt-1">{{ rentalErrors.endDate }}</p>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Hora de entrega:</label>
+                                    <select
+                                        v-model="rentalStartTime"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                                    >
+                                        <option value="08:00">08:00</option>
+                                        <option value="09:00">09:00</option>
+                                        <option value="10:00">10:00</option>
+                                        <option value="11:00">11:00</option>
+                                        <option value="12:00">12:00</option>
+                                        <option value="13:00">13:00</option>
+                                        <option value="14:00">14:00</option>
+                                        <option value="15:00">15:00</option>
+                                        <option value="16:00">16:00</option>
+                                        <option value="17:00">17:00</option>
+                                        <option value="18:00">18:00</option>
+                                        <option value="19:00">19:00</option>
+                                        <option value="20:00">20:00</option>
+                                        <option value="21:00">21:00</option>
+                                        <option value="22:00">22:00</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Hora de recogida:</label>
+                                    <select
+                                        v-model="rentalEndTime"
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                                    >
+                                        <option value="08:00">08:00</option>
+                                        <option value="09:00">09:00</option>
+                                        <option value="10:00">10:00</option>
+                                        <option value="11:00">11:00</option>
+                                        <option value="12:00">12:00</option>
+                                        <option value="13:00">13:00</option>
+                                        <option value="14:00">14:00</option>
+                                        <option value="15:00">15:00</option>
+                                        <option value="16:00">16:00</option>
+                                        <option value="17:00">17:00</option>
+                                        <option value="18:00">18:00</option>
+                                        <option value="19:00">19:00</option>
+                                        <option value="20:00">20:00</option>
+                                        <option value="21:00">21:00</option>
+                                        <option value="22:00">22:00</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div v-if="rentalErrors.availability" class="mb-4">
+                                <p class="text-red-600 text-sm">{{ rentalErrors.availability }}</p>
+                            </div>
+
+                            <div v-if="product.stock_qty" class="mb-4">
+                                <p class="text-sm text-gray-600">
+                                    <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    Unidades disponibles: {{ product.stock_qty }}
+                                </p>
+                            </div>
+
+                            <div v-if="rentalTotalDays > 0" class="pt-4 border-t border-gray-200">
+                                <p class="text-lg text-gray-700 mb-2">
+                                    Período: <span class="font-semibold">{{ rentalTotalDays }} día(s)</span>
+                                </p>
+                                <p class="text-lg text-gray-700 mb-2">
+                                    Total: <span class="font-bold text-3xl text-secondary">${{ formatPrice(totalPrice) }}</span>
+                                </p>
+                            </div>
                         </div>
 
                         <!-- Configuration section for PROSTHESIS products - Variant A (Default) -->
@@ -534,6 +804,14 @@ export default {
                             <p class="text-red-600 font-extrabold tracking-wide">SIN STOCK</p>
                         </div>
 
+                        <!-- Cart feedback message -->
+                        <div v-if="cartMessage" class="mb-6 p-4 rounded-lg" :class="{
+                            'bg-green-100 border border-green-400 text-green-700': cartMessageType === 'success',
+                            'bg-red-100 border border-red-400 text-red-700': cartMessageType === 'error'
+                        }">
+                            <p class="font-semibold">{{ cartMessage }}</p>
+                        </div>
+
                         <!-- Action button for PROSTHESIS -->
                         <button v-if="product.product_type === 'PROSTHESIS'" @click="addToCart"
                             :disabled="isMatrixMode ? selectedCombinations.length === 0 : selectedTeethIds.length === 0"
@@ -547,6 +825,14 @@ export default {
                             class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90 mb-6"
                             style="background-color: #2A6FAF;">
                             Solicitar servicio
+                        </button>
+
+                        <!-- Action button for RENTAL -->
+                        <button v-if="product.product_type === 'RENTAL'" @click="addToCart"
+                            :disabled="!rentalStartDate || !rentalEndDate || rentalTotalDays === 0"
+                            class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed mb-6"
+                            style="background-color: #2A6FAF;">
+                            Agregar al carrito
                         </button>
 
                         <div class="border-t border-gray-200 pt-6">
