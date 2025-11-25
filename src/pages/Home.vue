@@ -9,7 +9,8 @@ import ProductCard from '../components/ProductCard.vue'
 import ServiceCard from '../components/ServiceCard.vue'
 import CategoryIcon from '../components/CategoryIcon.vue'
 import { listActiveProducts, listActiveServices } from '../services/products'
-import { categories, news } from '../data/mockProducts'
+import { listPublishedNews } from '../services/news'
+import { categories } from '../data/mockProducts'
 
 export default {
     name: 'Home',
@@ -44,8 +45,10 @@ export default {
                 const allServices = await listActiveServices()
                 this.featuredServices = allServices.slice(0, 4)
 
+                const allNews = await listPublishedNews()
+                this.news = allNews.slice(0, 4)
+
                 this.categories = categories
-                this.news = news
             } catch (error) {
                 console.error('Error cargando datos:', error)
             } finally {
@@ -282,16 +285,15 @@ export default {
             <div class="max-w-7xl mx-auto px-4">
                 <h2 class="font-heading text-2xl font-bold mb-6" style="color: #2A6FAF;">Noticias y Novedades</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <article v-for="item in news" :key="item.id"
-                        class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition">
-                        <img :src="item.image" :alt="item.title" class="w-full h-40 object-cover" />
+                    <RouterLink v-for="item in news" :key="item.id" :to="`/noticias/${item.slug}`"
+                        class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition block">
+                        <img src="https://placehold.co/600x300/2A6FAF/ffffff?text=Noticia" :alt="item.title" class="w-full h-40 object-cover" />
                         <div class="p-4">
-                            <span class="text-xs font-semibold text-secondary uppercase">{{ item.category }}</span>
                             <h3 class="font-heading font-semibold text-gray-800 mt-2 mb-2 line-clamp-2">{{ item.title }}</h3>
-                            <p class="text-sm text-gray-600 mb-3 line-clamp-2">{{ item.summary }}</p>
-                            <p class="text-xs text-gray-500">{{ formatDate(item.date) }}</p>
+                            <p class="text-sm text-gray-600 mb-3 line-clamp-2">{{ item.preview }}</p>
+                            <p class="text-xs text-gray-500">{{ formatDate(item.published_at) }}</p>
                         </div>
-                    </article>
+                    </RouterLink>
                 </div>
             </div>
         </section>
