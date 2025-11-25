@@ -59,7 +59,6 @@ CREATE TABLE public.news (
                              slug text UNIQUE,
                              preview text,
                              content text,
-                             cover_image_url text,
                              is_published boolean DEFAULT false,
                              published_at timestamp with time zone,
                              created_at timestamp with time zone DEFAULT now(),

@@ -330,7 +330,6 @@ package "Artículos" #FFFDEA {
     slug            : TEXT <<UNIQUE>>
     preview         : TEXT
     content         : TEXT
-    cover_image_url : TEXT
     is_published    : BOOLEAN = FALSE
     published_at    : TIMESTAMPTZ
     created_at      : TIMESTAMPTZ = now()

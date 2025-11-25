@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS public.news (
   slug text UNIQUE,
   preview text,
   content text,
-  cover_image_url text,
   is_published boolean DEFAULT false,
   published_at timestamptz,
   created_at timestamptz DEFAULT now(),
@@ -31,6 +30,9 @@ ALTER TABLE public.news ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.news_images ENABLE ROW LEVEL SECURITY;
 
 -- Policies: news
+DROP POLICY IF EXISTS "Public can read published news" ON public.news;
+CREATE POLICY "Public can read published news" ON public.news FOR SELECT USING (is_published = true);
+
 DROP POLICY IF EXISTS "Admins can manage news" ON public.news;
 CREATE POLICY "Admins can manage news" ON public.news FOR ALL USING (EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='ADMIN')) WITH CHECK (EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='ADMIN'));
 
