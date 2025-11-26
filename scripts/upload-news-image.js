@@ -28,8 +28,6 @@ async function uploadNewsImage(slug, imagePath, altText, isPrimary = true) {
       throw new Error(`No se encontró la noticia con slug: ${slug}`)
     }
 
-    console.log(`Subiendo imagen para: ${news.title}`)
-
     // Read image file
     const imageBuffer = fs.readFileSync(imagePath)
     const fileName = path.basename(imagePath)
@@ -47,8 +45,6 @@ async function uploadNewsImage(slug, imagePath, altText, isPrimary = true) {
     if (uploadError) {
       throw new Error(`Error subiendo imagen: ${uploadError.message}`)
     }
-
-    console.log(`✓ Imagen subida a storage: ${uploadData.path}`)
 
     // Get next position
     const { data: existingImages } = await supabase
@@ -80,9 +76,6 @@ async function uploadNewsImage(slug, imagePath, altText, isPrimary = true) {
       await supabase.storage.from('news-images').remove([uploadData.path])
       throw new Error(`Error creando registro: ${imageError.message}`)
     }
-
-    console.log(`✓ Registro creado en news_images (ID: ${imageRecord.id})`)
-    console.log(`✓ Imagen agregada exitosamente!`)
 
   } catch (error) {
     console.error('Error:', error.message)

@@ -522,7 +522,7 @@ export default {
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div v-for="p in myProducts" :key="p.id"
                         class="border border-gray-200 rounded-lg overflow-hidden">
-                        <img :src="p.image || 'https://placehold.co/600x400?text=Producto'" class="w-full h-28 object-cover" />
+                        <img :src="p.image || 'https://placehold.co/600x400?text=Producto'" class="w-full h-28 object-cover" alt="mi-producto"/>
                         <div class="p-3">
                             <p class="font-semibold text-gray-800 truncate">{{ p.name }}</p>
                             <p class="text-xs text-gray-600 truncate">${{ formatPrice(p.price) }} · {{ p.unit || 'unidad' }}</p>
