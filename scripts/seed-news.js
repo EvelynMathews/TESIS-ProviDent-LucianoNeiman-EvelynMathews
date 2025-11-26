@@ -76,7 +76,6 @@ Actualmente, el equipo está en conversaciones con laboratorios nacionales para 
 ]
 
 async function seedNews() {
-  console.log('Insertando noticias...')
 
   for (const item of news) {
     const { data, error } = await supabase
@@ -84,15 +83,7 @@ async function seedNews() {
       .insert(item)
       .select('id, title')
       .single()
-
-    if (error) {
-      console.error(`Error insertando "${item.title}":`, error.message)
-    } else {
-      console.log(`✓ Insertada: ${data.title} (ID: ${data.id})`)
-    }
   }
-
-  console.log('Listo!')
 }
 
 seedNews()
