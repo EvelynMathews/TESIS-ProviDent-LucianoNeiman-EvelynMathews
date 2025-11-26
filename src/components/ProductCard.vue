@@ -94,18 +94,21 @@ export default {
             const b = parts[1]?.[0] || ''
             return (a + b).toUpperCase() || a.toUpperCase() || '?'
         },
-        onAdd() {
+        async onAdd() {
             if (this.product.stock === 0) return
-            addToCart({
-                id: this.product.id,
-                type: 'product',
-                name: this.product.name,
-                price: this.product.price,
-                quantity: 1,
-                unit: this.product.unit,
-                image: this.product.image,
-                seller: { username: this.product.seller?.username }
-            })
+            try {
+                await addToCart({
+                    id: this.product.id,
+                    product_type: this.product.product_type || 'SUPPLY',
+                    name: this.product.name,
+                    price: this.product.price,
+                    quantity: 1
+                })
+                alert('Producto agregado al carrito')
+            } catch (error) {
+                console.error('Error agregando al carrito:', error)
+                alert(error.message || 'Error al agregar al carrito')
+            }
         }
     },
     data() {

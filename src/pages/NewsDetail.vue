@@ -1,11 +1,12 @@
 <script>
-import { getNewsBySlug } from '../services/news'
+import { getNewsBySlug, getNewsImageUrl } from '../services/news'
 
 export default {
   name: 'NewsDetail',
   data() {
     return {
       news: null,
+      imageUrl: null,
       loading: true,
       error: null
     }
@@ -16,6 +17,12 @@ export default {
         this.loading = true
         const slug = this.$route.params.slug
         this.news = await getNewsBySlug(slug)
+
+        // cargar imagen principal si existe
+        if (this.news.news_images && this.news.news_images.length > 0) {
+          const primaryImage = this.news.news_images.find(img => img.is_primary) || this.news.news_images[0]
+          this.imageUrl = await getNewsImageUrl(primaryImage.path)
+        }
       } catch (err) {
         console.error('Error cargando noticia:', err)
         this.error = 'No se pudo cargar la noticia'
@@ -65,9 +72,9 @@ export default {
     <article v-else class="flex-1">
       <div class="relative w-full h-64 md:h-96 overflow-hidden">
         <img
-          src="https://placehold.co/1200x600/2A6FAF/ffffff?text=Noticia"
-          :alt="news.title"
-          class="w-full h-full object-cover"
+          :src="imageUrl || 'https://placehold.co/1200x600/2A6FAF/ffffff?text=Noticia'"
+          :alt="news.news_images?.[0]?.alt_text || news.title"
+          class="news-hero-image"
         />
         <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
       </div>

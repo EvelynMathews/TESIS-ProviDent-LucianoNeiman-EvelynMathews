@@ -22,21 +22,25 @@ async function initializeCart(userId) {
 
   currentUserId = userId
 
+  // usar maybeSingle() en lugar de single() para evitar errores 406
   const { data: existingCart, error: fetchError } = await supabase
     .from('carts')
     .select('id')
     .eq('buyer_user_id', userId)
-    .single()
+    .maybeSingle()
 
-  if (existingCart) {
-    return existingCart.id
-  }
-
-  if (fetchError && fetchError.code !== 'PGRST116') {
+  if (fetchError) {
     console.error('Error fetching cart:', fetchError)
     return null
   }
 
+  if (existingCart) {
+    console.log('Found existing cart:', existingCart.id)
+    return existingCart.id
+  }
+
+  // no existe carrito, crear uno nuevo
+  console.log('Creating new cart for user:', userId)
   const { data: newCart, error: createError } = await supabase
     .from('carts')
     .insert({ buyer_user_id: userId })
@@ -48,6 +52,7 @@ async function initializeCart(userId) {
     return null
   }
 
+  console.log('Created new cart:', newCart.id)
   return newCart.id
 }
 
@@ -57,12 +62,15 @@ async function initializeCart(userId) {
  */
 export async function fetchCartItems(userId) {
   if (!userId) {
+    console.log('fetchCartItems: No userId provided')
     cartItems.value = []
     return
   }
 
   try {
+    console.log('fetchCartItems: Initializing cart for user:', userId)
     const cartId = await initializeCart(userId)
+    console.log('fetchCartItems: Cart ID:', cartId)
     if (!cartId) return
 
     const { data, error } = await supabase
@@ -97,6 +105,8 @@ export async function fetchCartItems(userId) {
       `)
       .eq('cart_id', cartId)
 
+    console.log('fetchCartItems: Query result:', { data, error })
+
     if (error) {
       console.error('Error fetching cart items:', error)
       return
@@ -109,7 +119,9 @@ export async function fetchCartItems(userId) {
       const product = item.products
       const owner = owners[product.owner_user_id] || { name: 'Vendedor', avatar_url: null }
 
+      console.log('Product images:', product.product_images)
       let imgPath = pickPrimaryImage(product.product_images || [])
+      console.log('Selected image path:', imgPath)
       const image = await signedImageUrl(imgPath)
 
       const baseItem = {
@@ -146,6 +158,8 @@ export async function fetchCartItems(userId) {
 
       return baseItem
     }))
+
+    console.log('fetchCartItems: Loaded cart items:', cartItems.value)
   } catch (error) {
     console.error('Error in fetchCartItems:', error)
   }
@@ -174,13 +188,28 @@ function pickPrimaryImage(images = []) {
 }
 
 async function signedImageUrl(path) {
-  if (!path) return null
+  if (!path) {
+    console.log('signedImageUrl: No path provided')
+    return null
+  }
+  console.log('signedImageUrl: Creating signed URL for:', path)
   const { data, error } = await supabase.storage.from('product-images').createSignedUrl(path, 60 * 60)
-  if (!error && data?.signedUrl) return data.signedUrl
+  if (!error && data?.signedUrl) {
+    console.log('signedImageUrl: Success:', data.signedUrl)
+    return data.signedUrl
+  }
+  console.log('signedImageUrl: Error creating signed URL, trying download:', error)
   const dl = await supabase.storage.from('product-images').download(path)
   if (!dl.error && dl.data) {
-    try { return URL.createObjectURL(dl.data) } catch {}
+    try {
+      const url = URL.createObjectURL(dl.data)
+      console.log('signedImageUrl: Created object URL:', url)
+      return url
+    } catch (e) {
+      console.error('signedImageUrl: Error creating object URL:', e)
+    }
   }
+  console.log('signedImageUrl: Failed to get image')
   return null
 }
 

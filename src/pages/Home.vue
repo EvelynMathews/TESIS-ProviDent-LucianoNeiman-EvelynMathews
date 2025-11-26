@@ -9,7 +9,7 @@ import ProductCard from '../components/ProductCard.vue'
 import ServiceCard from '../components/ServiceCard.vue'
 import CategoryIcon from '../components/CategoryIcon.vue'
 import { listActiveProducts, listActiveServices } from '../services/products'
-import { listPublishedNews } from '../services/news'
+import { listPublishedNews, getNewsImageUrl } from '../services/news'
 import { categories } from '../data/mockProducts'
 
 export default {
@@ -31,6 +31,7 @@ export default {
             featuredServices: [],
             categories: [],
             news: [],
+            newsImages: {},
             loading: false,
         }
     },
@@ -47,6 +48,14 @@ export default {
 
                 const allNews = await listPublishedNews()
                 this.news = allNews.slice(0, 4)
+
+                // cargar imagenes de noticias
+                for (const newsItem of this.news) {
+                    if (newsItem.news_images && newsItem.news_images.length > 0) {
+                        const primaryImage = newsItem.news_images.find(img => img.is_primary) || newsItem.news_images[0]
+                        this.newsImages[newsItem.id] = await getNewsImageUrl(primaryImage.path)
+                    }
+                }
 
                 this.categories = categories
             } catch (error) {
@@ -287,7 +296,11 @@ export default {
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <RouterLink v-for="item in news" :key="item.id" :to="`/noticias/${item.slug}`"
                         class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition block">
-                        <img src="https://placehold.co/600x300/2A6FAF/ffffff?text=Noticia" :alt="item.title" class="w-full h-40 object-cover" />
+                        <img
+                            :src="newsImages[item.id] || 'https://placehold.co/600x300/2A6FAF/ffffff?text=Noticia'"
+                            :alt="item.news_images?.[0]?.alt_text || item.title"
+                            class="news-card-image"
+                        />
                         <div class="p-4">
                             <h3 class="font-heading font-semibold text-gray-800 mt-2 mb-2 line-clamp-2">{{ item.title }}</h3>
                             <p class="text-sm text-gray-600 mb-3 line-clamp-2">{{ item.preview }}</p>

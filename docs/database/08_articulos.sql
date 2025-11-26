@@ -37,6 +37,9 @@ DROP POLICY IF EXISTS "Admins can manage news" ON public.news;
 CREATE POLICY "Admins can manage news" ON public.news FOR ALL USING (EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='ADMIN')) WITH CHECK (EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='ADMIN'));
 
 -- Policies: news_images
+DROP POLICY IF EXISTS "Public can read news images" ON public.news_images;
+CREATE POLICY "Public can read news images" ON public.news_images FOR SELECT USING (EXISTS (SELECT 1 FROM public.news n WHERE n.id = news_images.news_id AND n.is_published = true));
+
 DROP POLICY IF EXISTS "Admins can manage news images" ON public.news_images;
 CREATE POLICY "Admins can manage news images" ON public.news_images FOR ALL USING (EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='ADMIN')) WITH CHECK (EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='ADMIN'));
 

@@ -23,4 +23,15 @@
   h3 {
     @apply mb-2 text-xl font-semibold;
   }
+
+  .news-hero-image {
+    @apply w-full h-full object-cover;
+    object-position: center 25%;
+  }
+
+  .news-card-image {
+    @apply w-full object-cover;
+    height: 10rem;
+    object-position: center 25%;
+  }
 }

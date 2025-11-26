@@ -87,7 +87,7 @@ export default {
                     <div v-for="item in cartItems" :key="item.id"
                         class="bg-white rounded-lg shadow-md p-6">
                         <div class="flex gap-6">
-                            <img :src="item.image" :alt="item.name"
+                            <img :src="item.image || 'https://placehold.co/400x400?text=Producto'" :alt="item.name"
                                 class="w-32 h-32 object-cover rounded-lg flex-shrink-0" />
 
                             <div class="flex-1">
