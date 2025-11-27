@@ -12,15 +12,21 @@
 
 import { getCartItems, updateQuantity, removeFromCart, getCartTotal, syncCartWithSupabase } from '../services/cart'
 import { subscribeToAuthStateChanges } from '../services/auth'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
     name: 'Cart',
+    components: {
+        LoadingSpinner
+    },
     data() {
         return {
             user: {
                 id: null,
                 email: null,
-            }
+            },
+            loading: true,
+            showCheckoutModal: false
         }
     },
     computed: {
@@ -52,14 +58,21 @@ export default {
             }
         },
         checkout() {
-            alert('Funcionalidad de checkout próximamente disponible')
+            this.showCheckoutModal = true
+        },
+        closeCheckoutModal() {
+            this.showCheckoutModal = false
         }
     },
     async mounted() {
         subscribeToAuthStateChanges(newUserState => {
             this.user = newUserState
         })
-        await syncCartWithSupabase()
+        try {
+            await syncCartWithSupabase()
+        } finally {
+            this.loading = false
+        }
     }
 }
 </script>
@@ -69,7 +82,9 @@ export default {
         <div class="max-w-7xl mx-auto px-4">
             <h1 class="font-heading text-3xl font-bold text-gray-800 mb-8">Mi Carrito</h1>
 
-            <div v-if="isEmpty" class="bg-white rounded-lg shadow-md p-12 text-center">
+            <LoadingSpinner v-if="loading" message="Cargando carrito..." />
+
+            <div v-else-if="isEmpty" class="bg-white rounded-lg shadow-md p-12 text-center">
                 <svg class="w-24 h-24 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
                 </svg>
@@ -235,6 +250,33 @@ export default {
                             </ul>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Checkout Modal -->
+        <div v-if="showCheckoutModal" @click="closeCheckoutModal"
+            class="fixed inset-0 bg-gray-600 bg-opacity-40 flex items-center justify-center z-50 px-4">
+            <div @click.stop class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 transform transition-all">
+                <div class="text-center">
+                    <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center"
+                        style="background-color: rgba(42, 111, 175, 0.1);">
+                        <svg class="w-10 h-10" style="color: #2A6FAF;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-3">
+                        Próximamente disponible
+                    </h3>
+                    <p class="text-gray-600 mb-6">
+                        Estamos trabajando en la funcionalidad de checkout. Muy pronto podrás finalizar tus compras de manera rápida y segura.
+                    </p>
+                    <button @click="closeCheckoutModal"
+                        class="w-full py-3 px-6 text-white font-semibold rounded-lg shadow-md hover:opacity-90 transition"
+                        style="background-color: #2A6FAF;">
+                        Entendido
+                    </button>
                 </div>
             </div>
         </div>

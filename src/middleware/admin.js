@@ -11,13 +11,13 @@
 import { supabase } from '../services/supabase'
 
 export async function requireAdmin(to, from, next) {
-    const { data } = await supabase.auth.getSession()
+    const { data } = await supabase.auth.getUser()
 
-    if (!data?.session?.user) {
+    if (!data?.user) {
         return next('/admin/login')
     }
 
-    const role = data.session.user.user_metadata?.role
+    const role = data.user.user_metadata?.role
 
     if (role !== 'admin') {
         // No es admin, hacer logout y redirigir

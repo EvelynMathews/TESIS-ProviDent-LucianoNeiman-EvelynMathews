@@ -57,9 +57,9 @@ export default {
     },
     async mounted() {
         // Si ya está logueado como admin, redirigir al dashboard
-        const { data } = await supabase.auth.getSession()
-        if (data?.session?.user) {
-            const role = data.session.user.user_metadata?.role
+        const { data } = await supabase.auth.getUser()
+        if (data?.user) {
+            const role = data.user.user_metadata?.role
             if (role === 'admin') {
                 this.$router.push('/admin/dashboard')
             }

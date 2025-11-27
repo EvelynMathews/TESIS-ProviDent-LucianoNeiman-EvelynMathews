@@ -6,6 +6,7 @@
  */
 import { subscribeToAuthStateChanges, updateAuthUser } from '../services/auth'
 import { supabase } from '../services/supabase'
+import { clearCache } from '../services/cache'
 
 let unsubscribeFromAuth = () => { }
 
@@ -65,6 +66,7 @@ export default {
                 }
 
                 await updateAuthUser(dataToUpdate)
+                clearCache(`profile:${this.userId}`)
                 this.$router.push('/mi-perfil')
             } catch (error) {
                 console.error('Error al guardar:', error)

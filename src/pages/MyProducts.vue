@@ -5,9 +5,13 @@
  * Cómo funciona: El método `load` utiliza `listMyProducts` para obtener los ítems del vendedor actual. Los métodos `toggleActive` y `remove` interactúan con el servicio de productos para cambiar el estado de `is_active` o eliminar el registro permanentemente de la base de datos. Muestra un estado de carga y maneja errores.
  */
 import { listMyProducts, updateProduct, deleteProductById } from '../services/products'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
   name: 'MyProducts',
+  components: {
+    LoadingSpinner
+  },
   data() {
     return { items: [], loading: false, error: '', busyId: null }
   },
@@ -61,7 +65,7 @@ export default {
           Publicar nuevo
         </button>
       </div>
-      <div v-if="loading" class="text-gray-600">Cargando...</div>
+      <LoadingSpinner v-if="loading" message="Cargando tus productos..." />
       <div v-else-if="error" class="text-red-600">{{ error }}</div>
       <div v-else>
         <div v-if="items.length === 0" class="text-gray-600">Aún no cargaste productos.</div>
@@ -72,7 +76,10 @@ export default {
               <h3 class="font-semibold text-gray-800 truncate">{{ p.name }}</h3>
               <p class="text-sm text-gray-600 line-clamp-2">{{ p.description }}</p>
               <div class="mt-2 flex items-center justify-between">
-                <span class="text-sm text-gray-700">${{ new Intl.NumberFormat('es-AR').format(p.price) }} · {{ p.unit || 'unidad' }}</span>
+                <span v-if="p.product_type === 'PROSTHESIS'" class="text-sm text-gray-700">Precio variable</span>
+                <span v-else-if="p.product_type === 'PLASTER_SERVICE'" class="text-sm text-gray-700">${{ new Intl.NumberFormat('es-AR').format(p.price || 0) }}</span>
+                <span v-else-if="p.product_type === 'RENTAL'" class="text-sm text-gray-700">${{ new Intl.NumberFormat('es-AR').format(p.price_day || 0) }}/día</span>
+                <span v-else class="text-sm text-gray-700">${{ new Intl.NumberFormat('es-AR').format(p.price || 0) }} · {{ p.unit || 'unidad' }}</span>
                 <span :class="p.is_active ? 'text-green-600' : 'text-gray-500'" class="text-xs font-semibold">{{ p.is_active ? 'Activo' : 'Pausado' }}</span>
               </div>
               <div class="mt-3 grid grid-cols-2 gap-2">

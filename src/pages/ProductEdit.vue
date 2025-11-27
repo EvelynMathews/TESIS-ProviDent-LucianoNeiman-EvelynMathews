@@ -17,8 +17,12 @@ import {
     loadToothGroups,
     loadValidWorkGroupCombinations
 } from '../services/products'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
+    components: {
+        LoadingSpinner
+    },
     name: 'ProductEdit',
     data() {
         return {
@@ -196,7 +200,8 @@ export default {
         async loadProsthesisData(product) {
             this.prosthesisData.name = product.name
             this.prosthesisData.description = product.description
-            this.prosthesisData.material = product.material_id || ''
+            // No cargar material_id (es UUID), el formulario espera texto libre
+            this.prosthesisData.material = ''
             this.prosthesisData.is_active = product.is_active !== false
             this.prosthesisData.imagePreview = product.image
             this.prosthesisData.deliveryTime = product.manufacturing_days || ''
@@ -443,9 +448,7 @@ export default {
                 </button>
             </div>
 
-            <div v-if="loading" class="text-center py-12">
-                <p class="text-gray-600">Cargando producto...</p>
-            </div>
+            <LoadingSpinner v-if="loading" message="Cargando producto..." />
 
             <div v-else-if="errorMessage && !product" class="bg-red-50 border border-red-200 rounded-lg p-4">
                 <p class="text-red-800">{{ errorMessage }}</p>
@@ -629,13 +632,12 @@ export default {
                     <!-- Material -->
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Material *</label>
-                        <select
+                        <input
                             v-model="prosthesisData.material"
+                            type="text"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                            <option value="">Seleccionar material</option>
-                            <option v-for="mat in materials" :key="mat.id" :value="mat.id">{{ mat.name }}</option>
-                        </select>
+                            placeholder="Ej: Zirconio, Porcelana, Metal-porcelana"
+                        />
                     </div>
 
                     <!-- Image -->
