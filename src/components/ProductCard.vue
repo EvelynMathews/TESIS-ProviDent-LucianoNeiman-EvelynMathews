@@ -2,20 +2,23 @@
     <div class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col h-full">
         <div class="relative flex-shrink-0">
             <img :src="product.image || placeholder" :alt="product.name" class="w-full h-48 object-cover" />
-            <span v-if="product.stock === 0" class="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">
+            <span v-if="product.stock === 0 && product.product_type === 'SUPPLY'" class="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">
                 SIN STOCK
             </span>
-            <span v-if="product.product_type === 'rental'" class="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+            <span v-if="product.product_type === 'RENTAL'" class="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
                 Alquiler
             </span>
-            <span v-else-if="product.service_type" class="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded">
+            <span v-else-if="product.product_type === 'PROSTHESIS'" class="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded">
+                Prótesis
+            </span>
+            <span v-else-if="product.product_type === 'PLASTER_SERVICE'" class="absolute top-2 right-2 bg-teal-600 text-white text-xs px-2 py-1 rounded">
                 Servicio
             </span>
         </div>
 
         <div class="p-4 flex flex-col flex-1">
             <p v-if="product.brand" class="text-gray-500 text-xs mb-1">{{ product.brand }}</p>
-            <h3 class="font-semibold text-gray-800 text-sm mb-2 line-clamp-2">{{ product.name }}</h3>
+            <component :is="`h${headingLevel}`" class="font-semibold text-gray-800 text-sm mb-2 line-clamp-2">{{ product.name }}</component>
 
             <div class="flex items-center gap-2 mb-2">
                 <div class="flex items-center gap-1">
@@ -29,9 +32,13 @@
             </div>
 
             <div class="mb-3">
-                <div v-if="product.product_type === 'rental'" class="space-y-1">
+                <div v-if="product.product_type === 'RENTAL'" class="space-y-1">
                     <p class="text-lg font-bold text-primary">${{ formatPrice(product.price_day) }}/día</p>
                     <p class="text-xs text-gray-500">${{ formatPrice(product.price_week) }}/semana | ${{ formatPrice(product.price_month) }}/mes</p>
+                </div>
+                <div v-else-if="product.product_type === 'PROSTHESIS'">
+                    <p class="text-lg font-bold text-secondary">Precios variables</p>
+                    <p class="text-xs text-gray-500">Según tipo de trabajo y pieza</p>
                 </div>
                 <div v-else>
                     <p class="text-2xl font-bold text-secondary">${{ formatPrice(product.price) }}</p>
@@ -39,7 +46,7 @@
                 </div>
             </div>
 
-            <div v-if="product.stock !== null && product.product_type !== 'rental'" class="mb-3">
+            <div v-if="product.stock !== null && product.product_type === 'SUPPLY'" class="mb-3">
                 <p v-if="product.stock > 0" class="text-xs text-green-600">
                     Stock disponible: {{ product.stock }}
                 </p>
@@ -53,9 +60,9 @@
                     Ver detalles
                 </RouterLink>
                 <button @click="onAdd"
-                    :disabled="product.stock === 0"
+                    :disabled="product.stock === 0 && product.product_type === 'SUPPLY'"
                     class="w-full font-medium py-2 px-4 rounded-lg transition shadow-md"
-                    :class="product.stock === 0 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-green-600 text-white hover:opacity-90'">
+                    :class="(product.stock === 0 && product.product_type === 'SUPPLY') ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-green-600 text-white hover:opacity-90'">
                     Agregar al carrito
                 </button>
                 <div class="flex items-center gap-2">
@@ -81,6 +88,11 @@ export default {
         product: {
             type: Object,
             required: true
+        },
+        headingLevel: {
+            type: Number,
+            default: 2,
+            validator: (value) => [2, 3].includes(value)
         }
     },
     methods: {
@@ -95,7 +107,7 @@ export default {
             return (a + b).toUpperCase() || a.toUpperCase() || '?'
         },
         async onAdd() {
-            if (this.product.stock === 0) return
+            if (this.product.stock === 0 && this.product.product_type === 'SUPPLY') return
             try {
                 await addToCart({
                     id: this.product.id,

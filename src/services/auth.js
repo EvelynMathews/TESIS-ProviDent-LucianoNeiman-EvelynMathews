@@ -34,9 +34,8 @@ subscribeToSupabaseAuth()
 
 async function loadCurrentUserAuthState() {
   try {
-    const { data } = await supabase.auth.getSession()
-    const session = data?.session
-    const sUser = session?.user
+    const { data } = await supabase.auth.getUser()
+    const sUser = data?.user
     if (!sUser) return
     setUser({ id: sUser.id, email: sUser.email })
     fetchFullProfile()

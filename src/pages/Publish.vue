@@ -480,8 +480,9 @@ export default {
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <button @click="selectPublicationType('product')"
-                        class="p-8 border-2 rounded-lg transition-all hover:shadow-lg group"
+                    <div @click="selectPublicationType('product')" @keyup.enter="selectPublicationType('product')"
+                        role="button" tabindex="0"
+                        class="p-8 border-2 rounded-lg transition-all hover:shadow-lg group cursor-pointer"
                         :class="publicationType === 'product' ? 'border-primary bg-blue-50' : 'border-gray-200 hover:border-primary'"
                         style="border-color: #2A6FAF;">
                         <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center transition-all"
@@ -497,10 +498,11 @@ export default {
                         <h3 class="font-heading text-xl font-bold text-gray-800 mb-2">Producto</h3>
                         <p class="text-sm text-gray-600">Artículos físicos: resinas, instrumental, equipamiento,
                             indumentaria</p>
-                    </button>
+                    </div>
 
-                    <button @click="selectPublicationType('service')"
-                        class="p-8 border-2 rounded-lg transition-all hover:shadow-lg group"
+                    <div @click="selectPublicationType('service')" @keyup.enter="selectPublicationType('service')"
+                        role="button" tabindex="0"
+                        class="p-8 border-2 rounded-lg transition-all hover:shadow-lg group cursor-pointer"
                         :class="publicationType === 'service' ? 'border-secondary bg-teal-50' : 'border-gray-200 hover:border-secondary'"
                         style="border-color: #29A68C;">
                         <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center transition-all"
@@ -518,7 +520,7 @@ export default {
                         </div>
                         <h3 class="font-heading text-xl font-bold text-gray-800 mb-2">Servicio</h3>
                         <p class="text-sm text-gray-600">Prótesis, modelado en yeso, alquiler de equipos</p>
-                    </button>
+                    </div>
                 </div>
             </div>
 
@@ -531,8 +533,9 @@ export default {
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <button @click="selectServiceType('prosthesis')"
-                        class="p-6 border-2 rounded-lg transition-all hover:shadow-lg"
+                    <div @click="selectServiceType('prosthesis')" @keyup.enter="selectServiceType('prosthesis')"
+                        role="button" tabindex="0"
+                        class="p-6 border-2 rounded-lg transition-all hover:shadow-lg cursor-pointer"
                         :class="serviceType === 'prosthesis' ? 'bg-blue-50' : 'hover:border-primary'"
                         style="border-color: #2A6FAF;">
                         <div class="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center"
@@ -545,10 +548,11 @@ export default {
                         </div>
                         <h3 class="font-semibold text-gray-800 mb-1">Prótesis</h3>
                         <p class="text-xs text-gray-600">Piezas terminadas por encargo</p>
-                    </button>
+                    </div>
 
-                    <button @click="selectServiceType('plaster')"
-                        class="p-6 border-2 rounded-lg transition-all hover:shadow-lg"
+                    <div @click="selectServiceType('plaster')" @keyup.enter="selectServiceType('plaster')"
+                        role="button" tabindex="0"
+                        class="p-6 border-2 rounded-lg transition-all hover:shadow-lg cursor-pointer"
                         :class="serviceType === 'plaster' ? 'bg-teal-50' : 'hover:border-secondary'"
                         style="border-color: #29A68C;">
                         <div class="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center"
@@ -561,10 +565,11 @@ export default {
                         </div>
                         <h3 class="font-semibold text-gray-800 mb-1">Modelado en yeso</h3>
                         <p class="text-xs text-gray-600">Vaciado y modelado</p>
-                    </button>
+                    </div>
 
-                    <button @click="selectServiceType('rental')"
-                        class="p-6 border-2 rounded-lg transition-all hover:shadow-lg"
+                    <div @click="selectServiceType('rental')" @keyup.enter="selectServiceType('rental')"
+                        role="button" tabindex="0"
+                        class="p-6 border-2 rounded-lg transition-all hover:shadow-lg cursor-pointer"
                         :class="serviceType === 'rental' ? 'bg-coral-50' : 'hover:border-accent'"
                         style="border-color: #DC8C73;">
                         <div class="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center"
@@ -577,7 +582,7 @@ export default {
                         </div>
                         <h3 class="font-semibold text-gray-800 mb-1">Alquiler</h3>
                         <p class="text-xs text-gray-600">Equipos odontológicos</p>
-                    </button>
+                    </div>
                 </div>
 
                 <div class="mt-6 flex justify-center">
@@ -639,10 +644,10 @@ export default {
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M12 4v16m8-8H4"></path>
                                 </svg>
-                                <p class="text-sm text-gray-600">Hacé clic para subir o arrastrá la imagen aquí</p>
-                                <p class="text-xs text-gray-500 mt-1">JPG, PNG o GIF (máx. 5MB)</p>
-                                <p v-if="!productData.images.length" class="text-xs text-red-600 mt-2">Subí al menos una
-                                    imagen</p>
+                                <span class="block text-sm text-gray-600">Hacé clic para subir o arrastrá la imagen aquí</span>
+                                <span class="block text-xs text-gray-500 mt-1">JPG, PNG o GIF (máx. 5MB)</span>
+                                <span v-if="!productData.images.length" class="block text-xs text-red-600 mt-2">Subí al menos una
+                                    imagen</span>
                             </label>
                         </div>
                         <div v-if="productData.images.length > 0" class="grid grid-cols-3 gap-4 mt-4">
@@ -840,10 +845,10 @@ export default {
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M12 4v16m8-8H4"></path>
                                 </svg>
-                                <p class="text-sm text-gray-600">Hacé clic para subir o arrastrá la imagen aquí</p>
-                                <p class="text-xs text-gray-500 mt-1">JPG, PNG o GIF (máx. 5MB)</p>
-                                <p v-if="!prosthesisData.images.length" class="text-xs text-red-600 mt-2">Subí al menos
-                                    una imagen</p>
+                                <span class="block text-sm text-gray-600">Hacé clic para subir o arrastrá la imagen aquí</span>
+                                <span class="block text-xs text-gray-500 mt-1">JPG, PNG o GIF (máx. 5MB)</span>
+                                <span v-if="!prosthesisData.images.length" class="block text-xs text-red-600 mt-2">Subí al menos
+                                    una imagen</span>
                             </label>
                         </div>
                         <div v-if="prosthesisData.images.length > 0" class="grid grid-cols-3 gap-4 mt-4">
@@ -1034,10 +1039,10 @@ export default {
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M12 4v16m8-8H4"></path>
                                 </svg>
-                                <p class="text-sm text-gray-600">Hacé clic para subir o arrastrá la imagen aquí</p>
-                                <p class="text-xs text-gray-500 mt-1">JPG, PNG o GIF (máx. 5MB)</p>
-                                <p v-if="!plasterData.images.length" class="text-xs text-red-600 mt-2">Subí al menos una
-                                    imagen</p>
+                                <span class="block text-sm text-gray-600">Hacé clic para subir o arrastrá la imagen aquí</span>
+                                <span class="block text-xs text-gray-500 mt-1">JPG, PNG o GIF (máx. 5MB)</span>
+                                <span v-if="!plasterData.images.length" class="block text-xs text-red-600 mt-2">Subí al menos una
+                                    imagen</span>
                             </label>
                         </div>
                         <div v-if="plasterData.images.length > 0" class="grid grid-cols-3 gap-4 mt-4">
@@ -1118,10 +1123,10 @@ export default {
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M12 4v16m8-8H4"></path>
                                 </svg>
-                                <p class="text-sm text-gray-600">Hacé clic para subir o arrastrá la imagen aquí</p>
-                                <p class="text-xs text-gray-500 mt-1">JPG, PNG o GIF (máx. 5MB)</p>
-                                <p v-if="!rentalData.images.length" class="text-xs text-red-600 mt-2">Subí al menos una
-                                    imagen</p>
+                                <span class="block text-sm text-gray-600">Hacé clic para subir o arrastrá la imagen aquí</span>
+                                <span class="block text-xs text-gray-500 mt-1">JPG, PNG o GIF (máx. 5MB)</span>
+                                <span v-if="!rentalData.images.length" class="block text-xs text-red-600 mt-2">Subí al menos una
+                                    imagen</span>
                             </label>
                         </div>
                         <div v-if="rentalData.images.length > 0" class="grid grid-cols-3 gap-4 mt-4">
@@ -1336,6 +1341,14 @@ export default {
                             </span>
                         </div>
 
+                        <div v-if="prosthesisData.images.length > 0">
+                            <h3 class="font-semibold text-gray-700 mb-2">Imagen</h3>
+                            <div class="grid grid-cols-4 gap-4">
+                                <img v-for="(image, index) in prosthesisData.images" :key="index" :src="image"
+                                    class="w-full h-24 object-cover rounded-lg" />
+                            </div>
+                        </div>
+
                         <div>
                             <h3 class="font-semibold text-gray-700 mb-2">Información del servicio</h3>
                             <div class="bg-gray-50 rounded-lg p-4 space-y-2">
@@ -1443,6 +1456,14 @@ export default {
                                 style="background-color: #29A68C;">
                                 Servicio: Modelado en Yeso
                             </span>
+                        </div>
+
+                        <div v-if="plasterData.images.length > 0">
+                            <h3 class="font-semibold text-gray-700 mb-2">Imagen</h3>
+                            <div class="grid grid-cols-4 gap-4">
+                                <img v-for="(image, index) in plasterData.images" :key="index" :src="image"
+                                    class="w-full h-24 object-cover rounded-lg" />
+                            </div>
                         </div>
 
                         <div>

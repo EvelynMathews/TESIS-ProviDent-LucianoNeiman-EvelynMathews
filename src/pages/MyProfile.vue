@@ -8,9 +8,14 @@ import { subscribeToAuthStateChanges, logout } from '../services/auth'
 import { isCurrentUserSeller } from '../services/sellers'
 import { supabase } from '../services/supabase'
 import { listMyProducts } from '../services/products'
+import { getCached, setCached } from '../services/cache'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
     name: 'MyProfile',
+    components: {
+        LoadingSpinner
+    },
     data() {
         return {
             user: {
@@ -18,65 +23,16 @@ export default {
                 email: null,
                 username: null,
             },
-            userProfile: {
-                name: 'Dr. Juan Pérez',
-                lastName: 'Pérez',
-                email: 'juan.perez@example.com',
-                phone: '+54 11 4567-8901',
-                avatar_url: null,
-                roles: ['Comprador', 'Vendedor']
-            },
-            addresses: [
-                {
-                    id: 1,
-                    street: 'Av. Corrientes 1234',
-                    city: 'CABA',
-                    province: 'Buenos Aires',
-                    postal_code: 'C1043',
-                    country: 'Argentina',
-                    is_primary: true
-                }
-            ],
-            bankAccounts: [
-                {
-                    id: 1,
-                    bank_name: 'Banco Galicia',
-                    account_holder: 'Juan Pérez',
-                    account_number: '1234-567890/1',
-                    cbu: '0070123430000005678901',
-                    alias: 'juan.perez.dental'
-                }
-            ],
-            recentPurchases: [
-                {
-                    id: 'ORD-001',
-                    date: '2025-01-15',
-                    total: 63500,
-                    status: 'delivered',
-                    items_count: 2
-                },
-                {
-                    id: 'ORD-002',
-                    date: '2025-01-10',
-                    total: 45000,
-                    status: 'in_progress',
-                    items_count: 1
-                }
-            ],
-            recentSales: [
-                {
-                    id: 'SALE-001',
-                    buyer_name: 'Dra. María González',
-                    date: '2025-01-14',
-                    product: 'Resina Compuesta Flow A2',
-                    amount: 18500,
-                    status: 'paid'
-                }
-            ],
-            
+            userProfile: null,
+            addresses: [],
+            bankAccounts: [],
+            recentPurchases: [],
+            recentSales: [],
+
             isSeller: false,
             sellerMessage: '',
             myProducts: [],
+            loading: true,
             showPasswordChange: false,
             newPassword: '',
             confirmPassword: '',
@@ -101,21 +57,58 @@ export default {
             this.$router.push('/login')
         },
         async loadProfile() {
-            const { data: me } = await supabase.auth.getUser()
-            const uid = me?.user?.id
-            if (!uid) return
-            const { data } = await supabase.from('public_user_profiles').select('*').eq('id', uid).single()
-            if (data) {
-                this.userProfile.name = data.first_name
-                this.userProfile.lastName = data.last_name
-                this.userProfile.email = me.user.email
-                if (data.avatar_url) {
+            try {
+                this.loading = true
+                const { data: me } = await supabase.auth.getUser()
+                const uid = me?.user?.id
+                if (!uid) return
+
+                const cacheKey = `profile:${uid}`
+                const cached = getCached(cacheKey)
+
+                if (cached) {
+                    this.userProfile = cached.userProfile
+                    this.isSeller = cached.isSeller
+                    this.myProducts = cached.myProducts
+                    this.addresses = cached.addresses
+                    this.bankAccounts = cached.bankAccounts
+                    this.recentPurchases = cached.recentPurchases
+                    this.recentSales = cached.recentSales
+                    this.loading = false
+
+                    if (cached.avatarPath) {
+                        try {
+                            const { data: signed, error } = await supabase.storage.from('avatars').createSignedUrl(cached.avatarPath, 60 * 60)
+                            if (!error && signed?.signedUrl) {
+                                this.userProfile.avatar_url = signed.signedUrl
+                            }
+                        } catch (e) {
+                            console.warn('Avatar URL generation failed', e?.message || e)
+                        }
+                    }
+                    return
+                }
+
+                const { data } = await supabase.from('public_user_profiles').select('*').eq('id', uid).single()
+
+                this.userProfile = {
+                    name: data?.first_name || '',
+                    lastName: data?.last_name || '',
+                    email: me.user.email || '',
+                    phone: data?.phone || null,
+                    avatar_url: null,
+                    roles: []
+                }
+
+                const avatarPath = data?.avatar_url || null
+
+                if (avatarPath) {
                     try {
-                        const { data: signed, error } = await supabase.storage.from('avatars').createSignedUrl(data.avatar_url, 60 * 60)
+                        const { data: signed, error } = await supabase.storage.from('avatars').createSignedUrl(avatarPath, 60 * 60)
                         if (!error && signed?.signedUrl) {
                             this.userProfile.avatar_url = signed.signedUrl
                         } else {
-                            const dl = await supabase.storage.from('avatars').download(data.avatar_url)
+                            const dl = await supabase.storage.from('avatars').download(avatarPath)
                             if (!dl.error && dl.data) {
                                 this.userProfile.avatar_url = URL.createObjectURL(dl.data)
                             }
@@ -124,16 +117,85 @@ export default {
                         console.warn('Avatar URL generation failed', e?.message || e)
                         this.userProfile.avatar_url = null
                     }
-                } else {
-                    this.userProfile.avatar_url = null
                 }
-            }
-            this.isSeller = await isCurrentUserSeller()
-            this.userProfile.roles = ['Comprador'].concat(this.isSeller ? ['Vendedor'] : [])
-            if (this.isSeller) {
-                try { this.myProducts = (await listMyProducts()).slice(0, 4) } catch (e) { this.myProducts = [] }
-            } else {
-                this.myProducts = []
+
+                this.isSeller = await isCurrentUserSeller()
+                this.userProfile.roles = ['Comprador'].concat(this.isSeller ? ['Vendedor'] : [])
+
+                if (this.isSeller) {
+                    try { this.myProducts = (await listMyProducts()).slice(0, 4) } catch (e) { this.myProducts = [] }
+                } else {
+                    this.myProducts = []
+                }
+
+                this.addresses = [
+                    {
+                        id: 1,
+                        street: 'Av. Corrientes 1234',
+                        city: 'CABA',
+                        province: 'Buenos Aires',
+                        postal_code: 'C1043',
+                        country: 'Argentina',
+                        is_primary: true
+                    }
+                ]
+
+                this.bankAccounts = [
+                    {
+                        id: 1,
+                        bank_name: 'Banco Galicia',
+                        account_holder: `${this.userProfile.name} ${this.userProfile.lastName}`,
+                        account_number: '1234-567890/1',
+                        cbu: '0070123430000005678901',
+                        alias: 'juan.perez.dental'
+                    }
+                ]
+
+                this.recentPurchases = [
+                    {
+                        id: 'ORD-001',
+                        date: '2025-01-15',
+                        total: 63500,
+                        status: 'delivered',
+                        items_count: 2
+                    },
+                    {
+                        id: 'ORD-002',
+                        date: '2025-01-10',
+                        total: 45000,
+                        status: 'in_progress',
+                        items_count: 1
+                    }
+                ]
+
+                this.recentSales = [
+                    {
+                        id: 'SALE-001',
+                        buyer_name: 'Dra. María González',
+                        date: '2025-01-14',
+                        product: 'Resina Compuesta Flow A2',
+                        amount: 18500,
+                        status: 'paid'
+                    }
+                ]
+
+                setCached(cacheKey, {
+                    userProfile: {
+                        ...this.userProfile,
+                        avatar_url: null
+                    },
+                    avatarPath,
+                    isSeller: this.isSeller,
+                    myProducts: this.myProducts,
+                    addresses: this.addresses,
+                    bankAccounts: this.bankAccounts,
+                    recentPurchases: this.recentPurchases,
+                    recentSales: this.recentSales
+                })
+            } catch (error) {
+                console.error('Error loading profile:', error)
+            } finally {
+                this.loading = false
             }
         },
         goToEditProfile() {
@@ -250,10 +312,13 @@ export default {
         <div class="organic-shape organic-shape-6"></div>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-            <div v-if="sellerMessage" class="mb-4 p-3 rounded border border-green-200 bg-green-50 text-green-700">
-                {{ sellerMessage }}
-            </div>
-            <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+            <LoadingSpinner v-if="loading" message="Cargando perfil..." />
+
+            <div v-else>
+                <div v-if="sellerMessage" class="mb-4 p-3 rounded border border-green-200 bg-green-50 text-green-700">
+                    {{ sellerMessage }}
+                </div>
+                <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
                 <div class="h-32" style="background: linear-gradient(135deg, #A4C5DF 0%, #D4F4EC 50%, #F8E8E2 100%);"></div>
                 <div class="px-6 pb-6">
                     <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6 -mt-16">
@@ -560,6 +625,7 @@ export default {
                     Cerrar sesión
                 </button>
             </div>
+            </div>
         </div>
 
         <!-- Modal de edición de dirección -->
@@ -689,6 +755,15 @@ export default {
     }
     66% {
         transform: translate(-20px, 20px) rotate(-5deg);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
     }
 }
 </style>

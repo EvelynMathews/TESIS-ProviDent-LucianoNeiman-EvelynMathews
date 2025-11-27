@@ -7,6 +7,7 @@
 import { subscribeToAuthStateChanges } from '../services/auth'
 import ProductCard from '../components/ProductCard.vue'
 import CategoryIcon from '../components/CategoryIcon.vue'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { listActiveProducts } from '../services/products'
 import { isCurrentUserSeller, grantSellerSelf, connectDummyPaymentAccount } from '../services/sellers'
 
@@ -14,7 +15,8 @@ export default {
     name: 'Products',
     components: {
         ProductCard,
-        CategoryIcon
+        CategoryIcon,
+        LoadingSpinner
     },
     data() {
         return {
@@ -33,6 +35,18 @@ export default {
             searchQuery: '',
             loading: false,
             sortBy: 'recent',
+        }
+    },
+    computed: {
+        supplyProducts() {
+            return this.filteredProducts.filter(p => p.product_type === 'SUPPLY')
+        },
+        serviceProducts() {
+            return this.filteredProducts.filter(p =>
+                p.product_type === 'PROSTHESIS' ||
+                p.product_type === 'PLASTER_SERVICE' ||
+                p.product_type === 'RENTAL'
+            )
         }
     },
     methods: {
@@ -112,12 +126,17 @@ export default {
             this.handleSort()
         }
     },
-    mounted() {
+    async mounted() {
         subscribeToAuthStateChanges(async newUserState => {
             this.user = newUserState
             await this.refreshSeller()
         })
-        this.loadProducts()
+        await this.loadProducts()
+
+        if (this.$route.query.search) {
+            this.searchQuery = this.$route.query.search
+            this.handleSearch()
+        }
     }
 }
 </script>
@@ -152,6 +171,7 @@ export default {
                     <div class="relative">
                         <input v-model="searchQuery" @input="handleSearch" type="text"
                             placeholder="Buscar por nombre, marca o categoría..."
+                            aria-label="Buscar productos"
                             class="w-full px-4 py-3 pl-12 bg-white border-2 border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 shadow-sm">
                         <svg class="w-5 h-5 text-gray-500 absolute left-4 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -159,7 +179,7 @@ export default {
                     </div>
                 </div>
 
-                <select v-model="sortBy" class="px-4 py-3 bg-white border-2 border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 shadow-sm">
+                <select v-model="sortBy" aria-label="Ordenar productos" class="px-4 py-3 bg-white border-2 border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 shadow-sm">
                     <option value="recent">Más recientes</option>
                     <option value="price-asc">Menor precio</option>
                     <option value="price-desc">Mayor precio</option>
@@ -168,7 +188,7 @@ export default {
             </div>
 
             <div class="mb-6">
-                <h2 class="text-sm font-semibold text-gray-700 mb-3">Filtrar por categoría:</h2>
+                <p class="text-sm font-semibold text-gray-700 mb-3">Filtrar por categoría:</p>
                 <div class="flex flex-wrap gap-3">
                     <button
                         @click="filterByCategory(null)"
@@ -188,22 +208,51 @@ export default {
                 </div>
             </div>
 
-            <div v-if="loading" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                <div v-for="i in 8" :key="i" class="bg-white border border-gray-200 rounded-lg p-4">
-                    <div class="animate-pulse">
-                        <div class="h-48 bg-gray-200 rounded mb-4"></div>
-                        <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                        <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+            <LoadingSpinner v-if="loading" message="Cargando productos..." />
+
+            <div v-else-if="filteredProducts.length">
+                <!-- Productos -->
+                <div v-if="supplyProducts.length" class="mb-12">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="flex-1 h-px bg-gradient-to-r from-transparent via-sky-300 to-transparent"></div>
+                        <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                            <svg class="w-7 h-7 text-sky-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"></path>
+                            </svg>
+                            Productos
+                        </h2>
+                        <div class="flex-1 h-px bg-gradient-to-r from-sky-300 via-transparent to-transparent"></div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        <ProductCard
+                            v-for="product in supplyProducts"
+                            :key="product.id"
+                            :product="product"
+                        />
                     </div>
                 </div>
-            </div>
 
-            <div v-else-if="filteredProducts.length" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                <ProductCard
-                    v-for="product in filteredProducts"
-                    :key="product.id"
-                    :product="product"
-                />
+                <!-- Servicios -->
+                <div v-if="serviceProducts.length">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="flex-1 h-px bg-gradient-to-r from-transparent via-teal-300 to-transparent"></div>
+                        <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                            <svg class="w-7 h-7 text-teal-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clip-rule="evenodd"></path>
+                                <path d="M2 13.692V16a2 2 0 002 2h12a2 2 0 002-2v-2.308A24.974 24.974 0 0110 15c-2.796 0-5.487-.46-8-1.308z"></path>
+                            </svg>
+                            Servicios
+                        </h2>
+                        <div class="flex-1 h-px bg-gradient-to-r from-teal-300 via-transparent to-transparent"></div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        <ProductCard
+                            v-for="product in serviceProducts"
+                            :key="product.id"
+                            :product="product"
+                        />
+                    </div>
+                </div>
             </div>
 
             <div v-else class="text-center py-16">

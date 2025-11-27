@@ -31,11 +31,11 @@ export default {
             if (type === 'signup' || type === 'email_change' || accessToken) {
                 // Supabase maneja automáticamente la sesión desde el hash
                 // Solo necesitamos esperar a que se procese
-                const { data, error } = await supabase.auth.getSession()
+                const { data, error } = await supabase.auth.getUser()
 
                 if (error) throw error
 
-                if (data.session) {
+                if (data.user) {
                     // Email confirmado exitosamente - redirigir a perfil
                     // El usuario puede subir su avatar desde /mi-perfil/editar
                     this.$router.push('/mi-perfil')

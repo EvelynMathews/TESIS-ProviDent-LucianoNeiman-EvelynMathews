@@ -8,6 +8,7 @@ import { subscribeToAuthStateChanges } from '../services/auth'
 import ProductCard from '../components/ProductCard.vue'
 import ServiceCard from '../components/ServiceCard.vue'
 import CategoryIcon from '../components/CategoryIcon.vue'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { listActiveProducts, listActiveServices } from '../services/products'
 import { listPublishedNews, getNewsImageUrl } from '../services/news'
 import { categories } from '../data/mockProducts'
@@ -17,7 +18,8 @@ export default {
     components: {
         ProductCard,
         ServiceCard,
-        CategoryIcon
+        CategoryIcon,
+        LoadingSpinner
     },
     data() {
         return {
@@ -32,41 +34,64 @@ export default {
             categories: [],
             news: [],
             newsImages: {},
-            loading: false,
+            loadingProducts: false,
+            loadingServices: false,
+            loadingNews: false,
         }
     },
     methods: {
         async loadData() {
+            this.categories = categories
+            this.loadProducts()
+            this.loadServices()
+            this.loadNews()
+        },
+        async loadProducts() {
             try {
-                this.loading = true
-
+                this.loadingProducts = true
                 const allProducts = await listActiveProducts()
                 this.featuredProducts = allProducts.slice(0, 4)
-
+            } catch (error) {
+                console.error('Error cargando productos:', error)
+            } finally {
+                this.loadingProducts = false
+            }
+        },
+        async loadServices() {
+            try {
+                this.loadingServices = true
                 const allServices = await listActiveServices()
                 this.featuredServices = allServices.slice(0, 4)
-
+            } catch (error) {
+                console.error('Error cargando servicios:', error)
+            } finally {
+                this.loadingServices = false
+            }
+        },
+        async loadNews() {
+            try {
+                this.loadingNews = true
                 const allNews = await listPublishedNews()
                 this.news = allNews.slice(0, 4)
 
-                // cargar imagenes de noticias
                 for (const newsItem of this.news) {
                     if (newsItem.news_images && newsItem.news_images.length > 0) {
                         const primaryImage = newsItem.news_images.find(img => img.is_primary) || newsItem.news_images[0]
                         this.newsImages[newsItem.id] = await getNewsImageUrl(primaryImage.path)
                     }
                 }
-
-                this.categories = categories
             } catch (error) {
-                console.error('Error cargando datos:', error)
+                console.error('Error cargando noticias:', error)
             } finally {
-                this.loading = false
+                this.loadingNews = false
             }
         },
         formatDate(dateString) {
             const date = new Date(dateString)
             return date.toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' })
+        },
+        showComingSoon(planName) {
+            alert(`El plan ${planName} estará disponible próximamente. ¡Gracias por tu interés!`)
         }
     },
     mounted() {
@@ -149,7 +174,7 @@ export default {
             </div>
         </section>
 
-        <section class="py-16 bg-white relative z-10">
+        <section class="pt-16 pb-24 bg-white relative z-10">
             <div class="max-w-7xl mx-auto px-4">
                 <div class="flex flex-col md:flex-row items-center gap-12">
                     <div class="flex-1">
@@ -186,10 +211,10 @@ export default {
                         </div>
                     </div>
                     <div class="flex-1">
-                        <div class="relative">
-                            <img src="https://placehold.co/600x400/E3EEF8/2A6FAF?text=Profesionales+Odontologicos"
-                                alt="ProviDent - Profesionales trabajando"
-                                class="relative rounded-lg shadow-xl w-full" />
+                        <div class="relative" style="max-height: 28.5rem;">
+                            <img src="/provident-office.webp"
+                                alt="ProviDent - Profesionales trabajando en consultorio odontológico"
+                                class="rounded-lg shadow-xl w-full object-cover" style="height: 28.5rem;" />
                         </div>
                     </div>
                 </div>
@@ -213,21 +238,14 @@ export default {
                     </RouterLink>
                 </div>
 
-                <div v-if="loading" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-                    <div v-for="i in 4" :key="i" class="bg-white border border-gray-200 rounded-lg p-4">
-                        <div class="animate-pulse">
-                            <div class="h-48 bg-gray-200 rounded mb-4"></div>
-                            <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                            <div class="h-4 bg-gray-200 rounded w-1/2"></div>
-                        </div>
-                    </div>
-                </div>
+                <LoadingSpinner v-if="loadingProducts" message="Cargando productos..." />
 
                 <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
                     <ProductCard
                         v-for="product in featuredProducts"
                         :key="product.id"
                         :product="product"
+                        :heading-level="3"
                     />
                 </div>
             </div>
@@ -247,15 +265,7 @@ export default {
                     </RouterLink>
                 </div>
 
-                <div v-if="loading" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-                    <div v-for="i in 4" :key="i" class="bg-white border border-gray-200 rounded-lg p-4">
-                        <div class="animate-pulse">
-                            <div class="h-48 bg-gray-200 rounded mb-4"></div>
-                            <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                            <div class="h-4 bg-gray-200 rounded w-1/2"></div>
-                        </div>
-                    </div>
-                </div>
+                <LoadingSpinner v-if="loadingServices" message="Cargando servicios..." />
 
                 <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
                     <ServiceCard
@@ -276,9 +286,9 @@ export default {
                         </svg>
                     </div>
                     <RouterLink to="/publicar" class="inline-block">
-                        <h3 class="font-heading text-2xl font-bold text-gray-800 mb-2 transition cursor-pointer hover:opacity-80">
+                        <h2 class="font-heading text-2xl font-bold text-gray-800 mb-2 transition cursor-pointer hover:opacity-80">
                             Quiero ser vendedor
-                        </h3>
+                        </h2>
                     </RouterLink>
                     <p class="text-gray-600 mb-6">Publica tus productos o servicios y llega a miles de profesionales</p>
                     <RouterLink to="/publicar"
@@ -290,10 +300,87 @@ export default {
             </div>
         </section>
 
+        <!-- Planes de Visibilidad -->
+        <section class="py-16 relative overflow-hidden" style="background-color: #F5FEFF;">
+            <div class="organic-shape organic-shape-1"></div>
+            <div class="organic-shape organic-shape-2"></div>
+            <div class="organic-shape organic-shape-3"></div>
+            <div class="organic-shape organic-shape-4"></div>
+
+            <div class="max-w-6xl mx-auto px-4 relative z-10">
+                <div class="text-center mb-12">
+                    <h2 class="font-heading text-3xl font-bold text-gray-800 mb-3">¿Te interesa convertirte en vendedor?</h2>
+                    <p class="text-lg text-gray-600">Es muy simple. Elegí el plan que mejor se adapte a tus necesidades</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Plan Gratuito -->
+                    <div class="bg-white border-2 border-gray-200 rounded-2xl p-8 flex flex-col items-center text-center hover:shadow-xl hover:-translate-y-2 transition-all duration-300">
+                        <div class="w-20 h-20 rounded-full flex items-center justify-center mb-6" style="background-color: rgba(164, 197, 223, 0.2);">
+                            <svg class="w-10 h-10" style="color: #A4C5DF;" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"></path>
+                            </svg>
+                        </div>
+                        <div class="mb-6 flex-1">
+                            <p class="text-gray-700 mb-2">Publicar hasta <strong>3 productos</strong>.</p>
+                            <p class="text-gray-700 mb-2">Perfil básico <strong>sin prioridad</strong> en búsquedas.</p>
+                            <p class="text-gray-700 mb-4">Ideal para <strong>probar</strong> la plataforma.</p>
+                        </div>
+                        <p class="text-4xl font-bold mb-6" style="color: #A4C5DF;">$0<span class="text-lg font-normal text-gray-500">/mes</span></p>
+                        <button @click="showComingSoon('Gratuito')" class="w-full py-3 px-6 rounded-lg font-semibold transition text-white hover:opacity-90" style="background-color: #A4C5DF;">
+                            Gratuito
+                        </button>
+                    </div>
+
+                    <!-- Plan Profesional -->
+                    <div class="rounded-2xl p-8 flex flex-col items-center text-center hover:shadow-xl hover:-translate-y-2 transition-all duration-300 transform md:scale-105" style="background: linear-gradient(135deg, #D4EAD0 0%, #C8E4C3 100%);">
+                        <div class="w-20 h-20 rounded-full flex items-center justify-center mb-6" style="background-color: rgba(255, 255, 255, 0.4);">
+                            <svg class="w-10 h-10 text-gray-700" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"></path>
+                            </svg>
+                        </div>
+                        <div class="mb-6 flex-1">
+                            <p class="text-gray-700 mb-2">Publicaciones <strong>ilimitadas</strong>.</p>
+                            <p class="text-gray-700 mb-2"><strong>Perfil destacado</strong> con prioridad de búsquedas.</p>
+                            <p class="text-gray-700 mb-4">Acceso a <strong>métricas básicas</strong>.</p>
+                        </div>
+                        <p class="text-4xl font-bold text-gray-800 mb-6">$15.000<span class="text-lg font-normal text-gray-600">/mes</span></p>
+                        <button @click="showComingSoon('Profesional')" class="w-full py-3 px-6 bg-gray-700 text-white rounded-lg font-semibold hover:bg-gray-800 transition">
+                            Profesional
+                        </button>
+                    </div>
+
+                    <!-- Plan Premium -->
+                    <div class="rounded-2xl p-8 flex flex-col items-center text-center hover:shadow-xl hover:-translate-y-2 transition-all duration-300" style="background: linear-gradient(135deg, #D4E9F4 0%, #C3DEF0 100%);">
+                        <div class="w-20 h-20 rounded-full flex items-center justify-center mb-6" style="background-color: rgba(255, 255, 255, 0.4);">
+                            <svg class="w-10 h-10 text-gray-700" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"></path>
+                                <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"></path>
+                            </svg>
+                        </div>
+                        <div class="mb-6 flex-1">
+                            <p class="text-gray-700 mb-2">Todo lo anterior +</p>
+                            <p class="text-gray-700 mb-2"><strong>Reputación avanzada</strong> con reseñas destacadas.</p>
+                            <p class="text-gray-700 mb-2"><strong>Promociones destacadas</strong> y cupones.</p>
+                            <p class="text-gray-700 mb-4">Soporte <strong>prioritario</strong>.</p>
+                        </div>
+                        <p class="text-4xl font-bold text-gray-800 mb-6">$30.000<span class="text-lg font-normal text-gray-600">/mes</span></p>
+                        <button @click="showComingSoon('Premium')" class="w-full py-3 px-6 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition shadow-md">
+                            Premium
+                        </button>
+                        <p class="text-xs text-gray-600 mt-4">*visibilidad en nuestras redes con premium*</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <section class="py-12 relative z-10">
             <div class="max-w-7xl mx-auto px-4">
                 <h2 class="font-heading text-2xl font-bold mb-6" style="color: #2A6FAF;">Noticias y Novedades</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+                <LoadingSpinner v-if="loadingNews" message="Cargando noticias..." />
+
+                <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <RouterLink v-for="item in news" :key="item.id" :to="`/noticias/${item.slug}`"
                         class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition block">
                         <img

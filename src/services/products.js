@@ -10,6 +10,7 @@
  */
 
 import { supabase } from './supabase'
+import { getCached, setCached, clearCache } from './cache'
 
 function pickPrimaryImage(images = []) {
   if (!Array.isArray(images) || images.length === 0) return null
@@ -68,11 +69,20 @@ async function guessImagePath(ownerId, productId) {
 }
 
 export async function listActiveProducts() {
+  const cacheKey = 'products:active'
+  const cached = getCached(cacheKey)
+  if (cached) return cached
+
   const { data, error } = await supabase
     .from('products')
-    .select('id, name, description, product_type, owner_user_id, created_at, supply_products(unit_price, unit_label, stock_qty), product_images(path, is_primary, position)')
+    .select(`
+      id, name, description, product_type, owner_user_id, created_at,
+      supply_products(unit_price, unit_label, stock_qty),
+      plaster_service_products(base_price),
+      rental_products(stock_qty),
+      product_images(path, is_primary, position)
+    `)
     .eq('is_active', true)
-    .eq('product_type', 'SUPPLY') // traer solo productos tipo SUPPLY, no servicios
     .order('created_at', { ascending: false })
 
   if (error) throw error
@@ -86,22 +96,41 @@ export async function listActiveProducts() {
       imgPath = await guessImagePath(p.owner_user_id, p.id)
     }
     const image = await signedImageUrl(imgPath)
-    const supply = p.supply_products || {}
     const owner = owners[p.owner_user_id] || { name: 'Vendedor', avatar_url: null }
 
-    return {
+    const result = {
       id: p.id,
       name: p.name,
       description: p.description,
       product_type: p.product_type,
       image: image,
-      price: supply.unit_price || 0,
-      unit: supply.unit_label || 'unit',
-      stock: supply.stock_qty ?? null,
       seller: { id: p.owner_user_id, username: owner.name, rating: 0, sales_count: 0, avatar_url: owner.avatar_url },
     }
+
+    if (p.product_type === 'SUPPLY') {
+      const supply = p.supply_products || {}
+      result.price = supply.unit_price || 0
+      result.unit = supply.unit_label || 'unit'
+      result.stock = supply.stock_qty ?? null
+    } else if (p.product_type === 'PLASTER_SERVICE') {
+      const plaster = p.plaster_service_products || {}
+      result.price = plaster.base_price || 0
+    } else if (p.product_type === 'RENTAL') {
+      const { data: pricing } = await supabase
+        .from('rental_pricing')
+        .select('period, price')
+        .eq('product_id', p.id)
+        .order('price', { ascending: true })
+        .limit(1)
+      result.price_day = pricing?.[0]?.price || 0
+      result.price_week = 0
+      result.price_month = 0
+    }
+
+    return result
   }))
 
+  setCached(cacheKey, results)
   return results
 }
 
@@ -110,7 +139,13 @@ export async function listMyProducts() {
   if (uerr || !me?.user?.id) throw new Error('No auth user')
   const { data, error } = await supabase
     .from('products')
-    .select('id, name, description, product_type, owner_user_id, created_at, is_active, supply_products(unit_price, unit_label, stock_qty), product_images(path, is_primary, position)')
+    .select(`
+      id, name, description, product_type, owner_user_id, created_at, is_active,
+      supply_products(unit_price, unit_label, stock_qty),
+      plaster_service_products(base_price),
+      rental_products(stock_qty),
+      product_images(path, is_primary, position)
+    `)
     .eq('owner_user_id', me.user.id)
     .order('created_at', { ascending: false })
   if (error) throw error
@@ -120,19 +155,38 @@ export async function listMyProducts() {
     if (!imgPath) imgPath = await guessImagePath(p.owner_user_id, p.id)
     const image = await signedImageUrl(imgPath)
     const supply = p.supply_products || {}
+    const plaster = p.plaster_service_products || {}
+    const rental = p.rental_products || {}
     const owner = owners[p.owner_user_id] || { name: 'Vos', avatar_url: null }
-    return {
+
+    const result = {
       id: p.id,
       name: p.name,
       description: p.description,
       product_type: p.product_type,
       is_active: p.is_active,
       image,
-      price: supply.unit_price || 0,
-      unit: supply.unit_label || 'unidad',
-      stock: supply.stock_qty ?? null,
       seller: { id: p.owner_user_id, username: owner.name, avatar_url: owner.avatar_url }
     }
+
+    if (p.product_type === 'SUPPLY') {
+      result.price = supply.unit_price || 0
+      result.unit = supply.unit_label || 'unidad'
+      result.stock = supply.stock_qty ?? null
+    } else if (p.product_type === 'PLASTER_SERVICE') {
+      result.price = plaster.base_price || 0
+    } else if (p.product_type === 'RENTAL') {
+      // Cargar precio diario
+      const { data: pricing } = await supabase
+        .from('rental_pricing')
+        .select('period, price')
+        .eq('product_id', p.id)
+        .order('price', { ascending: true })
+        .limit(1)
+      result.price_day = pricing?.[0]?.price || 0
+    }
+
+    return result
   }))
 }
 
@@ -189,6 +243,7 @@ export async function getProductById(id) {
     result.price = supply.unit_price || 0
     result.unit = supply.unit_label || 'unit'
     result.stock = supply.stock_qty ?? null
+    result.sku = supply.sku || null
   } else if (p.product_type === 'PROSTHESIS') {
     const prosthesis = p.prosthesis_products || {}
     result.material_id = prosthesis.material_id
@@ -310,6 +365,8 @@ export async function deleteProductById(id) {
     .delete()
     .eq('id', id)
   if (error) throw error
+  clearCache('products:active')
+  clearCache('services:active')
   return true
 }
 
@@ -436,6 +493,7 @@ export async function createSupplyProduct({ name, description, unit_price, unit_
     if (piErr) throw piErr
   }
   await linkProductShippingMethod(prod.id, shipping_method_id)
+  clearCache('products:active')
 }
 
 export async function createProsthesisProduct({ name, description, imageFile, pricingMatrix, materialId, deliveryTime }) {
@@ -452,9 +510,11 @@ export async function createProsthesisProduct({ name, description, imageFile, pr
   const { data: prod, error: perr } = await supabase.from('products').insert(insert).select('id').single()
   if (perr) throw perr
 
-  // Update material_id and manufacturing_days if provided
   const prosthesisUpdates = {}
-  if (materialId) prosthesisUpdates.material_id = materialId
+  // Solo actualizar material_id si es un UUID válido
+  if (materialId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(materialId)) {
+    prosthesisUpdates.material_id = materialId
+  }
   if (deliveryTime) prosthesisUpdates.manufacturing_days = parseInt(deliveryTime, 10) || null
 
   if (Object.keys(prosthesisUpdates).length > 0) {
@@ -526,6 +586,7 @@ export async function createProsthesisProduct({ name, description, imageFile, pr
     if (piErr) throw piErr
   }
 
+  clearCache('services:active')
   return prod.id
 }
 
@@ -650,6 +711,7 @@ export async function updateProsthesisProduct(productId, { name, description, im
     }
   }
 
+  clearCache('services:active')
   return true
 }
 
@@ -719,6 +781,7 @@ export async function updateSupplyProduct(productId, { name, description, unit_p
     }
   }
 
+  clearCache('products:active')
   return true
 }
 
@@ -786,6 +849,7 @@ export async function updatePlasterServiceProduct(productId, { name, description
     }
   }
 
+  clearCache('services:active')
   return true
 }
 
@@ -872,6 +936,7 @@ export async function updateRentalProduct(productId, { name, description, stock_
     }
   }
 
+  clearCache('services:active')
   return true
 }
 
@@ -902,6 +967,7 @@ export async function createPlasterServiceProduct({ name, description, base_pric
     const { error: piErr } = await supabase.from('product_images').insert({ product_id: prod.id, path: storagePath, alt_text: name, position: 1, is_primary: true })
     if (piErr) throw piErr
   }
+  clearCache('services:active')
   return prod.id
 }
 
@@ -936,6 +1002,7 @@ export async function createRentalProduct({ name, description, stock_qty, priceD
     const { error: piErr } = await supabase.from('product_images').insert({ product_id: prod.id, path: storagePath, alt_text: name, position: 1, is_primary: true })
     if (piErr) throw piErr
   }
+  clearCache('services:active')
   return prod.id
 }
 
@@ -985,6 +1052,10 @@ export async function loadValidWorkGroupCombinations() {
 }
 
 export async function listActiveServices() {
+  const cacheKey = 'services:active'
+  const cached = getCached(cacheKey)
+  if (cached) return cached
+
   const { data, error } = await supabase
     .from('products')
     .select(`
@@ -1068,5 +1139,6 @@ export async function listActiveServices() {
     return base
   }))
 
+  setCached(cacheKey, results)
   return results
 }
