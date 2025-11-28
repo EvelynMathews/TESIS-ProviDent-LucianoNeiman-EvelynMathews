@@ -368,7 +368,6 @@ export default {
                         <button @click="showComingSoon('Premium')" class="w-full py-3 px-6 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition shadow-md">
                             Premium
                         </button>
-                        <p class="text-xs text-gray-600 mt-4">*visibilidad en nuestras redes con premium*</p>
                     </div>
                 </div>
             </div>
