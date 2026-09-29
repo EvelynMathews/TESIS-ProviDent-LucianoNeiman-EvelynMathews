@@ -27,7 +27,8 @@ export default {
             filterStatus: 'all',
             loading: true,
             showDeleteModal: false,
-            productToDelete: null
+            productToDelete: null,
+            errorMessage: ''
         }
     },
     computed: {
@@ -67,6 +68,7 @@ export default {
 
             } catch (error) {
                 console.error('Error al cargar productos:', error)
+                this.errorMessage = 'No se pudieron cargar los productos. Intentá de nuevo más tarde.'
             } finally {
                 this.loading = false
             }
@@ -95,6 +97,7 @@ export default {
             this.filteredProducts = filtered
         },
         async toggleProductStatus(product) {
+            this.errorMessage = ''
             try {
                 const newStatus = !product.is_active
                 await updateProduct(product.id, { is_active: newStatus })
@@ -102,7 +105,7 @@ export default {
                 this.applyFilters()
             } catch (error) {
                 console.error('Error al cambiar estado:', error)
-                alert('Error al cambiar el estado del producto')
+                this.errorMessage = `No se pudo cambiar el estado de "${product.name}": ${error.message}`
             }
         },
         confirmDelete(product) {
@@ -115,15 +118,20 @@ export default {
         },
         async deleteProduct() {
             if (!this.productToDelete) return
+            this.errorMessage = ''
 
             try {
                 await deleteProductById(this.productToDelete.id)
                 this.products = this.products.filter(p => p.id !== this.productToDelete.id)
                 this.applyFilters()
-                this.cancelDelete()
             } catch (error) {
                 console.error('Error al eliminar producto:', error)
-                alert('Error al eliminar el producto')
+                // 23503 = foreign key violation (the product is in orders or carts)
+                this.errorMessage = error.code === '23503'
+                    ? `"${this.productToDelete.name}" tiene pedidos o está en carritos, no se puede eliminar. Podés desactivarlo.`
+                    : `No se pudo eliminar "${this.productToDelete.name}": ${error.message}`
+            } finally {
+                this.cancelDelete()
             }
         },
         getProductTypeName(type) {

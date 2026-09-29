@@ -27,7 +27,8 @@ export default {
                 activeProducts: 0
             },
             recentProducts: [],
-            loading: true
+            loading: true,
+            errorMessage: ''
         }
     },
     methods: {
@@ -35,9 +36,11 @@ export default {
             try {
                 this.loading = true
 
-                const [productsRes, usersRes, activeProductsRes, recentProductsRes] = await Promise.all([
+                this.errorMessage = ''
+
+                const results = await Promise.all([
                     supabase.from('products').select('id', { count: 'exact', head: true }),
-                    supabase.from('public_user_profiles').select('id', { count: 'exact', head: true }),
+                    supabase.from('users').select('id', { count: 'exact', head: true }),
                     supabase.from('products').select('id', { count: 'exact', head: true }).eq('is_active', true),
                     supabase
                         .from('products')
@@ -46,6 +49,11 @@ export default {
                         .limit(5)
                 ])
 
+                const failed = results.find(res => res.error)
+                if (failed) throw failed.error
+
+                const [productsRes, usersRes, activeProductsRes, recentProductsRes] = results
+
                 this.stats.totalProducts = productsRes.count || 0
                 this.stats.totalUsers = usersRes.count || 0
                 this.stats.activeProducts = activeProductsRes.count || 0
@@ -53,6 +61,7 @@ export default {
 
             } catch (error) {
                 console.error('Error al cargar datos del dashboard:', error)
+                this.errorMessage = 'No se pudieron cargar los datos del panel. Intentá de nuevo más tarde.'
             } finally {
                 this.loading = false
             }

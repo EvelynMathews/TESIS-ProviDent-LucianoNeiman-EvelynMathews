@@ -160,6 +160,12 @@ DROP POLICY IF EXISTS "Owners can update own products" ON public.products;
 CREATE POLICY "Owners can update own products" ON public.products FOR UPDATE USING (owner_user_id = auth.uid());
 DROP POLICY IF EXISTS "Owners can delete own products" ON public.products;
 CREATE POLICY "Owners can delete own products" ON public.products FOR DELETE USING (owner_user_id = auth.uid());
+DROP POLICY IF EXISTS "Admins can read all products" ON public.products;
+CREATE POLICY "Admins can read all products" ON public.products FOR SELECT USING (public.is_admin(auth.uid()));
+DROP POLICY IF EXISTS "Admins can update all products" ON public.products;
+CREATE POLICY "Admins can update all products" ON public.products FOR UPDATE USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
+DROP POLICY IF EXISTS "Admins can delete all products" ON public.products;
+CREATE POLICY "Admins can delete all products" ON public.products FOR DELETE USING (public.is_admin(auth.uid()));
 
 -- Policies: product images
 DROP POLICY IF EXISTS "Owners can read product images" ON public.product_images;
@@ -172,6 +178,8 @@ DROP POLICY IF EXISTS "Owners can update product images" ON public.product_image
 CREATE POLICY "Owners can update product images" ON public.product_images FOR UPDATE USING (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid()));
 DROP POLICY IF EXISTS "Owners can delete product images" ON public.product_images;
 CREATE POLICY "Owners can delete product images" ON public.product_images FOR DELETE USING (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid()));
+DROP POLICY IF EXISTS "Admins can manage product images" ON public.product_images;
+CREATE POLICY "Admins can manage product images" ON public.product_images FOR ALL USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
 
 -- Policies: subtypes and details
 DO $$ BEGIN
@@ -180,36 +188,48 @@ DO $$ BEGIN
   CREATE POLICY "Anyone can read prosthesis products" ON public.prosthesis_products FOR SELECT USING (true);
   DROP POLICY IF EXISTS "Owners can manage prosthesis products" ON public.prosthesis_products;
   CREATE POLICY "Owners can manage prosthesis products" ON public.prosthesis_products FOR ALL USING (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid())) WITH CHECK (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid()));
+  DROP POLICY IF EXISTS "Admins can manage prosthesis products" ON public.prosthesis_products;
+  CREATE POLICY "Admins can manage prosthesis products" ON public.prosthesis_products FOR ALL USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
 
   -- supply_products
   DROP POLICY IF EXISTS "Anyone can read supply products" ON public.supply_products;
   CREATE POLICY "Anyone can read supply products" ON public.supply_products FOR SELECT USING (true);
   DROP POLICY IF EXISTS "Owners can manage supply products" ON public.supply_products;
   CREATE POLICY "Owners can manage supply products" ON public.supply_products FOR ALL USING (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid())) WITH CHECK (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid()));
+  DROP POLICY IF EXISTS "Admins can manage supply products" ON public.supply_products;
+  CREATE POLICY "Admins can manage supply products" ON public.supply_products FOR ALL USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
 
   -- plaster_service_products
   DROP POLICY IF EXISTS "Anyone can read plaster service products" ON public.plaster_service_products;
   CREATE POLICY "Anyone can read plaster service products" ON public.plaster_service_products FOR SELECT USING (true);
   DROP POLICY IF EXISTS "Owners can manage plaster service products" ON public.plaster_service_products;
   CREATE POLICY "Owners can manage plaster service products" ON public.plaster_service_products FOR ALL USING (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid())) WITH CHECK (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid()));
+  DROP POLICY IF EXISTS "Admins can manage plaster service products" ON public.plaster_service_products;
+  CREATE POLICY "Admins can manage plaster service products" ON public.plaster_service_products FOR ALL USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
 
   -- rental_products
   DROP POLICY IF EXISTS "Anyone can read rental products" ON public.rental_products;
   CREATE POLICY "Anyone can read rental products" ON public.rental_products FOR SELECT USING (true);
   DROP POLICY IF EXISTS "Owners can manage rental products" ON public.rental_products;
   CREATE POLICY "Owners can manage rental products" ON public.rental_products FOR ALL USING (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid())) WITH CHECK (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid()));
+  DROP POLICY IF EXISTS "Admins can manage rental products" ON public.rental_products;
+  CREATE POLICY "Admins can manage rental products" ON public.rental_products FOR ALL USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
 
   -- product_prices
   DROP POLICY IF EXISTS "Anyone can read product prices" ON public.product_prices;
   CREATE POLICY "Anyone can read product prices" ON public.product_prices FOR SELECT USING (true);
   DROP POLICY IF EXISTS "Owners can manage product prices" ON public.product_prices;
   CREATE POLICY "Owners can manage product prices" ON public.product_prices FOR ALL USING (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid())) WITH CHECK (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid()));
+  DROP POLICY IF EXISTS "Admins can manage product prices" ON public.product_prices;
+  CREATE POLICY "Admins can manage product prices" ON public.product_prices FOR ALL USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
 
   -- rental_pricing
   DROP POLICY IF EXISTS "Anyone can read rental pricing" ON public.rental_pricing;
   CREATE POLICY "Anyone can read rental pricing" ON public.rental_pricing FOR SELECT USING (true);
   DROP POLICY IF EXISTS "Owners can manage rental pricing" ON public.rental_pricing;
   CREATE POLICY "Owners can manage rental pricing" ON public.rental_pricing FOR ALL USING (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid())) WITH CHECK (EXISTS (SELECT 1 FROM public.products p WHERE p.id=product_id AND p.owner_user_id=auth.uid()));
+  DROP POLICY IF EXISTS "Admins can manage rental pricing" ON public.rental_pricing;
+  CREATE POLICY "Admins can manage rental pricing" ON public.rental_pricing FOR ALL USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
 END $$;
 
 -- Triggers
@@ -259,7 +279,7 @@ DROP TRIGGER IF EXISTS on_product_type_changed ON public.products;
 CREATE TRIGGER on_product_type_changed AFTER UPDATE OF product_type ON public.products FOR EACH ROW EXECUTE FUNCTION public.handle_product_type_change();
 
 CREATE OR REPLACE FUNCTION public.handle_product_deleted()
-RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   DELETE FROM public.product_prices WHERE product_id = OLD.id;
   DELETE FROM public.product_shipping_methods WHERE product_id = OLD.id;
@@ -316,6 +336,14 @@ USING (
   AND EXISTS (SELECT 1 FROM public.user_sellers s WHERE s.user_id = auth.uid())
   AND position(auth.uid()::text || '/' IN name) = 1
 );
+
+-- Storage: admins can manage images of any seller
+DROP POLICY IF EXISTS "Admins can upload product images" ON storage.objects;
+CREATE POLICY "Admins can upload product images" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'product-images' AND public.is_admin(auth.uid()));
+DROP POLICY IF EXISTS "Admins can update product images" ON storage.objects;
+CREATE POLICY "Admins can update product images" ON storage.objects FOR UPDATE USING (bucket_id = 'product-images' AND public.is_admin(auth.uid()));
+DROP POLICY IF EXISTS "Admins can delete product images" ON storage.objects;
+CREATE POLICY "Admins can delete product images" ON storage.objects FOR DELETE USING (bucket_id = 'product-images' AND public.is_admin(auth.uid()));
 
 -- Seed Data
 -- Insert the 32 permanent teeth with FDI codes

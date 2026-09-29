@@ -48,7 +48,6 @@ export async function getUserProfileById(id) {
     return {
         id: profileData.id,
         username: username,
-        email: profileData.email,
         first_name: profileData.first_name,
         last_name: profileData.last_name,
         photo_url: profileData.photo_url,
@@ -154,15 +153,17 @@ export async function updateUserData(userId, data) {
 
     // Actualizar users si hay cambios
     if (Object.keys(usersData).length > 0) {
-        const { error: usersError } = await supabase
+        const { data: updated, error: usersError } = await supabase
             .from('users')
             .update(usersData)
             .eq('id', userId)
+            .select('id')
 
         if (usersError) {
             console.error('[user-profiles.js updateUserData] Error al actualizar users:', userId, usersError)
             throw new Error(usersError.message)
         }
+        if (!updated?.length) throw new Error('No se pudieron guardar los datos del usuario')
     }
 
     // Actualizar user_profiles si hay cambios

@@ -6,11 +6,11 @@
  * Se suscribe a los cambios de autenticación (`subscribeToAuthStateChanges`)
  * para obtener y precargar los datos del perfil.
  * `updateProfile` utiliza `updateAuthUser` del servicio de autenticación para guardar
- * los cambios de nombre/apellido. `changePassword` utiliza el SDK de Supabase
- * para cambiar la contraseña, con validaciones de longitud y coincidencia.
+ * los cambios de nombre/apellido. `changePassword` verifica la contraseña actual
+ * con un re-login y luego la cambia, con validaciones de longitud y coincidencia.
  */
 
-import { subscribeToAuthStateChanges, updateAuthUser } from '../../services/auth'
+import { subscribeToAuthStateChanges, updateAuthUser, changePassword } from '../../services/auth'
 import { supabase } from '../../services/supabase'
 import AdminLayout from '../../components/admin/AdminLayout.vue'
 
@@ -46,7 +46,8 @@ export default {
             profileSuccess: false,
             passwordSuccess: false,
             profileError: '',
-            passwordError: ''
+            passwordError: '',
+            statsError: ''
         }
     },
     methods: {
@@ -57,12 +58,16 @@ export default {
                     supabase.from('products').select('id', { count: 'exact', head: true }).eq('is_active', true)
                 ])
 
+                if (productsRes.error) throw productsRes.error
+                if (activeProductsRes.error) throw activeProductsRes.error
+
                 this.stats.totalProducts = productsRes.count || 0
                 this.stats.activeProducts = activeProductsRes.count || 0
                 this.stats.lastAccess = new Date()
 
             } catch (error) {
                 console.error('Error al cargar estadísticas:', error)
+                this.statsError = 'No se pudieron cargar las estadísticas.'
             }
         },
         async updateProfile() {
@@ -92,24 +97,11 @@ export default {
             this.passwordSuccess = false
             this.passwordError = ''
 
-            if (this.passwordForm.newPassword !== this.passwordForm.confirmPassword) {
-                this.passwordError = 'Las contraseñas no coinciden'
-                return
-            }
-
-            if (this.passwordForm.newPassword.length < 6) {
-                this.passwordError = 'La contraseña debe tener al menos 6 caracteres'
-                return
-            }
-
             try {
                 this.loading = true
 
-                const { error } = await supabase.auth.updateUser({
-                    password: this.passwordForm.newPassword
-                })
-
-                if (error) throw error
+                const { currentPassword, newPassword, confirmPassword } = this.passwordForm
+                await changePassword(currentPassword, newPassword, confirmPassword)
 
                 this.passwordSuccess = true
                 this.passwordForm.currentPassword = ''
@@ -119,7 +111,7 @@ export default {
                 setTimeout(() => { this.passwordSuccess = false }, 3000)
 
             } catch (error) {
-                this.passwordError = error.message || 'Error al cambiar la contraseña'
+                this.passwordError = error.message
             } finally {
                 this.loading = false
             }
@@ -138,11 +130,8 @@ export default {
     mounted() {
         subscribeToAuthStateChanges(newUserState => {
             this.user = newUserState
-            if (newUserState.username) {
-                const parts = newUserState.username.split(' ')
-                this.profileForm.first_name = parts[0] || ''
-                this.profileForm.last_name = parts.slice(1).join(' ') || ''
-            }
+            this.profileForm.first_name = newUserState.first_name || ''
+            this.profileForm.last_name = newUserState.last_name || ''
             this.profileForm.email = newUserState.email || ''
         })
         this.loadAdminStats()

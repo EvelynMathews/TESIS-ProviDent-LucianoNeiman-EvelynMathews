@@ -11,6 +11,10 @@
             <p>Cargando datos...</p>
         </div>
 
+        <div v-else-if="errorMessage" class="alert alert-error">
+            {{ errorMessage }}
+        </div>
+
         <div v-else>
             <div class="stats-grid">
                 <div class="stat-card">
@@ -27,7 +31,7 @@
 
                 <div class="stat-card">
                     <div class="stat-header">
-                        <span class="stat-label">Total Usuarios</span>
+                        <span class="stat-label">Usuarios Registrados</span>
                         <div class="stat-icon users">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2"/>
@@ -64,7 +68,8 @@
                     <p>No hay productos registrados aún</p>
                 </div>
 
-                <table v-else class="products-table">
+                <div v-else class="table-scroll">
+                <table class="products-table">
                     <thead>
                         <tr>
                             <th>Producto</th>
@@ -92,6 +97,7 @@
                         </tr>
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     </AdminLayout>

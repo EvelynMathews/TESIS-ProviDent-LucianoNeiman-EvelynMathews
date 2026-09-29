@@ -8,6 +8,9 @@
 
         <div class="stats-section">
             <h2 class="stats-title">Estadísticas de Administración</h2>
+            <div v-if="statsError" class="alert alert-error">
+                {{ statsError }}
+            </div>
             <div class="stats-grid">
                 <div class="stat-box">
                     <div class="stat-box-icon">
@@ -38,7 +41,7 @@
                         </svg>
                     </div>
                     <div class="stat-box-label">Último Acceso</div>
-                    <div class="stat-box-value" style="font-size: 0.875rem;">{{ formatDate(stats.lastAccess) }}</div>
+                    <div class="stat-box-value stat-box-value-small">{{ formatDate(stats.lastAccess) }}</div>
                 </div>
             </div>
         </div>
@@ -122,6 +125,7 @@
                             type="password"
                             class="form-input"
                             placeholder="Ingrese su contraseña actual"
+                            required
                         />
                         <p class="form-help-text">Por seguridad, ingrese su contraseña actual</p>
                     </div>

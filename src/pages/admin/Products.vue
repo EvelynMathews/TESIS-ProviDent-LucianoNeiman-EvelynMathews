@@ -56,6 +56,10 @@
             </div>
         </div>
 
+        <div v-if="errorMessage" class="alert alert-error">
+            {{ errorMessage }}
+        </div>
+
         <div v-if="loading" class="loading-spinner">
             <p>Cargando productos...</p>
         </div>
@@ -100,6 +104,16 @@
                         <td>{{ formatDate(product.created_at) }}</td>
                         <td>
                             <div class="action-buttons">
+                                <RouterLink
+                                    :to="`/admin/products/${product.id}/edit`"
+                                    class="btn-icon edit"
+                                    title="Editar"
+                                    aria-label="Editar"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" stroke="currentColor" stroke-width="2"/>
+                                    </svg>
+                                </RouterLink>
                                 <button
                                     @click="toggleProductStatus(product)"
                                     class="btn-icon toggle"

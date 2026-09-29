@@ -195,8 +195,8 @@ export async function getProductById(id) {
   const { data, error } = await supabase
     .from('products')
     .select(`
-      id, name, description, product_type, owner_user_id, created_at,
-      supply_products(unit_price, unit_label, stock_qty),
+      id, name, description, product_type, owner_user_id, created_at, is_active,
+      supply_products(unit_price, unit_label, stock_qty, sku),
       prosthesis_products(material_id, manufacturing_days),
       plaster_service_products(base_price, notes, manufacturing_days),
       rental_products(stock_qty, refundable_deposit_amount),
@@ -226,6 +226,7 @@ export async function getProductById(id) {
     name: p.name,
     description: p.description,
     product_type: p.product_type,
+    is_active: p.is_active,
     image,
     seller: {
       id: p.owner_user_id,
@@ -350,21 +351,26 @@ export async function countShippingMethodUsage(methodId) {
   return count || 0
 }
 
+// RLS doesn't return an error when it blocks a write, it just affects 0 rows
 export async function updateProduct(id, fields) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('products')
     .update(fields)
     .eq('id', id)
+    .select('id')
   if (error) throw error
+  if (!data?.length) throw new Error('No tenés permiso para modificar este producto')
   return true
 }
 
 export async function deleteProductById(id) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('products')
     .delete()
     .eq('id', id)
+    .select('id')
   if (error) throw error
+  if (!data?.length) throw new Error('No tenés permiso para eliminar este producto')
   clearCache('products:active')
   clearCache('services:active')
   return true
@@ -590,10 +596,38 @@ export async function createProsthesisProduct({ name, description, imageFile, pr
   return prod.id
 }
 
-export async function updateProsthesisProduct(productId, { name, description, imageFile, pricingMatrix, materialId, deliveryTime, is_active }) {
-  const { data: me, error: uerr } = await supabase.auth.getUser()
-  if (uerr || !me?.user?.id) throw new Error('No auth user')
+// Images live in the owner's folder so the seller keeps access when an admin replaces them
+async function savePrimaryImage(productId, imageFile, altText) {
+  const { data: product, error: ownerErr } = await supabase
+    .from('products')
+    .select('owner_user_id')
+    .eq('id', productId)
+    .single()
+  if (ownerErr) throw ownerErr
 
+  const type = (imageFile.type || 'image/png').toLowerCase()
+  const ext = type.includes('jpeg') ? 'jpg' : type.split('/')[1] || 'png'
+  const storagePath = `${product.owner_user_id}/${productId}.${ext}`
+
+  const { error: upErr } = await supabase.storage
+    .from('product-images')
+    .upload(storagePath, imageFile, { contentType: type, upsert: true })
+  if (upErr) throw upErr
+
+  const { data: existing } = await supabase
+    .from('product_images')
+    .select('id')
+    .eq('product_id', productId)
+    .eq('is_primary', true)
+    .maybeSingle()
+
+  const { error: piErr } = existing
+    ? await supabase.from('product_images').update({ path: storagePath, alt_text: altText }).eq('id', existing.id)
+    : await supabase.from('product_images').insert({ product_id: productId, path: storagePath, alt_text: altText, position: 1, is_primary: true })
+  if (piErr) throw piErr
+}
+
+export async function updateProsthesisProduct(productId, { name, description, imageFile, pricingMatrix, materialId, deliveryTime, is_active }) {
   // Update basic product info
   const productUpdates = {}
   if (name !== undefined) productUpdates.name = name
@@ -601,12 +635,7 @@ export async function updateProsthesisProduct(productId, { name, description, im
   if (is_active !== undefined) productUpdates.is_active = is_active
 
   if (Object.keys(productUpdates).length > 0) {
-    const { error: prodErr } = await supabase
-      .from('products')
-      .update(productUpdates)
-      .eq('id', productId)
-      .eq('owner_user_id', me.user.id) // Security: only owner can update
-    if (prodErr) throw prodErr
+    await updateProduct(productId, productUpdates)
   }
 
   // Update prosthesis-specific fields (material_id and manufacturing_days)
@@ -675,40 +704,8 @@ export async function updateProsthesisProduct(productId, { name, description, im
     }
   }
 
-  // Update image if provided
   if (imageFile) {
-    const type = (imageFile.type || 'image/png').toLowerCase()
-    const ext = type.includes('jpeg') ? 'jpg' : type.split('/')[1] || 'png'
-    const storagePath = `${me.user.id}/${productId}.${ext}`
-
-    // Upload new image (upsert will replace if exists)
-    const { error: upErr } = await supabase.storage
-      .from('product-images')
-      .upload(storagePath, imageFile, { contentType: type, upsert: true })
-    if (upErr) throw upErr
-
-    // Update or insert product_images record
-    const { data: existing } = await supabase
-      .from('product_images')
-      .select('id')
-      .eq('product_id', productId)
-      .eq('is_primary', true)
-      .single()
-
-    if (existing) {
-      // Update existing
-      const { error: piErr } = await supabase
-        .from('product_images')
-        .update({ path: storagePath, alt_text: name })
-        .eq('id', existing.id)
-      if (piErr) throw piErr
-    } else {
-      // Insert new
-      const { error: piErr } = await supabase
-        .from('product_images')
-        .insert({ product_id: productId, path: storagePath, alt_text: name, position: 1, is_primary: true })
-      if (piErr) throw piErr
-    }
+    await savePrimaryImage(productId, imageFile, name)
   }
 
   clearCache('services:active')
@@ -716,9 +713,6 @@ export async function updateProsthesisProduct(productId, { name, description, im
 }
 
 export async function updateSupplyProduct(productId, { name, description, unit_price, unit_label, stock_qty, sku, imageFile, is_active }) {
-  const { data: me, error: uerr } = await supabase.auth.getUser()
-  if (uerr || !me?.user?.id) throw new Error('No auth user')
-
   // Update basic product info
   const productUpdates = {}
   if (name !== undefined) productUpdates.name = name
@@ -726,12 +720,7 @@ export async function updateSupplyProduct(productId, { name, description, unit_p
   if (is_active !== undefined) productUpdates.is_active = is_active
 
   if (Object.keys(productUpdates).length > 0) {
-    const { error: prodErr } = await supabase
-      .from('products')
-      .update(productUpdates)
-      .eq('id', productId)
-      .eq('owner_user_id', me.user.id)
-    if (prodErr) throw prodErr
+    await updateProduct(productId, productUpdates)
   }
 
   // Update supply-specific fields
@@ -749,36 +738,8 @@ export async function updateSupplyProduct(productId, { name, description, unit_p
     if (supErr) throw supErr
   }
 
-  // Update image if provided
   if (imageFile) {
-    const type = (imageFile.type || 'image/png').toLowerCase()
-    const ext = type.includes('jpeg') ? 'jpg' : type.split('/')[1] || 'png'
-    const storagePath = `${me.user.id}/${productId}.${ext}`
-
-    const { error: upErr } = await supabase.storage
-      .from('product-images')
-      .upload(storagePath, imageFile, { contentType: type, upsert: true })
-    if (upErr) throw upErr
-
-    const { data: existing } = await supabase
-      .from('product_images')
-      .select('id')
-      .eq('product_id', productId)
-      .eq('is_primary', true)
-      .single()
-
-    if (existing) {
-      const { error: piErr } = await supabase
-        .from('product_images')
-        .update({ path: storagePath, alt_text: name })
-        .eq('id', existing.id)
-      if (piErr) throw piErr
-    } else {
-      const { error: piErr } = await supabase
-        .from('product_images')
-        .insert({ product_id: productId, path: storagePath, alt_text: name, position: 1, is_primary: true })
-      if (piErr) throw piErr
-    }
+    await savePrimaryImage(productId, imageFile, name)
   }
 
   clearCache('products:active')
@@ -786,9 +747,6 @@ export async function updateSupplyProduct(productId, { name, description, unit_p
 }
 
 export async function updatePlasterServiceProduct(productId, { name, description, base_price, deliveryTime, imageFile, is_active }) {
-  const { data: me, error: uerr } = await supabase.auth.getUser()
-  if (uerr || !me?.user?.id) throw new Error('No auth user')
-
   // Update basic product info
   const productUpdates = {}
   if (name !== undefined) productUpdates.name = name
@@ -796,12 +754,7 @@ export async function updatePlasterServiceProduct(productId, { name, description
   if (is_active !== undefined) productUpdates.is_active = is_active
 
   if (Object.keys(productUpdates).length > 0) {
-    const { error: prodErr } = await supabase
-      .from('products')
-      .update(productUpdates)
-      .eq('id', productId)
-      .eq('owner_user_id', me.user.id)
-    if (prodErr) throw prodErr
+    await updateProduct(productId, productUpdates)
   }
 
   // Update plaster service specific fields
@@ -817,36 +770,8 @@ export async function updatePlasterServiceProduct(productId, { name, description
     if (plErr) throw plErr
   }
 
-  // Update image if provided
   if (imageFile) {
-    const type = (imageFile.type || 'image/png').toLowerCase()
-    const ext = type.includes('jpeg') ? 'jpg' : type.split('/')[1] || 'png'
-    const storagePath = `${me.user.id}/${productId}.${ext}`
-
-    const { error: upErr } = await supabase.storage
-      .from('product-images')
-      .upload(storagePath, imageFile, { contentType: type, upsert: true })
-    if (upErr) throw upErr
-
-    const { data: existing } = await supabase
-      .from('product_images')
-      .select('id')
-      .eq('product_id', productId)
-      .eq('is_primary', true)
-      .single()
-
-    if (existing) {
-      const { error: piErr } = await supabase
-        .from('product_images')
-        .update({ path: storagePath, alt_text: name })
-        .eq('id', existing.id)
-      if (piErr) throw piErr
-    } else {
-      const { error: piErr } = await supabase
-        .from('product_images')
-        .insert({ product_id: productId, path: storagePath, alt_text: name, position: 1, is_primary: true })
-      if (piErr) throw piErr
-    }
+    await savePrimaryImage(productId, imageFile, name)
   }
 
   clearCache('services:active')
@@ -854,9 +779,6 @@ export async function updatePlasterServiceProduct(productId, { name, description
 }
 
 export async function updateRentalProduct(productId, { name, description, stock_qty, priceDay, priceWeek, priceMonth, imageFile, is_active }) {
-  const { data: me, error: uerr } = await supabase.auth.getUser()
-  if (uerr || !me?.user?.id) throw new Error('No auth user')
-
   // Update basic product info
   const productUpdates = {}
   if (name !== undefined) productUpdates.name = name
@@ -864,12 +786,7 @@ export async function updateRentalProduct(productId, { name, description, stock_
   if (is_active !== undefined) productUpdates.is_active = is_active
 
   if (Object.keys(productUpdates).length > 0) {
-    const { error: prodErr } = await supabase
-      .from('products')
-      .update(productUpdates)
-      .eq('id', productId)
-      .eq('owner_user_id', me.user.id)
-    if (prodErr) throw prodErr
+    await updateProduct(productId, productUpdates)
   }
 
   // Update rental specific fields
@@ -904,36 +821,8 @@ export async function updateRentalProduct(productId, { name, description, stock_
     }
   }
 
-  // Update image if provided
   if (imageFile) {
-    const type = (imageFile.type || 'image/png').toLowerCase()
-    const ext = type.includes('jpeg') ? 'jpg' : type.split('/')[1] || 'png'
-    const storagePath = `${me.user.id}/${productId}.${ext}`
-
-    const { error: upErr } = await supabase.storage
-      .from('product-images')
-      .upload(storagePath, imageFile, { contentType: type, upsert: true })
-    if (upErr) throw upErr
-
-    const { data: existing } = await supabase
-      .from('product_images')
-      .select('id')
-      .eq('product_id', productId)
-      .eq('is_primary', true)
-      .single()
-
-    if (existing) {
-      const { error: piErr } = await supabase
-        .from('product_images')
-        .update({ path: storagePath, alt_text: name })
-        .eq('id', existing.id)
-      if (piErr) throw piErr
-    } else {
-      const { error: piErr } = await supabase
-        .from('product_images')
-        .insert({ product_id: productId, path: storagePath, alt_text: name, position: 1, is_primary: true })
-      if (piErr) throw piErr
-    }
+    await savePrimaryImage(productId, imageFile, name)
   }
 
   clearCache('services:active')
@@ -1007,6 +896,40 @@ export async function createRentalProduct({ name, description, stock_qty, priceD
 }
 
 // Catalog loaders
+export async function pricingMatrixFromRows(rows = []) {
+  const matrix = {
+    corona_total: { anterior: '', premolar: '', molar: '' },
+    carilla: { anterior: '', premolar: '', molar: '' },
+    incrustacion: { anterior: '', premolar: '', molar: '' },
+    puente: { anterior: '', premolar: '', molar: '' },
+  }
+  if (rows.length === 0) return matrix
+
+  const [workTypes, toothGroups] = await Promise.all([loadWorkTypes(), loadToothGroups()])
+  const workKey = (name) => {
+    const n = name.toLowerCase()
+    if (n.includes('corona')) return 'corona_total'
+    if (n.includes('carilla')) return 'carilla'
+    if (n.includes('incrusta')) return 'incrustacion'
+    if (n.includes('puente')) return 'puente'
+  }
+  const groupKey = (name) => {
+    const n = name.toLowerCase()
+    if (n.includes('anterior')) return 'anterior'
+    if (n.includes('premolar')) return 'premolar'
+    if (n.includes('molar')) return 'molar'
+  }
+  const workById = Object.fromEntries(workTypes.map(wt => [wt.id, workKey(wt.name)]))
+  const groupById = Object.fromEntries(toothGroups.map(tg => [tg.id, groupKey(tg.name)]))
+
+  rows.forEach(row => {
+    const w = workById[row.work_type_id]
+    const g = groupById[row.tooth_group_id]
+    if (w && g) matrix[w][g] = row.unit_price
+  })
+  return matrix
+}
+
 export async function loadMaterials() {
   const { data, error } = await supabase
     .from('materials')
