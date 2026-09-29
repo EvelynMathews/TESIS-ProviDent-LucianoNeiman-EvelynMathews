@@ -94,10 +94,11 @@ BEGIN
   -- Products owned by seller (cascades product children via product trigger)
   DELETE FROM public.products WHERE owner_user_id = p_user;
 
-  -- Shipping profiles and related
-  DELETE FROM public.shipping_rates       WHERE profile_id IN (SELECT id FROM public.shipping_profiles WHERE seller_user_id = p_user);
-  DELETE FROM public.shipping_zones       WHERE profile_id IN (SELECT id FROM public.shipping_profiles WHERE seller_user_id = p_user);
-  DELETE FROM public.shipping_profiles    WHERE seller_user_id = p_user;
+  -- Shipping methods (zones and rates cascade)
+  DELETE FROM public.shipping_methods     WHERE seller_user_id = p_user;
+
+  -- Payment accounts
+  DELETE FROM public.payment_accounts     WHERE user_id = p_user;
 
   -- Buyer related artifacts
   DELETE FROM public.cart_items           WHERE cart_id IN (SELECT id FROM public.carts WHERE buyer_user_id = p_user);
@@ -316,3 +317,28 @@ SELECT
 FROM public.users u
 LEFT JOIN public.user_profiles p ON p.user_id = u.id
 WHERE COALESCE(p.is_public, true) = true;
+
+-- Users can delete their own account (blocked if they have orders or sales)
+CREATE OR REPLACE FUNCTION public.delete_own_account()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  uid uuid := auth.uid();
+BEGIN
+  IF uid IS NULL THEN
+    RAISE EXCEPTION 'not_authenticated';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.orders WHERE buyer_user_id = uid)
+     OR EXISTS (
+       SELECT 1 FROM public.order_items oi
+       JOIN public.products p ON p.id = oi.product_id
+       WHERE p.owner_user_id = uid
+     ) THEN
+    RAISE EXCEPTION 'has_orders';
+  END IF;
+
+  DELETE FROM auth.users WHERE id = uid;
+END $$;
+
+REVOKE ALL ON FUNCTION public.delete_own_account() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.delete_own_account() TO authenticated;
