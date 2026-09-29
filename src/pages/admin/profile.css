@@ -45,6 +45,10 @@
     color: #1F2937;
 }
 
+.stat-box-value-small {
+    font-size: 0.875rem;
+}
+
 .stat-box-icon {
     margin-bottom: 0.5rem;
     color: #2A6FAF;
