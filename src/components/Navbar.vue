@@ -126,7 +126,7 @@ export default {
                     <path fill="#2a6faf" d="M296.5,116.9c-8.4,3.8-13.2,12.4-12.1,21.5,1.2,10.3,9.4,17.6,19.9,17.6,9.1,0,15.8-4.3,19.2-12.2,6.9-16.7-10.7-34.3-27-26.9Z"/>
                     <path fill="#2a6faf" d="M212.5,155.9c-4.4,1.1-9,3.7-13,7.2-3.5,3.1-3.6,3.1-6.9,1.5-4.6-2.2-9.1-2-14.3.5-16.4,7.9-20.2,34.5-7.6,53.1,2.5,3.7,3.2,6.1,4.1,14.4,1.5,13.3,4.9,24.5,10.3,34,4.9,8.6,14.4,19,18.4,20,4.9,1.2,5.1-.8,1.1-11.1-2-5.3-4.3-12.6-5-16.3-1.6-7.3-3.1-22.2-2.4-22.2.3,0,1.9.5,3.6,1.1,2.7.9,3.2,1.6,3.7,5.7,2,17,5.1,28.7,9.5,35.6,4.9,7.7,10.9,10.1,17,6.8,5.1-2.8,6.8-6.5,8.4-18.3,2.2-15.6,6.1-23.2,10.1-19.9,2.1,1.7,5.2,12.2,6.5,22.1.6,4.6,1.8,9.5,2.6,11.1,3.2,6.3,11.3,8.1,17.1,4,3.8-2.7,9.5-13.8,11.8-22.7.8-3.3,2-9.8,2.5-14.4.5-4.7,1.3-8.8,1.7-9.1.5-.4,2.1-1,3.6-1.4l2.9-.7-.7,6.8c-1.1,11.8-2.6,18.5-6.2,28.8-1.9,5.5-3.6,10.9-3.6,12-.5,5.6,8.4.6,16-9.1,9.1-11.7,14.3-25.2,16.3-42,1-8.3,1.7-10.8,4.6-15.4,5.5-9.1,6.7-13.4,6.8-24.5,0-8.4-.3-10.8-2.3-15.2-2.7-6.2-9.2-12.5-14.6-14.3-4.4-1.5-11.2-.8-13.3,1.4-1.4,1.3-1.9,1.1-5.5-2-9.8-8.3-19.3-10-33.2-5.9-13.4,4-17.6,4.1-27.1,1.1-8.9-2.8-18.2-4-22.9-2.7ZM226.5,166.1c2.2.6,8.2,2.9,13.3,5.1,10.5,4.4,18.6,5.8,21.6,3.6,1.8-1.4,1.8-1.5-.3-3.5l-2.3-2.1,4.9-1.6c14.4-4.7,24-1.9,29.4,8.6,6.7,13.1,3.2,31.1-8.1,41-3.6,3.3-4,3.9-2,3.3,5-1.5,11.6-5.4,16.5-9.6,4.5-4,4.7-4.1,2.7-1.2-3.6,5-10.6,10.7-18.3,14.8-3.8,2-7.5,4.7-8,5.9-1.5,3.1.4,7.4,3.6,8.2,2.3.6,2.5,1,2,4.3-2.9,18-6.8,30.2-10.7,33.7-1.9,1.8-2,1.8-3.3,0-.8-1-1.7-4.4-2-7.5-1.8-15.1-6.3-27.4-11.5-31.1-3.6-2.6-9.9-2.6-13.2-.1-5.3,4.2-9,14.8-11.3,32.2-.3,2.6-1.2,5.5-2,6.5-1.3,1.8-1.4,1.8-3.4,0-3.5-3.2-9-20-10.6-32.4-.6-4.2-.4-5.2.8-5.2,2.5,0,4.9-3.6,4.5-7.1-.3-3-1-3.8-7.8-7.5-7.7-4.2-17.2-12-19.2-15.8-.7-1.3.7-.4,3.5,2.1,4.4,4,11.5,8.2,16.7,9.8,2,.6,1.6,0-2-3.3-7-6.1-10.3-13-10.8-22.5-.6-10.9,1-17.6,5.6-22.7,5.6-6.2,13.1-8.3,21.7-5.9Z"/>
                 </svg>
-                <span class="text-2xl font-bold hover:opacity-80 transition hidden sm:block" style="color: #2A6FAF;">
+                <span class="text-2xl font-bold hover:opacity-80 transition hidden sm:block text-primary">
                     ProviDent
                 </span>
             </RouterLink>
@@ -151,7 +151,7 @@ export default {
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
                         </svg>
-                        <span class="absolute -top-1 -right-1 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center" style="background-color: #2A6FAF;">{{ cartCount }}</span>
+                        <span class="absolute -top-1 -right-1 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center bg-primary">{{ cartCount }}</span>
                     </button>
                     <MiniCart v-if="showMiniCart" @click.stop />
                 </div>
@@ -169,6 +169,11 @@ export default {
                             class="px-4 py-2 text-gray-700 font-medium hover:text-sky-600 transition"
                             active-class="text-sky-600">
                             Productos
+                        </RouterLink>
+                        <RouterLink to="/soporte"
+                            class="px-4 py-2 text-gray-700 font-medium hover:text-sky-600 transition"
+                            active-class="text-sky-600">
+                            Soporte
                         </RouterLink>
                         <RouterLink to="/login"
                             class="px-4 py-2 text-gray-700 font-medium hover:text-sky-600 transition">
@@ -196,7 +201,7 @@ export default {
                             active-class="text-sky-600">
                             Métodos de envío
                         </RouterLink>
-                        <RouterLink to="/chat"
+                        <RouterLink to="/soporte"
                             class="px-4 py-2 text-gray-700 font-medium hover:text-sky-600 transition"
                             active-class="text-sky-600">
                             Soporte
@@ -241,6 +246,13 @@ export default {
                             Carrito
                         </RouterLink>
                     </li>
+                    <li>
+                        <RouterLink to="/soporte" @click="mobileMenuOpen = false"
+                            class="block py-2 px-3 text-gray-700 rounded hover:bg-gray-100 transition"
+                            active-class="text-sky-600 bg-sky-50">
+                            Soporte
+                        </RouterLink>
+                    </li>
 
                     <template v-if="user.id === null">
                         <li>
@@ -263,13 +275,6 @@ export default {
                                 class="block py-2 px-3 text-gray-700 rounded hover:bg-gray-100 transition"
                                 active-class="text-sky-600 bg-sky-50">
                                 Mis productos
-                            </RouterLink>
-                        </li>
-                        <li>
-                            <RouterLink to="/chat" @click="mobileMenuOpen = false"
-                                class="block py-2 px-3 text-gray-700 rounded hover:bg-gray-100 transition"
-                                active-class="text-sky-600 bg-sky-50">
-                                Soporte
                             </RouterLink>
                         </li>
                         <li>
