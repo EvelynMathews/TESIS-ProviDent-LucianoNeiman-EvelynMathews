@@ -4,21 +4,25 @@
  * Propósito: Autenticar usuarios y restringir el acceso al panel de administración
  * solo a aquellos que tienen el rol 'admin'.
  * Funcionamiento: Llama a `supabase.auth.signInWithPassword`. Si el login es exitoso,
- * verifica el `user_metadata.role`. Si el rol NO es 'admin', cierra inmediatamente
- * la sesión para evitar accesos no autorizados y muestra un error. Si es 'admin',
+ * consulta `isAdmin` (tabla `user_roles`). Si NO es admin, cierra inmediatamente
+ * la sesión para evitar accesos no autorizados y muestra un error. Si es admin,
  * redirige al dashboard. También verifica si ya existe una sesión de admin al montarse.
  */
 import { supabase } from '../../services/supabase'
+import { isAdmin } from '../../services/admin'
+import ForgotPasswordModal from '../../components/ForgotPasswordModal.vue'
 
 export default {
     name: 'AdminLogin',
+    components: { ForgotPasswordModal },
     data() {
         return {
             email: '',
             password: '',
             rememberMe: false,
             loading: false,
-            error: ''
+            error: '',
+            showForgotPassword: false
         }
     },
     methods: {
@@ -34,13 +38,11 @@ export default {
 
                 if (error) throw error
 
-                // Verificar que el usuario tenga role admin en user_metadata
-                const role = data.user?.user_metadata?.role
+                const admin = await isAdmin(data.user.id).catch(() => false)
 
-                if (role !== 'admin') {
+                if (!admin) {
                     await supabase.auth.signOut()
                     this.error = 'No tienes permisos para acceder al panel de administración.'
-                    this.loading = false
                     return
                 }
 
@@ -58,11 +60,8 @@ export default {
     async mounted() {
         // Si ya está logueado como admin, redirigir al dashboard
         const { data } = await supabase.auth.getUser()
-        if (data?.user) {
-            const role = data.user.user_metadata?.role
-            if (role === 'admin') {
-                this.$router.push('/admin/dashboard')
-            }
+        if (data?.user && await isAdmin(data.user.id).catch(() => false)) {
+            this.$router.push('/admin/dashboard')
         }
     }
 }
@@ -115,7 +114,7 @@ export default {
                     />
                 </div>
 
-                <div class="form-group">
+                <div class="form-group form-options">
                     <div class="form-checkbox-group">
                         <input
                             id="rememberMe"
@@ -127,6 +126,9 @@ export default {
                             Recordarme
                         </label>
                     </div>
+                    <button type="button" class="forgot-link" @click="showForgotPassword = true">
+                        ¿Olvidaste tu contraseña?
+                    </button>
                 </div>
 
                 <button type="submit" class="btn-primary" :disabled="loading">
@@ -138,6 +140,10 @@ export default {
                 <RouterLink to="/">Volver al sitio público</RouterLink>
             </div>
         </div>
+
+        <ForgotPasswordModal v-if="showForgotPassword"
+            message="Por seguridad no guardamos tu contraseña. Pedile a otro administrador que te asigne una nueva o escribí a soporte."
+            @close="showForgotPassword = false" />
     </div>
 </template>
 
@@ -220,6 +226,28 @@ export default {
     outline: none;
     border-color: #2A6FAF;
     box-shadow: 0 0 0 3px rgba(42, 111, 175, 0.1);
+}
+
+.form-options {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.forgot-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #2A6FAF;
+    cursor: pointer;
+}
+
+.forgot-link:hover {
+    text-decoration: underline;
 }
 
 .form-checkbox-group {

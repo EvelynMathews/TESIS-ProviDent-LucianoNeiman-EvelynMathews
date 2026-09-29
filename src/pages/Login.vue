@@ -5,9 +5,11 @@
  * Cómo funciona: Captura el `email` y `password` del formulario y llama a la función `login` de `auth.js`. Si el proceso es exitoso, redirige al usuario a la página de su perfil (`/mi-perfil`). Maneja y muestra un `errorMessage` en caso de fallo de autenticación o credenciales incorrectas.
  */
 import { login } from '../services/auth'
+import ForgotPasswordModal from '../components/ForgotPasswordModal.vue'
 
 export default {
     name: 'Login',
+    components: { ForgotPasswordModal },
     data() {
         return {
             user: {
@@ -16,6 +18,7 @@ export default {
             },
             loading: false,
             errorMessage: '',
+            showForgotPassword: false,
         }
     },
     methods: {
@@ -25,7 +28,7 @@ export default {
 
             try {
                 await login(this.user.email, this.user.password)
-                this.$router.push('/mi-perfil')
+                this.$router.push(this.$route.query.redirect || '/mi-perfil')
             } catch (error) {
                 this.errorMessage = 'Credenciales incorrectas o error al iniciar sesión.'
             } finally {
@@ -40,8 +43,7 @@ export default {
     <section class="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 pt-24">
         <div class="max-w-md w-full">
             <div class="text-center mb-8">
-                <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center shadow-lg"
-                    style="background: linear-gradient(135deg, #2A6FAF 0%, #29A68C 100%);">
+                <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center shadow-lg bg-linear-135 from-primary to-secondary">
                     <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                     </svg>
@@ -78,15 +80,15 @@ export default {
                     </div>
 
                     <button type="submit" :disabled="loading"
-                        class="w-full py-3 px-4 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90 disabled:opacity-50"
-                        style="background-color: #2A6FAF;">
+                        class="w-full py-3 px-4 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90 disabled:opacity-50 bg-primary">
                         {{ loading ? 'Ingresando...' : 'Ingresar' }}
                     </button>
 
                     <div class="text-center">
-                        <a href="#" class="text-sm font-semibold hover:underline" style="color: #2A6FAF;">
+                        <button type="button" @click="showForgotPassword = true"
+                            class="text-sm font-semibold text-primary hover:underline">
                             ¿Olvidaste tu contraseña?
-                        </a>
+                        </button>
                     </div>
                 </form>
             </div>
@@ -94,11 +96,15 @@ export default {
             <div class="mt-6 text-center">
                 <p class="text-gray-600">
                     ¿No tenés cuenta?
-                    <RouterLink to="/register" class="font-semibold hover:underline" style="color: #29A68C;">
+                    <RouterLink to="/register" class="font-semibold hover:underline text-secondary">
                         Registrate gratis
                     </RouterLink>
                 </p>
             </div>
         </div>
+
+        <ForgotPasswordModal v-if="showForgotPassword"
+            message="Por seguridad no guardamos tu contraseña. Escribinos desde el email con el que te registraste y te asignamos una nueva."
+            @close="showForgotPassword = false" />
     </section>
 </template>
