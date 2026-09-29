@@ -11,10 +11,12 @@
 <script>
 import Footer from './components/Footer.vue';
 import Navbar from './components/Navbar.vue';
+import ToastContainer from './components/ToastContainer.vue';
+import WhatsAppButton from './components/WhatsAppButton.vue';
 
 export default {
   name: 'App',
-  components: { Navbar, Footer },
+  components: { Navbar, Footer, ToastContainer, WhatsAppButton },
   computed: {
     isAdminRoute() {
       return this.$route.path.startsWith('/admin')
@@ -24,10 +26,10 @@ export default {
 </script>
 
 <template>
-  <div v-if="isAdminRoute" class="min-h-screen">
+  <div v-if="isAdminRoute" class="min-h-screen min-w-0">
     <RouterView />
   </div>
-  <div v-else class="min-h-screen bg-gray-50 flex flex-col">
+  <div v-else class="min-h-screen min-w-0 bg-gray-50 flex flex-col">
     <header>
       <Navbar />
     </header>
@@ -35,5 +37,7 @@ export default {
       <RouterView />
     </main>
     <Footer />
+    <WhatsAppButton />
   </div>
+  <ToastContainer />
 </template>
