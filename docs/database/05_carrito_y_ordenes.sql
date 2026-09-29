@@ -64,8 +64,23 @@ CREATE POLICY "Buyers can update own orders" ON public.orders FOR UPDATE USING (
 DROP POLICY IF EXISTS "Admins can read all orders" ON public.orders;
 CREATE POLICY "Admins can read all orders" ON public.orders FOR SELECT USING (EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='ADMIN'));
 
+-- Helpers avoid infinite recursion between orders and order_items policies
+CREATE OR REPLACE FUNCTION public.is_order_buyer(_order_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM public.orders o WHERE o.id = _order_id AND o.buyer_user_id = auth.uid());
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_order_seller(_order_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.order_items oi
+    JOIN public.products p ON p.id = oi.product_id
+    WHERE oi.order_id = _order_id AND p.owner_user_id = auth.uid()
+  );
+$$;
+
 DROP POLICY IF EXISTS "Buyers can read items of own orders" ON public.order_items;
-CREATE POLICY "Buyers can read items of own orders" ON public.order_items FOR SELECT USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id=order_id AND o.buyer_user_id=auth.uid()));
+CREATE POLICY "Buyers can read items of own orders" ON public.order_items FOR SELECT USING (public.is_order_buyer(order_id));
 DROP POLICY IF EXISTS "Admins can read all order items" ON public.order_items;
 CREATE POLICY "Admins can read all order items" ON public.order_items FOR SELECT USING (EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id=auth.uid() AND r.role='ADMIN'));
 
@@ -74,12 +89,7 @@ DROP POLICY IF EXISTS "Sellers can read items of own products" ON public.order_i
 CREATE POLICY "Sellers can read items of own products" ON public.order_items FOR SELECT USING (EXISTS (SELECT 1 FROM public.products p WHERE p.id=public.order_items.product_id AND p.owner_user_id=auth.uid()));
 
 DROP POLICY IF EXISTS "Sellers can read orders with own products" ON public.orders;
-CREATE POLICY "Sellers can read orders with own products" ON public.orders FOR SELECT USING (
-  EXISTS (
-    SELECT 1 FROM public.order_items oi JOIN public.products p ON p.id=oi.product_id
-    WHERE oi.order_id = public.orders.id AND p.owner_user_id = auth.uid()
-  )
-);
+CREATE POLICY "Sellers can read orders with own products" ON public.orders FOR SELECT USING (public.is_order_seller(id));
 
 -- Cross-visibility: addresses
 DROP POLICY IF EXISTS "Sellers can read addresses of their orders" ON public.addresses;
