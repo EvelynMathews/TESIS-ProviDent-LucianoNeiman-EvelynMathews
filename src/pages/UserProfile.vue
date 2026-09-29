@@ -128,7 +128,7 @@ export default {
 </script>
 
 <template>
-    <section class="pt-20 min-h-screen pb-12 relative overflow-hidden" style="background-color: #F5FEFF;">
+    <section class="pt-20 min-h-screen pb-12 relative overflow-hidden bg-surface">
         <div class="organic-shape organic-shape-1"></div>
         <div class="organic-shape organic-shape-2"></div>
         <div class="organic-shape organic-shape-3"></div>
@@ -152,12 +152,12 @@ export default {
             </div>
 
             <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-                <div class="h-32" style="background: linear-gradient(135deg, #A4C5DF 0%, #D4F4EC 50%, #F8E8E2 100%);"></div>
+                <div class="h-32 bg-linear-135 from-primary-soft via-secondary-soft to-accent-soft"></div>
                 <div class="px-6 pb-6">
                     <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6 -mt-16">
-                        <div class="w-32 h-32 rounded-full overflow-hidden shadow-lg flex-shrink-0 border-4 border-white" style="background-color: #E3EEF8;">
+                        <div class="w-32 h-32 rounded-full overflow-hidden shadow-lg flex-shrink-0 border-4 border-white bg-primary-50">
                             <img v-if="user.avatar_url" :src="user.avatar_url" alt="Avatar" class="w-full h-full object-cover" />
-                            <div v-else class="w-full h-full flex items-center justify-center text-4xl font-bold" style="color: #2A6FAF;">
+                            <div v-else class="w-full h-full flex items-center justify-center text-4xl font-bold text-primary">
                                 {{ user.username ? user.username.charAt(0).toUpperCase() : '?' }}
                             </div>
                         </div>
@@ -167,8 +167,7 @@ export default {
                                 {{ user.username }}
                             </h1>
                             <div class="flex flex-wrap gap-2 justify-center sm:justify-start mb-2">
-                                <span class="px-3 py-1 text-sm font-semibold rounded-full text-white shadow-md"
-                                    style="background: linear-gradient(135deg, #2A6FAF 0%, #29A68C 100%);">
+                                <span class="px-3 py-1 text-sm font-semibold rounded-full text-white shadow-md bg-linear-135 from-primary to-secondary">
                                     Vendedor
                                 </span>
                             </div>
@@ -196,7 +195,7 @@ export default {
                                 class="w-full h-48 object-cover" />
                             <div class="p-4">
                                 <h3 class="font-semibold text-gray-800 text-sm mb-2 line-clamp-2">{{ product.name }}</h3>
-                                <p class="text-2xl font-bold mb-1" style="color: #29A68C;">${{ formatPrice(product.price) }}</p>
+                                <p class="text-2xl font-bold mb-1 text-secondary">${{ formatPrice(product.price) }}</p>
                                 <p class="text-xs text-gray-500">{{ product.unit || 'unidad' }}</p>
 
                                 <div v-if="product.stock > 0" class="mt-2">
@@ -211,8 +210,8 @@ export default {
                 </div>
 
                 <div v-else class="text-center py-16 space-y-4">
-                    <div class="w-16 h-16 mx-auto rounded-full flex items-center justify-center" style="background-color: #E3EEF8;">
-                        <svg class="w-8 h-8" style="color: #2A6FAF;" fill="currentColor" viewBox="0 0 20 20">
+                    <div class="w-16 h-16 mx-auto rounded-full flex items-center justify-center bg-primary-50">
+                        <svg class="w-8 h-8 text-primary" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"></path>
                         </svg>
                     </div>

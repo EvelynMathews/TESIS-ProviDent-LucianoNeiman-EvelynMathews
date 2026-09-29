@@ -450,16 +450,16 @@ export default {
             <!-- Progress Bar -->
             <div v-if="!published && !previewMode" class="mb-8">
                 <div class="flex items-center justify-between mb-2">
-                    <span class="text-sm font-semibold" style="color: #2A6FAF;">
+                    <span class="text-sm font-semibold text-primary">
                         Paso {{ currentStep }} de {{ totalSteps }}
                     </span>
-                    <span class="text-sm font-semibold" style="color: #29A68C;">
+                    <span class="text-sm font-semibold text-secondary">
                         {{ Math.round(progressPercentage) }}% completado
                     </span>
                 </div>
                 <div class="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                    <div class="h-full transition-all duration-300 rounded-full"
-                        :style="{ width: progressPercentage + '%', background: 'linear-gradient(90deg, #2A6FAF 0%, #29A68C 100%)' }">
+                    <div class="h-full transition-all duration-300 rounded-full bg-linear-90 from-primary to-secondary"
+                        :style="{ width: progressPercentage + '%' }">
                     </div>
                 </div>
             </div>
@@ -467,8 +467,7 @@ export default {
             <!-- Step 1: Choose Publication Type -->
             <div v-if="currentStep === 1 && !previewMode" class="bg-white rounded-lg shadow-md p-8">
                 <div class="text-center mb-8">
-                    <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center"
-                        style="background: linear-gradient(135deg, #2A6FAF 0%, #29A68C 100%);">
+                    <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center bg-linear-135 from-primary to-secondary">
                         <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 20 20">
                             <path
                                 d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z">
@@ -482,14 +481,13 @@ export default {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div @click="selectPublicationType('product')" @keyup.enter="selectPublicationType('product')"
                         role="button" tabindex="0"
-                        class="p-8 border-2 rounded-lg transition-all hover:shadow-lg group cursor-pointer"
-                        :class="publicationType === 'product' ? 'border-primary bg-blue-50' : 'border-gray-200 hover:border-primary'"
-                        style="border-color: #2A6FAF;">
+                        class="p-8 border-2 border-primary rounded-lg transition-all hover:shadow-lg group cursor-pointer"
+                        :class="{ 'bg-blue-50': publicationType === 'product' }">
                         <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center transition-all"
-                            :style="{ backgroundColor: publicationType === 'product' ? '#2A6FAF' : '#E3EEF8' }">
+                            :class="publicationType === 'product' ? 'bg-primary' : 'bg-primary-50'">
                             <svg class="w-8 h-8 transition-colors"
                                 :class="publicationType === 'product' ? 'text-white' : 'text-primary'"
-                                style="color: #2A6FAF;" fill="currentColor" viewBox="0 0 20 20">
+                                fill="currentColor" viewBox="0 0 20 20">
                                 <path
                                     d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z">
                                 </path>
@@ -502,14 +500,13 @@ export default {
 
                     <div @click="selectPublicationType('service')" @keyup.enter="selectPublicationType('service')"
                         role="button" tabindex="0"
-                        class="p-8 border-2 rounded-lg transition-all hover:shadow-lg group cursor-pointer"
-                        :class="publicationType === 'service' ? 'border-secondary bg-teal-50' : 'border-gray-200 hover:border-secondary'"
-                        style="border-color: #29A68C;">
+                        class="p-8 border-2 border-secondary rounded-lg transition-all hover:shadow-lg group cursor-pointer"
+                        :class="{ 'bg-teal-50': publicationType === 'service' }">
                         <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center transition-all"
-                            :style="{ backgroundColor: publicationType === 'service' ? '#29A68C' : '#D4F4EC' }">
+                            :class="publicationType === 'service' ? 'bg-secondary' : 'bg-secondary-soft'">
                             <svg class="w-8 h-8 transition-colors"
                                 :class="publicationType === 'service' ? 'text-white' : 'text-secondary'"
-                                style="color: #29A68C;" fill="currentColor" viewBox="0 0 20 20">
+                                fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd"
                                     d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z"
                                     clip-rule="evenodd"></path>
@@ -535,12 +532,10 @@ export default {
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div @click="selectServiceType('prosthesis')" @keyup.enter="selectServiceType('prosthesis')"
                         role="button" tabindex="0"
-                        class="p-6 border-2 rounded-lg transition-all hover:shadow-lg cursor-pointer"
-                        :class="serviceType === 'prosthesis' ? 'bg-blue-50' : 'hover:border-primary'"
-                        style="border-color: #2A6FAF;">
-                        <div class="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center"
-                            style="background-color: #E3EEF8;">
-                            <svg class="w-6 h-6" style="color: #2A6FAF;" fill="currentColor" viewBox="0 0 20 20">
+                        class="p-6 border-2 rounded-lg transition-all hover:shadow-lg cursor-pointer border-primary"
+                        :class="{ 'bg-blue-50': serviceType === 'prosthesis' }">
+                        <div class="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center bg-primary-50">
+                            <svg class="w-6 h-6 text-primary" fill="currentColor" viewBox="0 0 20 20">
                                 <path
                                     d="M10 2a8 8 0 100 16 8 8 0 000-16zM8 9a1 1 0 100-2 1 1 0 000 2zm4 0a1 1 0 100-2 1 1 0 000 2zm-5 4a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z">
                                 </path>
@@ -552,12 +547,10 @@ export default {
 
                     <div @click="selectServiceType('plaster')" @keyup.enter="selectServiceType('plaster')"
                         role="button" tabindex="0"
-                        class="p-6 border-2 rounded-lg transition-all hover:shadow-lg cursor-pointer"
-                        :class="serviceType === 'plaster' ? 'bg-teal-50' : 'hover:border-secondary'"
-                        style="border-color: #29A68C;">
-                        <div class="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center"
-                            style="background-color: #D4F4EC;">
-                            <svg class="w-6 h-6" style="color: #29A68C;" fill="currentColor" viewBox="0 0 20 20">
+                        class="p-6 border-2 rounded-lg transition-all hover:shadow-lg cursor-pointer border-secondary"
+                        :class="{ 'bg-teal-50': serviceType === 'plaster' }">
+                        <div class="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center bg-secondary-soft">
+                            <svg class="w-6 h-6 text-secondary" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd"
                                     d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
                                     clip-rule="evenodd"></path>
@@ -569,12 +562,10 @@ export default {
 
                     <div @click="selectServiceType('rental')" @keyup.enter="selectServiceType('rental')"
                         role="button" tabindex="0"
-                        class="p-6 border-2 rounded-lg transition-all hover:shadow-lg cursor-pointer"
-                        :class="serviceType === 'rental' ? 'bg-coral-50' : 'hover:border-accent'"
-                        style="border-color: #DC8C73;">
-                        <div class="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center"
-                            style="background-color: #F8E8E2;">
-                            <svg class="w-6 h-6" style="color: #DC8C73;" fill="currentColor" viewBox="0 0 20 20">
+                        class="p-6 border-2 rounded-lg transition-all hover:shadow-lg cursor-pointer border-accent"
+                        :class="{ 'bg-accent-50': serviceType === 'rental' }">
+                        <div class="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center bg-accent-soft">
+                            <svg class="w-6 h-6 text-accent" fill="currentColor" viewBox="0 0 20 20">
                                 <path
                                     d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z">
                                 </path>
@@ -587,8 +578,7 @@ export default {
 
                 <div class="mt-6 flex justify-center">
                     <button @click="prevStep"
-                        class="px-6 py-2 border-2 font-semibold rounded-lg transition hover:bg-gray-50"
-                        style="color: #2A6FAF; border-color: #2A6FAF;">
+                        class="px-6 py-2 border-2 font-semibold rounded-lg transition hover:bg-gray-50 text-primary border-primary">
                         Volver
                     </button>
                 </div>
@@ -597,8 +587,8 @@ export default {
             <!-- Step 3: Product Form -->
             <div v-if="currentStep === 3 && publicationType === 'product' && !previewMode"
                 class="bg-white rounded-lg shadow-md p-8">
-                <div class="p-4 rounded-lg mb-6" style="background-color: #E3EEF8;">
-                    <h2 class="font-heading text-xl font-bold mb-2" style="color: #2A6FAF;">Datos del Producto</h2>
+                <div class="p-4 rounded-lg mb-6 bg-primary-50">
+                    <h2 class="font-heading text-xl font-bold mb-2 text-primary">Datos del Producto</h2>
                     <p class="text-sm text-gray-600">Completá la información de tu producto</p>
                 </div>
 
@@ -806,8 +796,8 @@ export default {
             <!-- Step 3: Prosthesis Form -->
             <div v-if="currentStep === 3 && serviceType === 'prosthesis' && !previewMode"
                 class="bg-white rounded-lg shadow-md p-8">
-                <div class="p-4 rounded-lg mb-6" style="background-color: #E3EEF8;">
-                    <h2 class="font-heading text-xl font-bold mb-2" style="color: #2A6FAF;">Servicio de Prótesis</h2>
+                <div class="p-4 rounded-lg mb-6 bg-primary-50">
+                    <h2 class="font-heading text-xl font-bold mb-2 text-primary">Servicio de Prótesis</h2>
                     <p class="text-sm text-gray-600">Configurá tu servicio y matriz de precios</p>
                 </div>
 
@@ -878,15 +868,11 @@ export default {
                         <div class="overflow-x-auto">
                             <table class="w-full border-collapse border border-gray-300">
                                 <thead>
-                                    <tr style="background-color: #E3EEF8;">
-                                        <th class="border border-gray-300 px-4 py-2 text-left font-semibold"
-                                            style="color: #2A6FAF;">Tipo de trabajo</th>
-                                        <th class="border border-gray-300 px-4 py-2 text-center font-semibold"
-                                            style="color: #2A6FAF;">Anterior</th>
-                                        <th class="border border-gray-300 px-4 py-2 text-center font-semibold"
-                                            style="color: #2A6FAF;">Premolar</th>
-                                        <th class="border border-gray-300 px-4 py-2 text-center font-semibold"
-                                            style="color: #2A6FAF;">Molar</th>
+                                    <tr class="bg-primary-50">
+                                        <th class="border border-gray-300 px-4 py-2 text-left font-semibold text-primary">Tipo de trabajo</th>
+                                        <th class="border border-gray-300 px-4 py-2 text-center font-semibold text-primary">Anterior</th>
+                                        <th class="border border-gray-300 px-4 py-2 text-center font-semibold text-primary">Premolar</th>
+                                        <th class="border border-gray-300 px-4 py-2 text-center font-semibold text-primary">Molar</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1001,8 +987,8 @@ export default {
             <!-- Step 3: Plaster Form -->
             <div v-if="currentStep === 3 && serviceType === 'plaster' && !previewMode"
                 class="bg-white rounded-lg shadow-md p-8">
-                <div class="p-4 rounded-lg mb-6" style="background-color: #D4F4EC;">
-                    <h2 class="font-heading text-xl font-bold mb-2" style="color: #29A68C;">Modelado en Yeso</h2>
+                <div class="p-4 rounded-lg mb-6 bg-secondary-soft">
+                    <h2 class="font-heading text-xl font-bold mb-2 text-secondary">Modelado en Yeso</h2>
                     <p class="text-sm text-gray-600">Configurá tu servicio de vaciado y modelado</p>
                 </div>
 
@@ -1085,8 +1071,8 @@ export default {
             <!-- Step 3: Rental Form -->
             <div v-if="currentStep === 3 && serviceType === 'rental' && !previewMode"
                 class="bg-white rounded-lg shadow-md p-8">
-                <div class="p-4 rounded-lg mb-6" style="background-color: #F8E8E2;">
-                    <h2 class="font-heading text-xl font-bold mb-2" style="color: #DC8C73;">Alquiler de Equipos</h2>
+                <div class="p-4 rounded-lg mb-6 bg-accent-soft">
+                    <h2 class="font-heading text-xl font-bold mb-2 text-accent">Alquiler de Equipos</h2>
                     <p class="text-sm text-gray-600">Configurá tu servicio de alquiler</p>
                 </div>
 
@@ -1199,7 +1185,7 @@ export default {
                         <div v-if="rentalData.insuranceFile"
                             class="mt-4 p-4 bg-gray-50 rounded-lg flex items-center justify-between">
                             <div class="flex items-center gap-3">
-                                <svg class="w-8 h-8" style="color: #DC8C73;" fill="currentColor" viewBox="0 0 20 20">
+                                <svg class="w-8 h-8 text-accent" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd"
                                         d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
                                         clip-rule="evenodd"></path>
@@ -1267,20 +1253,18 @@ export default {
             <!-- Navigation Buttons for Step 3 forms -->
             <div v-if="currentStep === 3 && !previewMode" class="mt-6 flex gap-4">
                 <button @click="prevStep"
-                    class="flex-1 px-6 py-3 border-2 font-semibold rounded-lg transition hover:bg-gray-50"
-                    style="color: #2A6FAF; border-color: #2A6FAF;">
+                    class="flex-1 px-6 py-3 border-2 font-semibold rounded-lg transition hover:bg-gray-50 text-primary border-primary">
                     Anterior
                 </button>
                 <button @click="nextStep" :disabled="!canProceed"
-                    class="flex-1 px-6 py-3 text-white font-semibold rounded-lg transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
-                    style="background-color: #29A68C;">
+                    class="flex-1 px-6 py-3 text-white font-semibold rounded-lg transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shadow-md bg-secondary">
                     Ver preview
                 </button>
             </div>
 
             <!-- Preview Page -->
             <div v-if="previewMode && !published" class="bg-white rounded-lg shadow-md overflow-hidden">
-                <div class="p-4" style="background: linear-gradient(135deg, #2A6FAF 0%, #29A68C 100%);">
+                <div class="p-4 bg-linear-135 from-primary to-secondary">
                     <h2 class="font-heading text-xl font-bold text-white mb-1">Preview de tu publicación</h2>
                     <p class="text-sm text-white opacity-90">Revisá que todo esté correcto antes de publicar</p>
                 </div>
@@ -1290,8 +1274,7 @@ export default {
                     <div v-if="publicationType === 'product'" class="space-y-6">
                         <div>
                             <h3 class="font-semibold text-gray-700 mb-2">Tipo de publicación</h3>
-                            <span class="inline-block px-4 py-2 rounded-full text-sm font-semibold text-white"
-                                style="background-color: #2A6FAF;">
+                            <span class="inline-block px-4 py-2 rounded-full text-sm font-semibold text-white bg-primary">
                                 Producto
                             </span>
                         </div>
@@ -1335,8 +1318,7 @@ export default {
                     <div v-if="serviceType === 'prosthesis'" class="space-y-6">
                         <div>
                             <h3 class="font-semibold text-gray-700 mb-2">Tipo de publicación</h3>
-                            <span class="inline-block px-4 py-2 rounded-full text-sm font-semibold text-white"
-                                style="background-color: #2A6FAF;">
+                            <span class="inline-block px-4 py-2 rounded-full text-sm font-semibold text-white bg-primary">
                                 Servicio: Prótesis
                             </span>
                         </div>
@@ -1365,15 +1347,11 @@ export default {
                             <div class="overflow-x-auto">
                                 <table class="w-full border-collapse border border-gray-300">
                                     <thead>
-                                        <tr style="background-color: #E3EEF8;">
-                                            <th class="border border-gray-300 px-4 py-2 text-left font-semibold"
-                                                style="color: #2A6FAF;">Tipo de trabajo</th>
-                                            <th class="border border-gray-300 px-4 py-2 text-center font-semibold"
-                                                style="color: #2A6FAF;">Anterior</th>
-                                            <th class="border border-gray-300 px-4 py-2 text-center font-semibold"
-                                                style="color: #2A6FAF;">Premolar</th>
-                                            <th class="border border-gray-300 px-4 py-2 text-center font-semibold"
-                                                style="color: #2A6FAF;">Molar</th>
+                                        <tr class="bg-primary-50">
+                                            <th class="border border-gray-300 px-4 py-2 text-left font-semibold text-primary">Tipo de trabajo</th>
+                                            <th class="border border-gray-300 px-4 py-2 text-center font-semibold text-primary">Anterior</th>
+                                            <th class="border border-gray-300 px-4 py-2 text-center font-semibold text-primary">Premolar</th>
+                                            <th class="border border-gray-300 px-4 py-2 text-center font-semibold text-primary">Molar</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1452,8 +1430,7 @@ export default {
                     <div v-if="serviceType === 'plaster'" class="space-y-6">
                         <div>
                             <h3 class="font-semibold text-gray-700 mb-2">Tipo de publicación</h3>
-                            <span class="inline-block px-4 py-2 rounded-full text-sm font-semibold text-white"
-                                style="background-color: #29A68C;">
+                            <span class="inline-block px-4 py-2 rounded-full text-sm font-semibold text-white bg-secondary">
                                 Servicio: Modelado en Yeso
                             </span>
                         </div>
@@ -1488,8 +1465,7 @@ export default {
                     <div v-if="serviceType === 'rental'" class="space-y-6">
                         <div>
                             <h3 class="font-semibold text-gray-700 mb-2">Tipo de publicación</h3>
-                            <span class="inline-block px-4 py-2 rounded-full text-sm font-semibold text-white"
-                                style="background-color: #DC8C73;">
+                            <span class="inline-block px-4 py-2 rounded-full text-sm font-semibold text-white bg-accent">
                                 Servicio: Alquiler de Equipos
                             </span>
                         </div>
@@ -1522,17 +1498,17 @@ export default {
                                 }">
                                     <div v-if="rentalData.priceDay">
                                         <p class="text-xs text-gray-600 mb-1">Por día</p>
-                                        <p class="text-lg font-bold" style="color: #DC8C73;">${{
+                                        <p class="text-lg font-bold text-accent">${{
                                             formatPrice(rentalData.priceDay) }}</p>
                                     </div>
                                     <div v-if="rentalData.priceWeek">
                                         <p class="text-xs text-gray-600 mb-1">Por semana</p>
-                                        <p class="text-lg font-bold" style="color: #DC8C73;">${{
+                                        <p class="text-lg font-bold text-accent">${{
                                             formatPrice(rentalData.priceWeek) }}</p>
                                     </div>
                                     <div v-if="rentalData.priceMonth">
                                         <p class="text-xs text-gray-600 mb-1">Por mes</p>
-                                        <p class="text-lg font-bold" style="color: #DC8C73;">${{
+                                        <p class="text-lg font-bold text-accent">${{
                                             formatPrice(rentalData.priceMonth) }}</p>
                                     </div>
                                 </div>
@@ -1549,7 +1525,7 @@ export default {
                                 <div v-else>
                                     <p class="mb-2"><span class="font-semibold">Tipo:</span> Seguro contra daños</p>
                                     <div v-if="rentalData.insuranceFile" class="flex items-center gap-2 text-sm">
-                                        <svg class="w-5 h-5" style="color: #DC8C73;" fill="currentColor"
+                                        <svg class="w-5 h-5 text-accent" fill="currentColor"
                                             viewBox="0 0 20 20">
                                             <path fill-rule="evenodd"
                                                 d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
@@ -1573,13 +1549,11 @@ export default {
                 <!-- Preview Navigation -->
                 <div class="p-6 border-t border-gray-200 flex gap-4">
                     <button @click="prevStep"
-                        class="flex-1 px-6 py-3 border-2 font-semibold rounded-lg transition hover:bg-gray-50"
-                        style="color: #2A6FAF; border-color: #2A6FAF;">
+                        class="flex-1 px-6 py-3 border-2 font-semibold rounded-lg transition hover:bg-gray-50 text-primary border-primary">
                         Editar
                     </button>
                     <button @click="publishListing"
-                        class="flex-1 px-6 py-3 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90"
-                        style="background-color: #29A68C;">
+                        class="flex-1 px-6 py-3 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90 bg-secondary">
                         Confirmar y publicar
                     </button>
                 </div>
@@ -1587,8 +1561,7 @@ export default {
 
             <!-- Success Page -->
             <div v-if="published" class="text-center py-12">
-                <div class="w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center shadow-lg"
-                    style="background: linear-gradient(135deg, #2A6FAF 0%, #29A68C 100%);">
+                <div class="w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center shadow-lg bg-linear-135 from-primary to-secondary">
                     <svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd"
                             d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -1604,13 +1577,11 @@ export default {
 
                 <div class="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
                     <RouterLink to="/mis-productos"
-                        class="px-6 py-3 border-2 font-semibold rounded-lg transition hover:bg-gray-50 text-center"
-                        style="color: #2A6FAF; border-color: #2A6FAF;">
+                        class="px-6 py-3 border-2 font-semibold rounded-lg transition hover:bg-gray-50 text-center text-primary border-primary">
                         Ver mis publicaciones
                     </RouterLink>
                     <button @click="goBackToStart"
-                        class="px-6 py-3 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90"
-                        style="background-color: #29A68C;">
+                        class="px-6 py-3 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90 bg-secondary">
                         Crear otra publicación
                     </button>
                 </div>
@@ -1618,9 +1589,8 @@ export default {
                 <div class="mt-12 bg-white rounded-lg shadow-md p-6 max-w-2xl mx-auto">
                     <h3 class="font-heading text-lg font-bold text-gray-800 mb-4">Próximos pasos</h3>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
-                        <div class="p-4 rounded-lg" style="background-color: #E3EEF8;">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center mb-3"
-                                style="background-color: #2A6FAF;">
+                        <div class="p-4 rounded-lg bg-primary-50">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center mb-3 bg-primary">
                                 <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z">
                                     </path>
@@ -1630,9 +1600,8 @@ export default {
                             <h4 class="font-semibold text-gray-800 mb-1">Revisá mensajes</h4>
                             <p class="text-xs text-gray-600">Respondé consultas rápidamente</p>
                         </div>
-                        <div class="p-4 rounded-lg" style="background-color: #D4F4EC;">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center mb-3"
-                                style="background-color: #29A68C;">
+                        <div class="p-4 rounded-lg bg-secondary-soft">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center mb-3 bg-secondary">
                                 <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
                                         clip-rule="evenodd"></path>
@@ -1641,9 +1610,8 @@ export default {
                             <h4 class="font-semibold text-gray-800 mb-1">Completá tu perfil</h4>
                             <p class="text-xs text-gray-600">Aumentá la confianza de compradores</p>
                         </div>
-                        <div class="p-4 rounded-lg" style="background-color: #F8E8E2;">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center mb-3"
-                                style="background-color: #DC8C73;">
+                        <div class="p-4 rounded-lg bg-accent-soft">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center mb-3 bg-accent">
                                 <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
                                     <path
                                         d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z">

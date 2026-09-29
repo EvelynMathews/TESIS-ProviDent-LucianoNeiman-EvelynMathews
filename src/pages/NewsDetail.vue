@@ -54,7 +54,7 @@ export default {
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col" style="background-color: #F5FEFF;">
+  <div class="min-h-screen flex flex-col bg-surface">
     <div v-if="loading" class="flex-1 flex items-center justify-center py-20">
       <div class="text-center">
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
@@ -85,7 +85,7 @@ export default {
             {{ formatDate(news.published_at) }}
           </p>
 
-          <h1 class="text-3xl md:text-4xl lg:text-5xl font-heading font-bold mb-6" style="color: #2A6FAF;">
+          <h1 class="text-3xl md:text-4xl lg:text-5xl font-heading font-bold mb-6 text-primary">
             {{ news.title }}
           </h1>
 

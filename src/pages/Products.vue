@@ -142,7 +142,7 @@ export default {
 </script>
 
 <template>
-    <section class="pt-20 min-h-screen pb-12 relative overflow-hidden" style="background-color: #F5FEFF;">
+    <section class="pt-20 min-h-screen pb-12 relative overflow-hidden bg-surface">
         <div class="organic-shape organic-shape-1"></div>
         <div class="organic-shape organic-shape-2"></div>
         <div class="organic-shape organic-shape-3"></div>

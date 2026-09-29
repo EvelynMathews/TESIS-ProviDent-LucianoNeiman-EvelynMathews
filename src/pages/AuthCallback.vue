@@ -58,8 +58,7 @@ export default {
     <section class="min-h-screen bg-gray-50 pt-20 flex items-center justify-center">
         <div class="max-w-md mx-auto px-4 text-center">
             <div v-if="loading" class="bg-white rounded-lg shadow-md p-8">
-                <div class="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center"
-                    style="background: linear-gradient(135deg, #2A6FAF 0%, #29A68C 100%);">
+                <div class="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center bg-linear-135 from-primary to-secondary">
                     <svg class="animate-spin w-10 h-10 text-white" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>

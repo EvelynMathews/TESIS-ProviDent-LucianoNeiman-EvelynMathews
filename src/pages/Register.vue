@@ -98,8 +98,7 @@ export default {
     <section class="min-h-screen bg-gray-50 py-12 px-4 pt-24">
         <div class="max-w-2xl mx-auto">
             <div class="text-center mb-8">
-                <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center shadow-lg"
-                    style="background: linear-gradient(135deg, #2A6FAF 0%, #29A68C 100%);">
+                <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center shadow-lg bg-linear-135 from-primary to-secondary">
                     <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
                         <path
                             d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
@@ -114,10 +113,7 @@ export default {
                     <div v-for="step in totalSteps" :key="step" class="flex-1 flex items-center">
                         <div class="flex flex-col items-center flex-1">
                             <div class="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all shadow-md"
-                                :style="{
-                                    backgroundColor: step <= currentStep ? '#2A6FAF' : '#E5E7EB',
-                                    color: step <= currentStep ? 'white' : '#9CA3AF'
-                                }">
+                                :class="step <= currentStep ? 'bg-primary text-white' : 'bg-gray-200 text-gray-400'">
                                 <svg v-if="step < currentStep" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd"
                                         d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -126,12 +122,12 @@ export default {
                                 <span v-else>{{ step }}</span>
                             </div>
                             <p class="text-xs mt-2 text-center font-semibold"
-                                :style="{ color: step <= currentStep ? '#2A6FAF' : '#9CA3AF' }">
+                                :class="step <= currentStep ? 'text-primary' : 'text-gray-400'">
                                 {{ step === 1 ? 'Acceso' : step === 2 ? 'Datos' : step === 3 ? 'Dirección' : 'Confirmar'}}
                             </p>
                         </div>
                         <div v-if="step < totalSteps" class="flex-1 h-1 mx-2 rounded"
-                            :style="{ backgroundColor: step < currentStep ? '#2A6FAF' : '#E5E7EB' }">
+                            :class="step < currentStep ? 'bg-primary' : 'bg-gray-200'">
                         </div>
                     </div>
                 </div>
@@ -140,8 +136,7 @@ export default {
             <!-- Success Message -->
             <div v-if="registrationSuccess && requiresEmailConfirmation" class="bg-white rounded-lg shadow-md p-8">
                 <div class="text-center py-8">
-                    <div class="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center shadow-lg"
-                        style="background: linear-gradient(135deg, #2A6FAF 0%, #29A68C 100%);">
+                    <div class="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center shadow-lg bg-linear-135 from-primary to-secondary">
                         <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"></path>
                             <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"></path>
@@ -152,7 +147,7 @@ export default {
                     <p class="text-gray-600 mb-2 max-w-md mx-auto">
                         Te enviamos un email de confirmación a:
                     </p>
-                    <p class="text-lg font-semibold mb-6" style="color: #2A6FAF;">{{ user.email }}</p>
+                    <p class="text-lg font-semibold mb-6 text-primary">{{ user.email }}</p>
 
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 max-w-md mx-auto">
                         <p class="text-sm text-blue-800">
@@ -172,8 +167,7 @@ export default {
 
                     <div class="mt-8">
                         <RouterLink to="/login"
-                            class="inline-block px-6 py-3 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90"
-                            style="background-color: #2A6FAF;">
+                            class="inline-block px-6 py-3 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90 bg-primary">
                             Ir a iniciar sesión
                         </RouterLink>
                     </div>
@@ -183,8 +177,8 @@ export default {
             <div v-else class="bg-white rounded-lg shadow-md p-8">
                 <form @submit.prevent="currentStep === totalSteps ? handleSubmit() : nextStep()">
                     <div v-if="currentStep === 1" class="space-y-6">
-                        <div class="p-4 rounded-lg" style="background-color: #E3EEF8;">
-                            <h2 class="font-heading text-xl font-bold mb-2" style="color: #2A6FAF;">Paso 1: Datos de
+                        <div class="p-4 rounded-lg bg-primary-50">
+                            <h2 class="font-heading text-xl font-bold mb-2 text-primary">Paso 1: Datos de
                                 acceso</h2>
                             <p class="text-sm text-gray-600">Creá tu usuario y contraseña</p>
                         </div>
@@ -221,8 +215,8 @@ export default {
                     </div>
 
                     <div v-if="currentStep === 2" class="space-y-6">
-                        <div class="p-4 rounded-lg" style="background-color: #D4F4EC;">
-                            <h2 class="font-heading text-xl font-bold mb-2" style="color: #29A68C;">Paso 2: Datos
+                        <div class="p-4 rounded-lg bg-secondary-soft">
+                            <h2 class="font-heading text-xl font-bold mb-2 text-secondary">Paso 2: Datos
                                 personales</h2>
                             <p class="text-sm text-gray-600">Contanos sobre vos</p>
                         </div>
@@ -251,8 +245,8 @@ export default {
                     </div>
 
                     <div v-if="false" class="space-y-6">
-                        <div class="p-4 rounded-lg" style="background-color: #F8E8E2;">
-                            <h2 class="font-heading text-xl font-bold mb-2" style="color: #DC8C73;">Paso 3: Dirección
+                        <div class="p-4 rounded-lg bg-accent-soft">
+                            <h2 class="font-heading text-xl font-bold mb-2 text-accent">Paso 3: Dirección
                             </h2>
                             <p class="text-sm text-gray-600">¿Dónde te encontrás?</p>
                         </div>
@@ -307,8 +301,7 @@ export default {
                     </div>
 
                     <div v-if="currentStep === 4" class="space-y-6">
-                        <div class="p-4 rounded-lg"
-                            style="background: linear-gradient(135deg, #2A6FAF 0%, #29A68C 100%);">
+                        <div class="p-4 rounded-lg bg-linear-135 from-primary to-secondary">
                             <h2 class="font-heading text-xl font-bold text-white mb-2">Paso 4: Confirmación</h2>
                             <p class="text-sm text-white opacity-90">Revisá tus datos antes de continuar</p>
                         </div>
@@ -340,20 +333,17 @@ export default {
 
                     <div class="flex gap-4 mt-8">
                         <button v-if="currentStep > 1" type="button" @click="prevStep"
-                            class="flex-1 py-3 px-4 border-2 font-semibold rounded-lg transition hover:bg-gray-50"
-                            style="color: #2A6FAF; border-color: #2A6FAF;">
+                            class="flex-1 py-3 px-4 border-2 font-semibold rounded-lg transition hover:bg-gray-50 text-primary border-primary">
                             Anterior
                         </button>
 
                         <button v-if="currentStep < totalSteps" type="button" @click="nextStep" :disabled="!canGoNext"
-                            class="flex-1 py-3 px-4 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                            style="background-color: #2A6FAF;">
+                            class="flex-1 py-3 px-4 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed bg-primary">
                             Siguiente
                         </button>
 
                         <button v-if="currentStep === totalSteps" type="submit" :disabled="loading"
-                            class="flex-1 py-3 px-4 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90 disabled:opacity-50"
-                            style="background-color: #29A68C;">
+                            class="flex-1 py-3 px-4 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90 disabled:opacity-50 bg-secondary">
                             {{ loading ? 'Creando cuenta...' : 'Crear cuenta' }}
                         </button>
                     </div>
@@ -363,7 +353,7 @@ export default {
             <div class="mt-6 text-center">
                 <p class="text-gray-600">
                     ¿Ya tenés cuenta?
-                    <RouterLink to="/login" class="font-semibold hover:underline" style="color: #2A6FAF;">
+                    <RouterLink to="/login" class="font-semibold hover:underline text-primary">
                         Iniciá sesión
                     </RouterLink>
                 </p>
