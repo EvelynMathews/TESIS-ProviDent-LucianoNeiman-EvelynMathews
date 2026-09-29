@@ -24,6 +24,7 @@ export default {
             product: null,
             quantity: 1,
             loading: false,
+            imageLoaded: false,
             relatedProducts: [],
             // For prosthesis products
             materials: [],
@@ -317,12 +318,16 @@ export default {
             try {
                 const items = await listActiveProducts()
                 const currentId = this.product?.id
-                this.relatedProducts = items.filter(p => p.id !== currentId).slice(0, 4)
+                // Only supplies: services and rentals need options (teeth, dates) before adding to the cart
+                this.relatedProducts = items
+                    .filter(p => p.id !== currentId && p.product_type === 'SUPPLY')
+                    .slice(0, 4)
             } catch (e) { console.error(e) }
         },
         async loadProduct() {
             try {
                 this.loading = true
+                this.imageLoaded = false
                 const id = this.$route.params.id
                 const p = await getProductById(id)
                 this.product = p
@@ -428,10 +433,19 @@ export default {
             <div v-if="product" class="bg-white rounded-lg shadow-md overflow-hidden">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 md:p-8">
                     <div>
-                        <img :src="product.image" :alt="product.name" class="w-full rounded-lg shadow-lg" />
+                        <div class="relative aspect-square rounded-lg shadow-lg overflow-hidden bg-white">
+                            <div v-if="!imageLoaded && product.image" class="absolute inset-0 bg-gray-200 animate-pulse"></div>
+                            <img v-if="product.image" :key="product.image" :src="product.image" :alt="product.name"
+                                @load="imageLoaded = true"
+                                class="w-full h-full object-contain transition-opacity duration-300"
+                                :class="imageLoaded && !loading ? 'opacity-100' : 'opacity-0'" />
+                            <div v-else class="w-full h-full flex items-center justify-center text-gray-400 text-sm">
+                                Sin imagen
+                            </div>
+                        </div>
                     </div>
 
-                    <div>
+                    <div class="transition-opacity duration-300" :class="{ 'opacity-50 pointer-events-none': loading }">
                         <div class="mb-4">
                             <span class="text-sm text-secondary font-semibold uppercase">{{ product.category }}</span>
                             <p v-if="product.brand" class="text-gray-500 text-sm mt-1">{{ product.brand }}</p>
@@ -793,8 +807,7 @@ export default {
                             </div>
 
                             <button @click="addToCart"
-                                class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90"
-                                style="background-color: #2A6FAF;">
+                                class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90 bg-primary">
                                 Agregar al carrito
                             </button>
                         </div>
@@ -815,23 +828,20 @@ export default {
                         <!-- Action button for PROSTHESIS -->
                         <button v-if="product.product_type === 'PROSTHESIS'" @click="addToCart"
                             :disabled="isMatrixMode ? selectedCombinations.length === 0 : selectedTeethIds.length === 0"
-                            class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed mb-6"
-                            style="background-color: #2A6FAF;">
+                            class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed mb-6 bg-primary">
                             Solicitar prótesis
                         </button>
 
                         <!-- Action button for PLASTER_SERVICE -->
                         <button v-if="product.product_type === 'PLASTER_SERVICE'" @click="addToCart"
-                            class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90 mb-6"
-                            style="background-color: #2A6FAF;">
+                            class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90 mb-6 bg-primary">
                             Solicitar servicio
                         </button>
 
                         <!-- Action button for RENTAL -->
                         <button v-if="product.product_type === 'RENTAL'" @click="addToCart"
                             :disabled="!rentalStartDate || !rentalEndDate || rentalTotalDays === 0"
-                            class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed mb-6"
-                            style="background-color: #2A6FAF;">
+                            class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed mb-6 bg-primary">
                             Agregar al carrito
                         </button>
 

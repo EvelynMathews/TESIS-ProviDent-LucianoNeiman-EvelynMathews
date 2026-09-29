@@ -55,8 +55,7 @@
 
             <div class="mt-auto space-y-2">
                 <RouterLink :to="`/productos/${product.id}`"
-                    class="block w-full text-center text-white font-medium py-2 px-4 rounded-lg transition shadow-md hover:opacity-90"
-                    style="background-color: #2A6FAF;">
+                    class="block w-full text-center text-white font-medium py-2 px-4 rounded-lg transition shadow-md hover:opacity-90 bg-primary">
                     Ver detalles
                 </RouterLink>
                 <button @click="onAdd"
@@ -82,6 +81,7 @@
 
 <script>
 import { addToCart } from '../services/cart'
+import { showToast } from '../services/toast'
 export default {
     name: 'ProductCard',
     props: {
@@ -108,18 +108,18 @@ export default {
         },
         async onAdd() {
             if (this.product.stock === 0 && this.product.product_type === 'SUPPLY') return
-            try {
-                await addToCart({
-                    id: this.product.id,
-                    product_type: this.product.product_type || 'SUPPLY',
-                    name: this.product.name,
-                    price: this.product.price,
-                    quantity: 1
-                })
-                alert('Producto agregado al carrito')
-            } catch (error) {
-                console.error('Error agregando al carrito:', error)
-                alert(error.message || 'Error al agregar al carrito')
+            const result = await addToCart({
+                id: this.product.id,
+                product_type: this.product.product_type || 'SUPPLY',
+                name: this.product.name,
+                price: this.product.price,
+                quantity: 1
+            })
+
+            if (result.success) {
+                showToast(`${this.product.name}: ${result.message.toLowerCase()}`)
+            } else {
+                showToast(result.message || 'Error al agregar al carrito', 'error')
             }
         }
     },

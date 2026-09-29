@@ -13,11 +13,14 @@
 import { getCartItems, updateQuantity, removeFromCart, getCartTotal, syncCartWithSupabase } from '../services/cart'
 import { subscribeToAuthStateChanges } from '../services/auth'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import ConfirmModal from '../components/ConfirmModal.vue'
+import { showToast } from '../services/toast'
 
 export default {
     name: 'Cart',
     components: {
-        LoadingSpinner
+        LoadingSpinner,
+        ConfirmModal
     },
     data() {
         return {
@@ -26,7 +29,8 @@ export default {
                 email: null,
             },
             loading: true,
-            showCheckoutModal: false
+            showCheckoutModal: false,
+            itemToRemove: null
         }
     },
     computed: {
@@ -52,12 +56,22 @@ export default {
                 updateQuantity(itemId, currentQuantity - 1)
             }
         },
-        removeItem(itemId) {
-            if (confirm('¿Estás seguro de que deseas eliminar este artículo del carrito?')) {
-                removeFromCart(itemId)
+        async confirmRemoveItem() {
+            const item = this.itemToRemove
+            this.itemToRemove = null
+            try {
+                await removeFromCart(item.id)
+                showToast(`${item.name} se quitó del carrito`)
+            } catch (error) {
+                showToast('No se pudo quitar el artículo del carrito', 'error')
             }
         },
         checkout() {
+            if (!this.user.id) {
+                showToast('Iniciá sesión para finalizar tu compra. Tu carrito queda guardado.', 'info', 5000)
+                this.$router.push({ path: '/login', query: { redirect: '/carrito' } })
+                return
+            }
             this.showCheckoutModal = true
         },
         closeCheckoutModal() {
@@ -91,8 +105,7 @@ export default {
                 <h2 class="font-heading text-2xl font-bold text-gray-800 mb-2">Tu carrito está vacío</h2>
                 <p class="text-gray-600 mb-6">Comienza a agregar productos y servicios</p>
                 <RouterLink to="/"
-                    class="inline-block px-6 py-3 text-white font-semibold rounded-lg transition shadow-md hover:opacity-90"
-                    style="background-color: #2A6FAF;">
+                    class="inline-block px-6 py-3 text-white font-semibold rounded-lg transition shadow-md hover:opacity-90 bg-primary">
                     Explorar productos
                 </RouterLink>
             </div>
@@ -119,7 +132,7 @@ export default {
                                             Vendido por {{ item.seller.username }}
                                         </p>
                                     </div>
-                                    <button @click="removeItem(item.id)"
+                                    <button @click="itemToRemove = item"
                                         class="text-red-500 hover:text-red-700 transition p-2">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -207,20 +220,18 @@ export default {
 
                         <div class="flex justify-between items-center mb-6">
                             <span class="font-heading text-lg font-bold text-gray-800">Total</span>
-                            <span class="font-heading text-2xl font-bold" style="color: #29A68C;">
+                            <span class="font-heading text-2xl font-bold text-secondary">
                                 ${{ formatPrice(cartTotal) }}
                             </span>
                         </div>
 
                         <button @click="checkout"
-                            class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90 mb-3"
-                            style="background-color: #2A6FAF;">
+                            class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90 mb-3 bg-primary">
                             Ir al pago
                         </button>
 
                         <RouterLink to="/productos"
-                            class="block w-full text-center border-2 font-semibold py-3 px-6 rounded-lg transition hover:bg-gray-50"
-                            style="color: #2A6FAF; border-color: #2A6FAF;">
+                            class="block w-full text-center border-2 font-semibold py-3 px-6 rounded-lg transition hover:bg-gray-50 text-primary border-primary">
                             Continuar comprando
                         </RouterLink>
 
@@ -230,19 +241,19 @@ export default {
                             </h3>
                             <ul class="space-y-2 text-sm text-gray-600">
                                 <li class="flex items-start gap-2">
-                                    <svg class="w-5 h-5 flex-shrink-0" style="color: #29A68C;" fill="currentColor" viewBox="0 0 20 20">
+                                    <svg class="w-5 h-5 flex-shrink-0 text-secondary" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                                     </svg>
                                     <span>Envíos a todo el país</span>
                                 </li>
                                 <li class="flex items-start gap-2">
-                                    <svg class="w-5 h-5 flex-shrink-0" style="color: #29A68C;" fill="currentColor" viewBox="0 0 20 20">
+                                    <svg class="w-5 h-5 flex-shrink-0 text-secondary" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                                     </svg>
                                     <span>Compra segura</span>
                                 </li>
                                 <li class="flex items-start gap-2">
-                                    <svg class="w-5 h-5 flex-shrink-0" style="color: #29A68C;" fill="currentColor" viewBox="0 0 20 20">
+                                    <svg class="w-5 h-5 flex-shrink-0 text-secondary" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                                     </svg>
                                     <span>Soporte especializado</span>
@@ -256,12 +267,11 @@ export default {
 
         <!-- Checkout Modal -->
         <div v-if="showCheckoutModal" @click="closeCheckoutModal"
-            class="fixed inset-0 bg-gray-600 bg-opacity-40 flex items-center justify-center z-50 px-4">
+            class="fixed inset-0 bg-gray-600/40 flex items-center justify-center z-50 px-4">
             <div @click.stop class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 transform transition-all">
                 <div class="text-center">
-                    <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center"
-                        style="background-color: rgba(42, 111, 175, 0.1);">
-                        <svg class="w-10 h-10" style="color: #2A6FAF;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center bg-primary/10">
+                        <svg class="w-10 h-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
                         </svg>
@@ -273,12 +283,18 @@ export default {
                         Estamos trabajando en la funcionalidad de checkout. Muy pronto podrás finalizar tus compras de manera rápida y segura.
                     </p>
                     <button @click="closeCheckoutModal"
-                        class="w-full py-3 px-6 text-white font-semibold rounded-lg shadow-md hover:opacity-90 transition"
-                        style="background-color: #2A6FAF;">
+                        class="w-full py-3 px-6 text-white font-semibold rounded-lg shadow-md hover:opacity-90 transition bg-primary">
                         Entendido
                     </button>
                 </div>
             </div>
         </div>
+
+        <ConfirmModal v-if="itemToRemove"
+            title="Quitar del carrito"
+            :message="`¿Querés quitar “${itemToRemove.name}” del carrito?`"
+            confirm-text="Quitar"
+            @confirm="confirmRemoveItem"
+            @cancel="itemToRemove = null" />
     </div>
 </template>

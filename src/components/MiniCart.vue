@@ -90,12 +90,11 @@ export default {
 
                 <div class="space-y-2">
                     <RouterLink to="/carrito"
-                        class="block w-full text-center py-2 px-4 bg-white border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary hover:text-white transition">
+                        class="block w-full text-center py-2 px-4 bg-white border-2 font-semibold rounded-lg transition hover:opacity-90 border-primary text-primary">
                         Ver carrito completo
                     </RouterLink>
                     <button
-                        class="w-full py-2 px-4 text-white font-semibold rounded-lg transition shadow-md hover:opacity-90"
-                        style="background-color: #2A6FAF;">
+                        class="w-full py-2 px-4 text-white font-semibold rounded-lg transition shadow-md hover:opacity-90 bg-primary">
                         Ir al pago
                     </button>
                 </div>
