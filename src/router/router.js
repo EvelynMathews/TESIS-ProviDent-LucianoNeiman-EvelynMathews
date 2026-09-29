@@ -16,14 +16,13 @@ import { requireAdmin } from "../middleware/admin";
 import Home from "../pages/Home.vue";
 import Login from "../pages/Login.vue";
 import Register from "../pages/Register.vue";
-import GlobalChat from "../pages/GlobalChat.vue";
+import Support from "../pages/Support.vue";
 import MyProfile from "../pages/MyProfile.vue";
 import MyProfileEdit from "../pages/MyProfileEdit.vue";
 import UserProfile from "../pages/UserProfile.vue";
 import Products from "../pages/Products.vue";
 import ProductDetail from "../pages/ProductDetail.vue";
 import ProductEdit from "../pages/ProductEdit.vue";
-import ServiceDetail from "../pages/ServiceDetail.vue";
 import NewsDetail from "../pages/NewsDetail.vue";
 import Cart from "../pages/Cart.vue";
 import Publish from "../pages/Publish.vue";
@@ -34,6 +33,9 @@ import AuthCallback from "../pages/AuthCallback.vue";
 import AdminLogin from "../pages/admin/Login.vue";
 import AdminDashboard from "../pages/admin/Dashboard.vue";
 import AdminProducts from "../pages/admin/Products.vue";
+import AdminProductEdit from "../pages/admin/ProductEdit.vue";
+import AdminClassifieds from "../pages/admin/Classifieds.vue";
+import AdminClassifiedEdit from "../pages/admin/ClassifiedEdit.vue";
 import AdminProfile from "../pages/admin/Profile.vue";
 
 const routes = [
@@ -44,13 +46,14 @@ const routes = [
     { path: '/mi-perfil',               name: 'MyProfile',                  component: MyProfile,             meta: { requiresAuth: true, }, },
     { path: '/mi-perfil/editar',        name: 'MyProfileEdit',              component: MyProfileEdit,         meta: { requiresAuth: true, }, },
     { path: '/usuario/:id',             name: 'UserProfile',                component: UserProfile,           meta: { requiresAuth: true, }, },
-    { path: '/chat',                    name: 'GlobalChat',                 component: GlobalChat,            meta: { requiresAuth: true, }, },
+    { path: '/soporte',                 name: 'Support',                    component: Support, },
+    { path: '/chat',                    redirect: '/soporte' },
     { path: '/productos',               name: 'Products',                   component: Products, },
     { path: '/productos/:id',           name: 'ProductDetail',              component: ProductDetail, },
     { path: '/productos/:id/editar',    name: 'ProductEdit',                component: ProductEdit,           meta: { requiresAuth: true, }, },
-    { path: '/servicios/:id',           name: 'ServiceDetail',              component: ServiceDetail, },
+    { path: '/servicios/:id',           redirect: to => `/productos/${to.params.id}` },
     { path: '/noticias/:slug',          name: 'NewsDetail',                 component: NewsDetail, },
-    { path: '/carrito',                 name: 'Cart',                       component: Cart,                  meta: { requiresAuth: true, }, },
+    { path: '/carrito',                 name: 'Cart',                       component: Cart, },
     { path: '/publicar',                name: 'Publish',                    component: Publish,               meta: { requiresAuth: true, }, },
     { path: '/mis-productos',           name: 'MyProducts',                 component: MyProducts,            meta: { requiresAuth: true, }, },
     { path: '/seller-setup',            name: 'SellerSetup',                component: SellerSetup,           meta: { requiresAuth: true, }, },
@@ -58,6 +61,10 @@ const routes = [
     { path: '/admin/login',             name: 'AdminLogin',                 component: AdminLogin, },
     { path: '/admin/dashboard',         name: 'AdminDashboard',             component: AdminDashboard,        beforeEnter: requireAdmin, },
     { path: '/admin/products',          name: 'AdminProducts',              component: AdminProducts,         beforeEnter: requireAdmin, },
+    { path: '/admin/products/:id/edit', name: 'AdminProductEdit',           component: AdminProductEdit,      beforeEnter: requireAdmin, },
+    { path: '/admin/classifieds',       name: 'AdminClassifieds',           component: AdminClassifieds,      beforeEnter: requireAdmin, },
+    { path: '/admin/classifieds/new',   name: 'AdminClassifiedNew',         component: AdminClassifiedEdit,   beforeEnter: requireAdmin, },
+    { path: '/admin/classifieds/:id/edit', name: 'AdminClassifiedEdit',     component: AdminClassifiedEdit,   beforeEnter: requireAdmin, },
     { path: '/admin/profile',           name: 'AdminProfile',               component: AdminProfile,          beforeEnter: requireAdmin, },
 ];
 
@@ -65,6 +72,14 @@ const routes = [
 const router = createRouter({
     history: createWebHistory(),
     routes,
+    scrollBehavior(to, from, savedPosition) {
+        if (to.hash) return { el: to.hash, top: 96, behavior: 'smooth' }
+        if (savedPosition) return savedPosition
+        if (to.path === from.path) return false
+        // Moving between two products (e.g. related products) scrolls up smoothly
+        if (to.name === from.name) return { top: 0, behavior: 'smooth' }
+        return { top: 0 }
+    },
 });
 
 router.beforeEach(async (to, from) => {
