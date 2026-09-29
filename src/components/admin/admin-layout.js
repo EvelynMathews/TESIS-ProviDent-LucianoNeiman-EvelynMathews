@@ -3,6 +3,7 @@
  * Propósito: Gestionar el estado de la sesión del administrador y la funcionalidad del menú de usuario.
  * Funcionamiento: Se suscribe a los cambios de autenticación para mostrar los datos del administrador (`this.user`).
  * Controla la visibilidad del menú desplegable con `toggleUserMenu` y `closeUserMenu`.
+ * En celular, `showMobileMenu` abre y cierra el menú del panel (botón hamburguesa).
  * Al hacer clic en cualquier lugar fuera del menú, este se cierra automáticamente (listener `mounted`).
  * La función `handleLogout` cierra la sesión y redirige al login de administración.
  */
@@ -23,7 +24,13 @@ export default {
                 username: null,
                 avatar_url: null,
             },
-            showUserMenu: false
+            showUserMenu: false,
+            showMobileMenu: false
+        }
+    },
+    watch: {
+        '$route.path'() {
+            this.showMobileMenu = false
         }
     },
     methods: {

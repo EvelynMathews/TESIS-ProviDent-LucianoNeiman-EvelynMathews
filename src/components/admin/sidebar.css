@@ -59,5 +59,19 @@
 @media (max-width: 768px) {
     .admin-sidebar {
         display: none;
+        width: 100%;
+        min-height: auto;
+        padding: 0.5rem 0;
+        border-right: none;
+        border-bottom: 2px solid #E3EEF8;
+        box-shadow: 0 4px 12px rgba(42, 111, 175, 0.1);
+    }
+
+    .admin-sidebar.open {
+        display: block;
+    }
+
+    .sidebar-title {
+        display: none;
     }
 }

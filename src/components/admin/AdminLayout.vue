@@ -24,13 +24,14 @@
                     </RouterLink>
                 </div>
 
+                <div class="header-actions">
                 <div class="user-menu-container">
-                    <button @click="toggleUserMenu" class="user-menu-trigger">
+                    <button @click="toggleUserMenu" class="user-menu-trigger" :aria-label="`Menú de ${user.username || 'Admin'}`">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
-                        <span>{{ user.username || 'Admin' }}</span>
+                        <span class="user-name">{{ user.username || 'Admin' }}</span>
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
@@ -54,11 +55,22 @@
                         </button>
                     </div>
                 </div>
+
+                <button type="button" class="mobile-menu-button" @click="showMobileMenu = !showMobileMenu"
+                    :aria-expanded="showMobileMenu" aria-label="Abrir menú del panel">
+                    <svg v-if="!showMobileMenu" width="20" height="20" viewBox="0 0 17 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M1 1h15M1 7h15M1 13h15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+                </div>
             </div>
         </header>
 
         <div class="admin-body">
-            <Sidebar />
+            <Sidebar :open="showMobileMenu" @navigate="showMobileMenu = false" />
             <main class="admin-content">
                 <slot />
             </main>
