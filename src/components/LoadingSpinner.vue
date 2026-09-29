@@ -1,7 +1,7 @@
 <template>
     <div class="flex flex-col items-center justify-center py-16">
         <div class="spinner"></div>
-        <p class="mt-4 text-lg font-semibold" style="color: #2A6FAF;">
+        <p class="mt-4 text-lg font-semibold text-primary">
             {{ message }}
         </p>
     </div>

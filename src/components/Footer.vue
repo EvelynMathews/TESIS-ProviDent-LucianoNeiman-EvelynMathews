@@ -14,14 +14,14 @@ export default {
 </script>
 
 <template>
-    <footer class="w-full text-white py-8 mt-12" style="background-color: #8FD2C5;">
+    <footer class="w-full text-white py-8 bg-[#8FD2C5]">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex flex-col items-center gap-6">
                 <div class="text-center">
                     <p class="text-lg font-heading font-semibold mb-2">
                         © 2025 ProviDent
                     </p>
-                    <p class="text-sm text-primary-100 italic mb-4">
+                    <p class="text-sm text-white italic mb-4">
                         "Conectamos productos odontológicos con quienes lo necesitan"
                     </p>
                 </div>
@@ -42,7 +42,7 @@ export default {
                 </div>
 
                 <div class="border-t border-primary-400 pt-4 w-full max-w-md">
-                    <p class="text-sm text-center text-primary-100">
+                    <p class="text-sm text-center text-white">
                         Por: <span class="font-semibold text-white">Luciano Neiman</span> y <span class="font-semibold text-white">Evelyn Mathews</span>
                     </p>
                 </div>

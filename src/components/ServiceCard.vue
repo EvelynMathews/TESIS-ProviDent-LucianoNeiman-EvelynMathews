@@ -51,9 +51,8 @@
             </div>
 
             <div class="mt-auto space-y-2">
-                <RouterLink :to="`/servicios/${service.id}`"
-                    class="block w-full text-center text-white font-medium py-2 px-4 rounded-lg transition shadow-md hover:opacity-90"
-                    style="background-color: #2A6FAF;">
+                <RouterLink :to="`/productos/${service.id}`"
+                    class="block w-full text-center text-white font-medium py-2 px-4 rounded-lg transition shadow-md hover:opacity-90 bg-primary">
                     Ver detalles
                 </RouterLink>
 
