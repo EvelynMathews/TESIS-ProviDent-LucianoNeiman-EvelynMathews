@@ -4,12 +4,15 @@
  * Función: Permitir al vendedor configurar los parámetros globales del método (nombre, límites de volumen), y gestionar las zonas (rangos de código postal por provincia) y las tarifas asociadas a peso/volumen para ese método.
  * Cómo funciona: `loadAll` obtiene el método, provincias, zonas y tarifas. `saveMethod` actualiza los parámetros generales. `submitZone` y `submitRate` gestionan las operaciones CRUD (Crear, Leer, Actualizar, Borrar) para la segmentación geográfica y los precios de envío, interactuando con los servicios de `products.js`.
  */
+import ConfirmModal from '../components/ConfirmModal.vue'
 import { getShippingMethodById, updateShippingMethod, listProvinces, listShippingZones, createShippingZone, updateShippingZone, deleteShippingZone, listShippingRates, createShippingRate, updateShippingRate, deleteShippingRate } from '../services/products'
 
 export default {
   name: 'ShippingMethodEdit',
+  components: { ConfirmModal },
   data() {
     return {
+      pendingDelete: null,
       loading: false,
       savingMethod: false,
       method: null,
@@ -92,7 +95,6 @@ export default {
       } catch { this.error = 'No se pudo guardar la zona' }
     },
     async removeZone(z) {
-      if (!confirm('¿Eliminar esta zona?')) return
       try {
         await deleteShippingZone(z.id)
         this.zones = await listShippingZones(this.method.id)
@@ -140,12 +142,17 @@ export default {
       } catch { this.error = 'No se pudo guardar la tarifa' }
     },
     async removeRate(r) {
-      if (!confirm('¿Eliminar esta tarifa?')) return
       try {
         await deleteShippingRate(r.id)
         this.rates = await listShippingRates(this.method.id)
         this.message = 'Tarifa eliminada'
       } catch { this.error = 'No se pudo eliminar la tarifa' }
+    },
+    async confirmDelete() {
+      const { kind, item } = this.pendingDelete
+      this.pendingDelete = null
+      if (kind === 'zone') await this.removeZone(item)
+      else await this.removeRate(item)
     },
     goBack() {
       const ret = this.$route.query.returnTo
@@ -247,7 +254,7 @@ export default {
                 <td class="py-2">{{ z.postal_code_max }}</td>
                 <td class="py-2 text-right">
                   <button @click="editZone(z)" class="text-sky-600 hover:underline mr-2">Editar</button>
-                  <button @click="removeZone(z)" class="text-red-600 hover:underline">Eliminar</button>
+                  <button @click="pendingDelete = { kind: 'zone', item: z }" class="text-red-600 hover:underline">Eliminar</button>
                 </td>
               </tr>
               </tbody>
@@ -325,7 +332,7 @@ export default {
                 </td>
                 <td class="py-2 text-right">
                   <button @click="editRate(r)" class="text-sky-600 hover:underline mr-2">Editar</button>
-                  <button @click="removeRate(r)" class="text-red-600 hover:underline">Eliminar</button>
+                  <button @click="pendingDelete = { kind: 'rate', item: r }" class="text-red-600 hover:underline">Eliminar</button>
                 </td>
               </tr>
               </tbody>
@@ -334,6 +341,13 @@ export default {
         </div>
       </div>
     </div>
+
+    <ConfirmModal v-if="pendingDelete"
+      :title="pendingDelete.kind === 'zone' ? 'Eliminar zona' : 'Eliminar tarifa'"
+      :message="pendingDelete.kind === 'zone' ? '¿Eliminar esta zona? Las tarifas asociadas quedan sin zona.' : '¿Eliminar esta tarifa?'"
+      confirm-text="Eliminar"
+      @confirm="confirmDelete"
+      @cancel="pendingDelete = null" />
   </section>
 </template>
 

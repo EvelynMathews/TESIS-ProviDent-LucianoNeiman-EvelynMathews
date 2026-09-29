@@ -6,14 +6,25 @@
  */
 import { listMyProducts, updateProduct, deleteProductById } from '../services/products'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import ConfirmModal from '../components/ConfirmModal.vue'
+import NoticeBanner from '../components/NoticeBanner.vue'
 
 export default {
   name: 'MyProducts',
   components: {
-    LoadingSpinner
+    LoadingSpinner,
+    ConfirmModal,
+    NoticeBanner
   },
   data() {
-    return { items: [], loading: false, error: '', busyId: null }
+    return {
+      items: [],
+      loading: false,
+      error: '',
+      busyId: null,
+      productToDelete: null,
+      notice: null
+    }
   },
   methods: {
     async load() {
@@ -26,31 +37,51 @@ export default {
         this.loading = false
       }
     },
+    showNotice(type, message) {
+      this.notice = { type, message }
+      clearTimeout(this.noticeTimer)
+      this.noticeTimer = setTimeout(() => { this.notice = null }, 5000)
+    },
     async toggleActive(p) {
       try {
         this.busyId = p.id
         await updateProduct(p.id, { is_active: !p.is_active })
         await this.load()
-      } catch (e) { this.error = e?.message || String(e) } finally { this.busyId = null }
+        this.showNotice('success', `"${p.name}" ${p.is_active ? 'quedó pausado' : 'está activo nuevamente'}`)
+      } catch (e) {
+        this.showNotice('error', `No se pudo cambiar el estado: ${e?.message || e}`)
+      } finally {
+        this.busyId = null
+      }
     },
-    async remove(p) {
-      if (!confirm(`¿Estás seguro que querés eliminar el producto "${p.name}"?`)) return
+    async remove() {
+      const p = this.productToDelete
       try {
         this.busyId = p.id
         await deleteProductById(p.id)
         await this.load()
-      } catch (e) { this.error = e?.message || String(e) } finally { this.busyId = null }
+        this.showNotice('success', `"${p.name}" se eliminó correctamente`)
+      } catch (e) {
+        // 23503 = foreign key violation (the product is in orders or carts)
+        this.showNotice('error', e?.code === '23503'
+          ? `"${p.name}" tiene pedidos o está en carritos, no se puede eliminar. Podés pausarlo.`
+          : `No se pudo eliminar: ${e?.message || e}`)
+      } finally {
+        this.busyId = null
+        this.productToDelete = null
+      }
     },
     goPublish() {
       this.$router.push('/publicar')
     }
   },
-  mounted() { this.load() }
+  mounted() { this.load() },
+  unmounted() { clearTimeout(this.noticeTimer) }
 }
 </script>
 
 <template>
-  <section class="pt-20 min-h-screen pb-12 relative overflow-hidden" style="background-color: #F5FEFF;">
+  <section class="pt-20 min-h-screen pb-12 relative overflow-hidden bg-surface">
     <div class="organic-shape organic-shape-1"></div>
     <div class="organic-shape organic-shape-2"></div>
     <div class="organic-shape organic-shape-3"></div>
@@ -65,12 +96,13 @@ export default {
           Publicar nuevo
         </button>
       </div>
+      <NoticeBanner v-if="notice" :type="notice.type" :message="notice.message" @close="notice = null" />
       <LoadingSpinner v-if="loading" message="Cargando tus productos..." />
       <div v-else-if="error" class="text-red-600">{{ error }}</div>
       <div v-else>
         <div v-if="items.length === 0" class="text-gray-600">Aún no cargaste productos.</div>
         <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div v-for="p in items" :key="p.id" class="bg-white border rounded-lg overflow-hidden shadow-sm">
+          <div v-for="p in items" :key="p.id" class="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
             <img :src="p.image || 'https://placehold.co/600x400?text=Producto'" :alt="p.name" class="w-full h-40 object-cover" />
             <div class="p-4">
               <h3 class="font-semibold text-gray-800 truncate">{{ p.name }}</h3>
@@ -89,7 +121,7 @@ export default {
                         class="text-center rounded-lg py-2 border" :class="p.is_active ? 'border-yellow-600 text-yellow-700 hover:bg-yellow-50' : 'border-emerald-600 text-emerald-700 hover:bg-emerald-50'">
                   {{ p.is_active ? 'Pausar' : 'Activar' }}
                 </button>
-                <button @click="remove(p)" :disabled="busyId===p.id"
+                <button @click="productToDelete = p" :disabled="busyId===p.id"
                         class="text-center rounded-lg py-2 border border-red-600 text-red-600 hover:bg-red-50">Eliminar</button>
               </div>
             </div>
@@ -97,6 +129,14 @@ export default {
         </div>
       </div>
     </div>
+
+    <ConfirmModal v-if="productToDelete"
+      title="Confirmar eliminación"
+      :message="`¿Estás seguro que querés eliminar “${productToDelete.name}”? Esta acción no se puede deshacer.`"
+      confirm-text="Eliminar"
+      :loading="busyId === productToDelete.id"
+      @confirm="remove"
+      @cancel="productToDelete = null" />
   </section>
 </template>
 
