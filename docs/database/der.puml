@@ -349,6 +349,23 @@ package "Artículos" #FFFDEA {
     created_at: TIMESTAMPTZ = now()
   }
   news ||--o{ news_images
+
+  ' Clasificados: avisos de empleo del home (sin relaciones)
+  entity "classifieds" as classifieds {
+    + id : UUID <<PK>>
+    --
+    title          : TEXT NOT NULL
+    company        : TEXT NOT NULL
+    location       : TEXT
+    job_type       : TEXT
+    summary        : TEXT
+    description    : TEXT
+    requirements   : TEXT
+    contact_email  : TEXT
+    is_active      : BOOLEAN = TRUE
+    published_at   : TIMESTAMPTZ = now()
+    created_at     : TIMESTAMPTZ = now()
+  }
 }
 
 ' =========================
