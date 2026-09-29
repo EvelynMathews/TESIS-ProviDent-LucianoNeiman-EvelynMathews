@@ -4,9 +4,10 @@
  * Función: Permitir al usuario actualizar su nombre, apellido, biografía, ubicación y subir una nueva foto de perfil (avatar).
  * Cómo funciona: Se suscribe al estado de autenticación para precargar los datos actuales. `handleFileChange` actualiza la previsualización del avatar. `handleSubmit` gestiona la lógica clave: si hay un `avatarFile`, lo sube a Supabase Storage con un nombre único antes de llamar a `updateAuthUser` para guardar todos los cambios en la base de datos (tablas `users` y `user_profiles`).
  */
-import { subscribeToAuthStateChanges, updateAuthUser } from '../services/auth'
+import { subscribeToAuthStateChanges, updateAuthUser, changePassword } from '../services/auth'
 import { supabase } from '../services/supabase'
 import { clearCache } from '../services/cache'
+import { showToast } from '../services/toast'
 
 let unsubscribeFromAuth = () => { }
 
@@ -25,10 +26,35 @@ export default {
             avatarFile: null,
             avatarPreview: '',
             loading: false,
-            error: null
+            error: null,
+            passwordForm: {
+                currentPassword: '',
+                newPassword: '',
+                confirmPassword: '',
+            },
+            passwordLoading: false,
+            passwordSuccess: false,
+            passwordError: '',
         }
     },
     methods: {
+        async handlePasswordChange() {
+            this.passwordSuccess = false
+            this.passwordError = ''
+
+            try {
+                this.passwordLoading = true
+                const { currentPassword, newPassword, confirmPassword } = this.passwordForm
+                await changePassword(currentPassword, newPassword, confirmPassword)
+                this.passwordSuccess = true
+                this.passwordForm = { currentPassword: '', newPassword: '', confirmPassword: '' }
+            } catch (error) {
+                this.passwordError = error.message
+            } finally {
+                this.passwordLoading = false
+            }
+        },
+
         handleFileChange(event) {
             const file = event.target.files[0]
             if (file) {
@@ -67,10 +93,11 @@ export default {
 
                 await updateAuthUser(dataToUpdate)
                 clearCache(`profile:${this.userId}`)
+                showToast('Perfil actualizado correctamente')
                 this.$router.push('/mi-perfil')
             } catch (error) {
                 console.error('Error al guardar:', error)
-                alert('Error al guardar cambios. Verificá tu conexión o permisos.')
+                showToast('Error al guardar cambios. Verificá tu conexión o permisos.', 'error', 5000)
             } finally {
                 this.loading = false
             }
@@ -105,9 +132,9 @@ export default {
 </script>
 
 <template>
-    <section class="pt-24 px-6 flex flex-col items-center min-h-screen pb-12" style="background-color: #F5FEFF;">
-        <div class="bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full border-2" style="border-color: #2A6FAF;">
-            <h1 class="text-center mb-6 text-3xl font-heading font-bold flex items-center justify-center gap-2" style="color: #2A6FAF;">
+    <section class="pt-24 px-6 flex flex-col items-center min-h-screen pb-12 bg-surface">
+        <div class="bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full border-2 border-primary">
+            <h1 class="text-center mb-6 text-3xl font-heading font-bold flex items-center justify-center gap-2 text-primary">
                 <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path>
                 </svg>
@@ -117,23 +144,21 @@ export default {
             <form @submit.prevent="handleSubmit" class="flex flex-col gap-8">
                 <div class="flex flex-col items-center relative">
                     <div
-                        class="relative w-32 h-32 rounded-full overflow-hidden border-4 cursor-pointer group"
-                        style="border-color: #29A68C;">
+                        class="relative w-32 h-32 rounded-full overflow-hidden border-4 cursor-pointer group border-secondary">
                         <img :src="avatarPreview || '/default-avatar.png'" alt="avatar preview" loading="lazy"
                             class="object-cover w-full h-full group-hover:opacity-70 transition" />
                         <input type="file" accept="image/*" @change="handleFileChange"
                             class="absolute inset-0 opacity-0 cursor-pointer" />
                         <div
-                            class="absolute bottom-0 w-full text-white text-xs text-center py-1 opacity-0 group-hover:opacity-100 transition"
-                            style="background-color: rgba(42, 111, 175, 0.9);">
+                            class="absolute bottom-0 w-full text-white text-xs text-center py-1 opacity-0 group-hover:opacity-100 transition bg-primary/90">
                             Cambiar foto
                         </div>
                     </div>
                     <p class="text-sm text-gray-600 mt-2">Hacé clic en la foto para cambiarla</p>
                 </div>
 
-                <div class="border-2 rounded-lg p-6" style="border-color: #E3EEF8; background-color: #F9FCFE;">
-                    <h3 class="font-heading text-xl font-bold mb-4" style="color: #2A6FAF;">Datos personales</h3>
+                <div class="border-2 rounded-lg p-6 border-primary-50 bg-surface-alt">
+                    <h3 class="font-heading text-xl font-bold mb-4 text-primary">Datos personales</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre</label>
@@ -157,8 +182,8 @@ export default {
                     </div>
                 </div>
 
-                <div class="border-2 rounded-lg p-6" style="border-color: #E3EEF8; background-color: #F9FCFE;">
-                    <h3 class="font-heading text-xl font-bold mb-4" style="color: #2A6FAF;">Información adicional</h3>
+                <div class="border-2 rounded-lg p-6 border-primary-50 bg-surface-alt">
+                    <h3 class="font-heading text-xl font-bold mb-4 text-primary">Información adicional</h3>
                     <div class="grid grid-cols-1 gap-4">
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Biografía</label>
@@ -176,13 +201,51 @@ export default {
                 </div>
 
                 <button type="submit"
-                    class="mt-4 px-6 py-3 rounded-lg text-white font-semibold shadow-md hover:opacity-90 transition text-lg"
-                    style="background-color: #2A6FAF;">
+                    class="mt-4 px-6 py-3 rounded-lg text-white font-semibold shadow-md hover:opacity-90 transition text-lg bg-primary">
                     {{ loading ? 'Guardando...' : 'Guardar cambios' }}
                 </button>
             </form>
 
-            <RouterLink to="/mi-perfil" class="block text-center mt-6 font-semibold hover:underline transition" style="color: #29A68C;">
+            <form id="cambiar-contrasena" @submit.prevent="handlePasswordChange"
+                class="mt-8 border-2 border-primary-50 bg-surface-alt rounded-lg p-6 flex flex-col gap-4">
+                <h3 class="font-heading text-xl font-bold text-primary">Cambiar contraseña</h3>
+
+                <div v-if="passwordSuccess" class="p-4 rounded-lg bg-green-50 border border-green-200">
+                    <p class="text-green-700 text-sm font-semibold">Contraseña cambiada correctamente</p>
+                </div>
+                <div v-if="passwordError" class="p-4 rounded-lg bg-red-50 border border-red-200">
+                    <p class="text-red-600 text-sm font-semibold">{{ passwordError }}</p>
+                </div>
+
+                <div>
+                    <label for="current-password" class="block text-sm font-semibold text-gray-700 mb-2">Contraseña actual</label>
+                    <input id="current-password" v-model="passwordForm.currentPassword" type="password" required
+                        autocomplete="current-password" placeholder="••••••••"
+                        class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition" />
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="new-password" class="block text-sm font-semibold text-gray-700 mb-2">Nueva contraseña</label>
+                        <input id="new-password" v-model="passwordForm.newPassword" type="password" required
+                            autocomplete="new-password" placeholder="••••••••"
+                            class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition" />
+                        <p class="text-xs text-gray-500 mt-1">Mínimo 6 caracteres</p>
+                    </div>
+                    <div>
+                        <label for="confirm-password" class="block text-sm font-semibold text-gray-700 mb-2">Repetir nueva contraseña</label>
+                        <input id="confirm-password" v-model="passwordForm.confirmPassword" type="password" required
+                            autocomplete="new-password" placeholder="••••••••"
+                            class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition" />
+                    </div>
+                </div>
+
+                <button type="submit" :disabled="passwordLoading"
+                    class="px-6 py-3 rounded-lg text-white font-semibold shadow-md bg-primary hover:opacity-90 transition disabled:opacity-50">
+                    {{ passwordLoading ? 'Cambiando...' : 'Cambiar contraseña' }}
+                </button>
+            </form>
+
+            <RouterLink to="/mi-perfil" class="block text-center mt-6 font-semibold hover:underline transition text-secondary">
                 ← Volver al perfil
             </RouterLink>
         </div>

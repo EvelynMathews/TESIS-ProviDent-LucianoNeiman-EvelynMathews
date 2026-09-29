@@ -145,6 +145,28 @@ export async function updateAuthUser(data) {
     }
 }
 
+export async function deleteOwnAccount() {
+    const { error } = await supabase.rpc('delete_own_account')
+    if (error) {
+        throw new Error(error.message.includes('has_orders') ? 'has_orders' : 'No se pudo eliminar la cuenta. Intentá de nuevo más tarde.')
+    }
+    // The user no longer exists on the server, so only the local session is cleared
+    await supabase.auth.signOut({ scope: 'local' })
+}
+
+export async function changePassword(currentPassword, newPassword, confirmPassword) {
+    if (newPassword !== confirmPassword) throw new Error('Las contraseñas nuevas no coinciden')
+    if (newPassword.length < 6) throw new Error('La contraseña debe tener al menos 6 caracteres')
+    if (newPassword === currentPassword) throw new Error('La contraseña nueva debe ser distinta a la actual')
+
+    const { data } = await supabase.auth.getUser()
+    const { error: loginError } = await supabase.auth.signInWithPassword({ email: data.user?.email, password: currentPassword })
+    if (loginError) throw new Error('La contraseña actual es incorrecta')
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) throw new Error('No se pudo cambiar la contraseña. Intentá de nuevo más tarde.')
+}
+
 
 export function subscribeToAuthStateChanges(callback) {
     observers.push(callback)
