@@ -1,14 +1,15 @@
 /**
  * Middleware de protección de rutas para el panel de administración.
- * Propósito: Asegurar que solo los usuarios con el rol 'admin' puedan acceder
+ * Propósito: Asegurar que solo los administradores puedan acceder
  * a las rutas dentro de `/admin`.
  * Funcionamiento: En `requireAdmin`, verifica la sesión de Supabase.
  * Si no hay sesión, redirige inmediatamente a `/admin/login`. Si existe una sesión,
- * verifica que el usuario tenga `user_metadata.role` igual a 'admin'.
- * Si el rol no es 'admin', cierra la sesión por seguridad y redirige al login de administración.
+ * consulta `is_admin` en la base (tabla `user_roles`), el mismo criterio que usan las políticas RLS.
+ * Si no es admin, cierra la sesión por seguridad y redirige al login de administración.
  * Si todo es correcto, permite la navegación (`next()`).
  */
 import { supabase } from '../services/supabase'
+import { isAdmin } from '../services/admin'
 
 export async function requireAdmin(to, from, next) {
     const { data } = await supabase.auth.getUser()
@@ -17,10 +18,9 @@ export async function requireAdmin(to, from, next) {
         return next('/admin/login')
     }
 
-    const role = data.user.user_metadata?.role
+    const admin = await isAdmin(data.user.id).catch(() => false)
 
-    if (role !== 'admin') {
-        // No es admin, hacer logout y redirigir
+    if (!admin) {
         await supabase.auth.signOut()
         return next('/admin/login')
     }
