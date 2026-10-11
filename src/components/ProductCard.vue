@@ -53,6 +53,10 @@
                 <p v-else class="text-xs text-red-600">Sin stock</p>
             </div>
 
+            <div v-if="feedback" class="mb-2 px-3 py-2 rounded-lg text-xs font-semibold" :class="feedbackType === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'" role="status">
+                {{ feedback }}
+            </div>
+
             <div class="mt-auto space-y-2">
                 <RouterLink :to="`/productos/${product.id}`"
                     class="block w-full text-center text-white font-medium py-2 px-4 rounded-lg transition shadow-md hover:opacity-90"
@@ -109,23 +113,30 @@ export default {
         async onAdd() {
             if (this.product.stock === 0 && this.product.product_type === 'SUPPLY') return
             try {
-                await addToCart({
+                const result = await addToCart({
                     id: this.product.id,
                     product_type: this.product.product_type || 'SUPPLY',
                     name: this.product.name,
                     price: this.product.price,
                     quantity: 1
                 })
-                alert('Producto agregado al carrito')
+                this.feedback = result.success ? (result.message || 'Producto agregado al carrito') : (result.message || 'Error al agregar al carrito')
+                this.feedbackType = result.success ? 'success' : 'error'
             } catch (error) {
                 console.error('Error agregando al carrito:', error)
-                alert(error.message || 'Error al agregar al carrito')
+                this.feedback = error.message || 'Error al agregar al carrito'
+                this.feedbackType = 'error'
+            } finally {
+                clearTimeout(this._feedbackTimeout)
+                this._feedbackTimeout = setTimeout(() => { this.feedback = '' }, 3000)
             }
         }
     },
     data() {
         return {
-            placeholder: 'https://placehold.co/600x400?text=Producto'
+            placeholder: 'https://placehold.co/600x400?text=Producto',
+            feedback: '',
+            feedbackType: 'success'
         }
     }
 }

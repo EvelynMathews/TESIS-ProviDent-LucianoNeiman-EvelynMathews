@@ -93,11 +93,11 @@ export default {
                         class="block w-full text-center py-2 px-4 bg-white border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary hover:text-white transition">
                         Ver carrito completo
                     </RouterLink>
-                    <button
-                        class="w-full py-2 px-4 text-white font-semibold rounded-lg transition shadow-md hover:opacity-90"
+                    <RouterLink to="/carrito"
+                        class="block w-full text-center py-2 px-4 text-white font-semibold rounded-lg transition shadow-md hover:opacity-90"
                         style="background-color: #2A6FAF;">
                         Ir al pago
-                    </button>
+                    </RouterLink>
                 </div>
             </div>
         </div>

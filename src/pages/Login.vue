@@ -4,7 +4,7 @@
  * Función: Autenticar al usuario enviando sus credenciales (email y contraseña) al servicio de autenticación.
  * Cómo funciona: Captura el `email` y `password` del formulario y llama a la función `login` de `auth.js`. Si el proceso es exitoso, redirige al usuario a la página de su perfil (`/mi-perfil`). Maneja y muestra un `errorMessage` en caso de fallo de autenticación o credenciales incorrectas.
  */
-import { login } from '../services/auth'
+import { login, requestPasswordReset } from '../services/auth'
 
 export default {
     name: 'Login',
@@ -16,6 +16,11 @@ export default {
             },
             loading: false,
             errorMessage: '',
+            showForgotPassword: false,
+            resetEmail: '',
+            resetLoading: false,
+            resetMessage: '',
+            resetError: '',
         }
     },
     methods: {
@@ -30,6 +35,25 @@ export default {
                 this.errorMessage = 'Credenciales incorrectas o error al iniciar sesión.'
             } finally {
                 this.loading = false
+            }
+        },
+        openForgotPassword() {
+            this.showForgotPassword = true
+            this.resetEmail = this.user.email
+            this.resetMessage = ''
+            this.resetError = ''
+        },
+        async handlePasswordReset() {
+            this.resetLoading = true
+            this.resetMessage = ''
+            this.resetError = ''
+            try {
+                await requestPasswordReset(this.resetEmail)
+                this.resetMessage = 'Si el email existe, te enviamos un enlace para restablecer tu contraseña.'
+            } catch (error) {
+                this.resetError = error.message || 'No se pudo enviar el enlace. Intentá de nuevo.'
+            } finally {
+                this.resetLoading = false
             }
         },
     },
@@ -84,11 +108,33 @@ export default {
                     </button>
 
                     <div class="text-center">
-                        <a href="#" class="text-sm font-semibold hover:underline" style="color: #2A6FAF;">
+                        <button type="button" @click="openForgotPassword"
+                            class="text-sm font-semibold hover:underline" style="color: #2A6FAF;">
                             ¿Olvidaste tu contraseña?
-                        </a>
+                        </button>
                     </div>
                 </form>
+
+                <div v-if="showForgotPassword" class="mt-6 pt-6 border-t border-gray-200">
+                    <h2 class="text-sm font-semibold text-gray-700 mb-3">Recuperar contraseña</h2>
+                    <form @submit.prevent="handlePasswordReset" class="space-y-3">
+                        <input type="email" v-model="resetEmail" required
+                            placeholder="tu@email.com"
+                            aria-label="Correo electrónico para recuperar contraseña"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition" />
+                        <div v-if="resetMessage" class="p-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm">
+                            {{ resetMessage }}
+                        </div>
+                        <div v-if="resetError" class="p-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm">
+                            {{ resetError }}
+                        </div>
+                        <button type="submit" :disabled="resetLoading"
+                            class="w-full py-2 px-4 text-white font-semibold rounded-lg transition hover:opacity-90 disabled:opacity-50"
+                            style="background-color: #2A6FAF;">
+                            {{ resetLoading ? 'Enviando...' : 'Enviar enlace de recuperación' }}
+                        </button>
+                    </form>
+                </div>
             </div>
 
             <div class="mt-6 text-center">

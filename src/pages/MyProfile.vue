@@ -4,7 +4,7 @@
  * Función: Servir como el centro de control del usuario, mostrando datos personales, roles, direcciones, cuentas bancarias (mock), un resumen de actividad (compras/ventas) y productos publicados.
  * Cómo funciona: `loadProfile` carga el perfil completo, verifica el rol de vendedor (`isCurrentUserSeller`) y carga el avatar firmado desde Storage. La data es poblada a través de `userProfile` y otros arrays de mock. Ofrece navegación a la edición de perfil y manejo de acciones de cuenta como cambio de contraseña y eliminación de cuenta.
  */
-import { subscribeToAuthStateChanges, logout } from '../services/auth'
+import { subscribeToAuthStateChanges, logout, updatePassword } from '../services/auth'
 import { isCurrentUserSeller } from '../services/sellers'
 import { supabase } from '../services/supabase'
 import { listMyProducts } from '../services/products'
@@ -36,6 +36,10 @@ export default {
             showPasswordChange: false,
             newPassword: '',
             confirmPassword: '',
+            passwordMessage: '',
+            passwordMessageType: '',
+            passwordSaving: false,
+            deleteAccountMessage: '',
             showAddressEdit: false,
             editingAddress: {
                 street: '',
@@ -233,21 +237,38 @@ export default {
         goToPublish() {
             this.$router.push('/publicar')
         },
-        changePassword() {
-            if (this.newPassword === this.confirmPassword) {
-                alert('Contraseña cambiada exitosamente')
-                this.showPasswordChange = false
+        async changePassword() {
+            this.passwordMessage = ''
+            if (this.newPassword.length < 6) {
+                this.passwordMessage = 'La contraseña debe tener al menos 6 caracteres.'
+                this.passwordMessageType = 'error'
+                return
+            }
+            if (this.newPassword !== this.confirmPassword) {
+                this.passwordMessage = 'Las contraseñas no coinciden.'
+                this.passwordMessageType = 'error'
+                return
+            }
+            this.passwordSaving = true
+            try {
+                await updatePassword(this.newPassword)
+                this.passwordMessage = 'Contraseña cambiada exitosamente.'
+                this.passwordMessageType = 'success'
                 this.newPassword = ''
                 this.confirmPassword = ''
-            } else {
-                alert('Las contraseñas no coinciden')
+                setTimeout(() => {
+                    this.showPasswordChange = false
+                    this.passwordMessage = ''
+                }, 2000)
+            } catch (error) {
+                this.passwordMessage = error.message || 'No se pudo cambiar la contraseña.'
+                this.passwordMessageType = 'error'
+            } finally {
+                this.passwordSaving = false
             }
         },
         deleteAccount() {
-            if (confirm('¿Estás seguro de que deseas eliminar tu cuenta? Esta acción no se puede deshacer.')) {
-                alert('Cuenta eliminada')
-                this.handleLogout()
-            }
+            this.deleteAccountMessage = 'Esta función todavía no está disponible. Por tu seguridad, la eliminación de cuentas se procesa manualmente: escribinos desde Soporte para solicitarla.'
         },
         editAddress() {
             if (this.primaryAddress) {
@@ -401,19 +422,22 @@ export default {
                                 Cambiar contraseña
                             </button>
                             <div v-else class="space-y-3">
-                                <input v-model="newPassword" type="password" placeholder="Nueva contraseña"
+                                <input v-model="newPassword" type="password" placeholder="Nueva contraseña" minlength="6"
                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
                                     />
-                                <input v-model="confirmPassword" type="password" placeholder="Confirmar contraseña"
+                                <input v-model="confirmPassword" type="password" placeholder="Confirmar contraseña" minlength="6"
                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
                                     />
+                                <p v-if="passwordMessage" class="text-sm font-semibold" :class="passwordMessageType === 'success' ? 'text-green-600' : 'text-red-600'" role="status">
+                                    {{ passwordMessage }}
+                                </p>
                                 <div class="flex gap-2">
-                                    <button @click="changePassword"
-                                        class="px-4 py-2 text-sm text-white font-semibold rounded-lg transition hover:opacity-90"
+                                    <button @click="changePassword" :disabled="passwordSaving"
+                                        class="px-4 py-2 text-sm text-white font-semibold rounded-lg transition hover:opacity-90 disabled:opacity-50"
                                         style="background-color: #2A6FAF;">
-                                        Guardar
+                                        {{ passwordSaving ? 'Guardando...' : 'Guardar' }}
                                     </button>
-                                    <button @click="showPasswordChange = false; newPassword = ''; confirmPassword = ''"
+                                    <button @click="showPasswordChange = false; newPassword = ''; confirmPassword = ''; passwordMessage = ''"
                                         class="px-4 py-2 text-sm text-gray-600 font-semibold rounded-lg border border-gray-300 hover:bg-gray-50">
                                         Cancelar
                                     </button>
@@ -615,6 +639,7 @@ export default {
                             Eliminar
                         </button>
                     </div>
+                    <p v-if="deleteAccountMessage" class="text-sm text-red-700" role="status">{{ deleteAccountMessage }}</p>
                 </div>
             </div>
 

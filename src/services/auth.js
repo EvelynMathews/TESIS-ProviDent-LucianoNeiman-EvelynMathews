@@ -120,6 +120,18 @@ export async function login(email, password) {
     try { await fetchFullProfile() } catch {}
 }
 
+export async function requestPasswordReset(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback`
+    })
+    if (error) throw new Error(error.message)
+}
+
+export async function updatePassword(newPassword) {
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) throw new Error(error.message)
+}
+
 export async function logout() {
     await supabase.auth.signOut()
     setUser({

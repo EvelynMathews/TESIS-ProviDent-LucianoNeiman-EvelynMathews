@@ -119,7 +119,7 @@ export default {
                     <div
                         class="relative w-32 h-32 rounded-full overflow-hidden border-4 cursor-pointer group"
                         style="border-color: #29A68C;">
-                        <img :src="avatarPreview || '/default-avatar.png'" alt="avatar preview" loading="lazy"
+                        <img :src="avatarPreview || '/default-avatar.svg'" alt="avatar preview" loading="lazy"
                             class="object-cover w-full h-full group-hover:opacity-70 transition" />
                         <input type="file" accept="image/*" @change="handleFileChange"
                             class="absolute inset-0 opacity-0 cursor-pointer" />
