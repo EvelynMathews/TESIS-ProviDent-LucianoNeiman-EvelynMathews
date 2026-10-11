@@ -147,18 +147,23 @@ export default {
 
             <div class="flex items-center gap-4">
                 <div class="relative hidden md:block">
-                    <button @click="toggleMiniCart" class="relative text-gray-700 hover:text-sky-600 transition">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button @click="toggleMiniCart" type="button"
+                        :aria-expanded="showMiniCart" aria-haspopup="true"
+                        :aria-label="`Carrito de compras, ${cartCount} producto(s)`"
+                        class="relative text-gray-700 hover:text-sky-600 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
                         </svg>
-                        <span class="absolute -top-1 -right-1 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center" style="background-color: #2A6FAF;">{{ cartCount }}</span>
+                        <span aria-hidden="true" class="absolute -top-1 -right-1 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center" style="background-color: #2A6FAF;">{{ cartCount }}</span>
                     </button>
                     <MiniCart v-if="showMiniCart" @click.stop />
                 </div>
 
                 <button @click="toggleMobileMenu" type="button"
+                    :aria-expanded="mobileMenuOpen" aria-controls="mobile-menu"
+                    aria-label="Abrir menú de navegación"
                     class="inline-flex items-center p-2 w-10 h-10 justify-center text-gray-700 rounded-lg md:hidden hover:bg-gray-100">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 17 14">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 17 14" aria-hidden="true">
                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h15M1 7h15M1 13h15"/>
                     </svg>
                 </button>
@@ -218,7 +223,7 @@ export default {
                 </div>
             </div>
 
-            <div :class="{'hidden': !mobileMenuOpen}" class="w-full md:hidden">
+            <div id="mobile-menu" :class="{'hidden': !mobileMenuOpen}" class="w-full md:hidden">
                 <ul class="font-medium flex flex-col p-4 mt-4 border border-gray-200 rounded-lg bg-white space-y-2">
                     <li>
                         <RouterLink to="/" @click="mobileMenuOpen = false"

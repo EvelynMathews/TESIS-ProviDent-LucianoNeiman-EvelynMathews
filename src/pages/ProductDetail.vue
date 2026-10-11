@@ -9,11 +9,13 @@ import { getProductById, listActiveProducts, loadMaterials, loadWorkTypes, loadT
 import { checkRentalAvailability as checkAvailability } from '../services/rental-availability'
 import { addToCart as addToCartService } from '../services/cart'
 import ProductCard from '../components/ProductCard.vue'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
     name: 'ProductDetail',
     components: {
-        ProductCard
+        ProductCard,
+        LoadingSpinner
     },
     data() {
         return {
@@ -423,6 +425,13 @@ export default {
                 <RouterLink to="/productos" class="text-primary hover:text-primary-700 font-medium">
                     ← Volver a productos
                 </RouterLink>
+            </div>
+
+            <LoadingSpinner v-if="loading && !product" message="Cargando producto..." />
+
+            <div v-else-if="!product" class="bg-white rounded-lg shadow-md p-12 text-center">
+                <h2 class="font-heading text-xl font-bold text-gray-800 mb-2">No encontramos este producto</h2>
+                <p class="text-gray-600">Puede que ya no esté disponible o el enlace sea incorrecto.</p>
             </div>
 
             <div v-if="product" class="bg-white rounded-lg shadow-md overflow-hidden">

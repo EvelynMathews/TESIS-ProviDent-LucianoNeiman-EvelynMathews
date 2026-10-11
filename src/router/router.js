@@ -23,7 +23,6 @@ import UserProfile from "../pages/UserProfile.vue";
 import Products from "../pages/Products.vue";
 import ProductDetail from "../pages/ProductDetail.vue";
 import ProductEdit from "../pages/ProductEdit.vue";
-import ServiceDetail from "../pages/ServiceDetail.vue";
 import NewsDetail from "../pages/NewsDetail.vue";
 import Cart from "../pages/Cart.vue";
 import Publish from "../pages/Publish.vue";
@@ -48,7 +47,7 @@ const routes = [
     { path: '/productos',               name: 'Products',                   component: Products, },
     { path: '/productos/:id',           name: 'ProductDetail',              component: ProductDetail, },
     { path: '/productos/:id/editar',    name: 'ProductEdit',                component: ProductEdit,           meta: { requiresAuth: true, }, },
-    { path: '/servicios/:id',           name: 'ServiceDetail',              component: ServiceDetail, },
+    { path: '/servicios/:id',           name: 'ServiceDetail',              component: ProductDetail, },
     { path: '/noticias/:slug',          name: 'NewsDetail',                 component: NewsDetail, },
     { path: '/carrito',                 name: 'Cart',                       component: Cart,                  meta: { requiresAuth: true, }, },
     { path: '/publicar',                name: 'Publish',                    component: Publish,               meta: { requiresAuth: true, }, },

@@ -17,6 +17,7 @@ export default {
         return {
             messages: [],
             newMessage: { content: '' },
+            sendError: '',
             user: {
                 id: null,
                 email: null,
@@ -28,6 +29,7 @@ export default {
 
     methods: {
         async handleSubmit() {
+            this.sendError = ''
             try {
                 if (!this.newMessage.content.trim()) return
 
@@ -42,6 +44,8 @@ export default {
 
                 this.newMessage.content = ''
             } catch (error) {
+                console.error('Error enviando mensaje:', error)
+                this.sendError = 'No se pudo enviar el mensaje. Intentá de nuevo.'
             }
         },
 
@@ -104,7 +108,7 @@ export default {
                 :class="{ 'flex-row-reverse': message.sender_id === user.id }">
 
                 <div class="w-8 h-8 rounded-full border-2 border-sky-200 flex-shrink-0 overflow-hidden">
-                    <img :src="message.avatar_url || '/default-avatar.png'" alt="avatar" loading="lazy"
+                    <img :src="message.avatar_url || '/default-avatar.svg'" alt="avatar" loading="lazy"
                         class="w-full h-full object-cover bg-gray-100" />
                 </div>
 
@@ -151,7 +155,7 @@ export default {
             class="p-4 border-t border-gray-200 bg-white">
             <div class="flex items-end gap-3">
                 <div class="w-8 h-8 rounded-full border-2 border-sky-200 flex-shrink-0 overflow-hidden">
-                    <img :src="user.avatar_url || '/default-avatar.png'" alt="avatar" loading="lazy"
+                    <img :src="user.avatar_url || '/default-avatar.svg'" alt="avatar" loading="lazy"
                         class="w-full h-full object-cover bg-gray-100" />
                 </div>
 
@@ -182,6 +186,8 @@ export default {
                 :class="newMessage.content.length >= 300 ? 'text-red-600' : 'text-gray-500'">
                 {{ newMessage.content.length }}/300
             </div>
+
+            <p v-if="sendError" class="text-red-600 text-xs mt-2" role="alert">{{ sendError }}</p>
         </form>
     </section>
 </template>

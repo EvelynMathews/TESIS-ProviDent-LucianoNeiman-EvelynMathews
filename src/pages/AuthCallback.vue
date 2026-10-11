@@ -11,13 +11,41 @@
  */
 
 import { supabase } from '../services/supabase'
+import { updatePassword } from '../services/auth'
 
 export default {
     name: 'AuthCallback',
     data() {
         return {
             loading: true,
-            error: null
+            error: null,
+            isRecovery: false,
+            newPassword: '',
+            confirmPassword: '',
+            savingPassword: false,
+            passwordError: ''
+        }
+    },
+    methods: {
+        async handleSetNewPassword() {
+            this.passwordError = ''
+            if (this.newPassword.length < 6) {
+                this.passwordError = 'La contraseña debe tener al menos 6 caracteres.'
+                return
+            }
+            if (this.newPassword !== this.confirmPassword) {
+                this.passwordError = 'Las contraseñas no coinciden.'
+                return
+            }
+            this.savingPassword = true
+            try {
+                await updatePassword(this.newPassword)
+                this.$router.push('/mi-perfil')
+            } catch (err) {
+                this.passwordError = err.message || 'No se pudo actualizar la contraseña.'
+            } finally {
+                this.savingPassword = false
+            }
         }
     },
     async mounted() {
@@ -25,10 +53,9 @@ export default {
             // Obtener el token del hash de la URL
             const hashParams = new URLSearchParams(window.location.hash.substring(1))
             const accessToken = hashParams.get('access_token')
-            const refreshToken = hashParams.get('refresh_token')
             const type = hashParams.get('type')
 
-            if (type === 'signup' || type === 'email_change' || accessToken) {
+            if (type === 'signup' || type === 'email_change' || type === 'recovery' || accessToken) {
                 // Supabase maneja automáticamente la sesión desde el hash
                 // Solo necesitamos esperar a que se procese
                 const { data, error } = await supabase.auth.getUser()
@@ -36,9 +63,15 @@ export default {
                 if (error) throw error
 
                 if (data.user) {
-                    // Email confirmado exitosamente - redirigir a perfil
-                    // El usuario puede subir su avatar desde /mi-perfil/editar
-                    this.$router.push('/mi-perfil')
+                    if (type === 'recovery') {
+                        // Permitir que el usuario defina una nueva contraseña antes de continuar
+                        this.isRecovery = true
+                        this.loading = false
+                    } else {
+                        // Email confirmado exitosamente - redirigir a perfil
+                        // El usuario puede subir su avatar desde /mi-perfil/editar
+                        this.$router.push('/mi-perfil')
+                    }
                 } else {
                     throw new Error('No se pudo establecer la sesión')
                 }
@@ -67,6 +100,33 @@ export default {
                 </div>
                 <h1 class="font-heading text-2xl font-bold text-gray-800 mb-2">Confirmando tu email...</h1>
                 <p class="text-gray-600">Esto solo tomará un momento</p>
+            </div>
+
+            <div v-else-if="isRecovery" class="bg-white rounded-lg shadow-md p-8">
+                <h1 class="font-heading text-2xl font-bold text-gray-800 mb-2 text-center">Elegí tu nueva contraseña</h1>
+                <p class="text-gray-600 mb-6 text-center">Ingresá una nueva contraseña para tu cuenta</p>
+                <form @submit.prevent="handleSetNewPassword" class="space-y-4 text-left">
+                    <div>
+                        <label for="newPassword" class="block text-sm font-semibold text-gray-700 mb-2">Nueva contraseña</label>
+                        <input id="newPassword" type="password" v-model="newPassword" required minlength="6"
+                            placeholder="Mínimo 6 caracteres"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition" />
+                    </div>
+                    <div>
+                        <label for="confirmNewPassword" class="block text-sm font-semibold text-gray-700 mb-2">Confirmar contraseña</label>
+                        <input id="confirmNewPassword" type="password" v-model="confirmPassword" required minlength="6"
+                            placeholder="Repetí tu contraseña"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition" />
+                    </div>
+                    <div v-if="passwordError" class="p-4 rounded-lg bg-red-50 border border-red-200">
+                        <p class="text-red-600 text-sm font-semibold">{{ passwordError }}</p>
+                    </div>
+                    <button type="submit" :disabled="savingPassword"
+                        class="w-full py-3 px-4 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90 disabled:opacity-50"
+                        style="background-color: #2A6FAF;">
+                        {{ savingPassword ? 'Guardando...' : 'Guardar nueva contraseña' }}
+                    </button>
+                </form>
             </div>
 
             <div v-else class="bg-white rounded-lg shadow-md p-8">
