@@ -3,7 +3,7 @@
  * Propósito: Vista del perfil personal del usuario logueado.
  * Función: Centro de control del usuario: datos personales, contraseña, domicilios, compras,
  * estado de vendedor (cobros y publicaciones) y acciones de cuenta.
- * Cómo funciona: `loadProfile` carga en paralelo el perfil (`public_user_profiles`), el rol de vendedor,
+ * Cómo funciona: `loadProfile` carga en paralelo el perfil (`getUserProfileById`: nombre, avatar, bio y ubicación), el rol de vendedor,
  * la cuenta de cobro, los domicilios y los pedidos reales del usuario. Todo lo que se muestra viene de
  * Supabase; cuando no hay datos se muestra un estado vacío con la acción siguiente.
  */
@@ -11,7 +11,7 @@ import { logout, updatePassword, translateAuthError } from '../services/auth'
 import { isCurrentUserSeller, hasPaymentAccount } from '../services/sellers'
 import { supabase } from '../services/supabase'
 import { listMyProducts, listProvinces } from '../services/products'
-import { signedAvatarUrl } from '../services/user-profiles'
+import { getUserProfileById } from '../services/user-profiles'
 import { listMyAddresses, saveAddress, deleteAddress, setPrimaryAddress, listMyOrders } from '../services/addresses'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
@@ -77,8 +77,8 @@ export default {
                     return
                 }
 
-                const [{ data }, isSeller, hasPayment, orders, provinces] = await Promise.all([
-                    supabase.from('public_user_profiles').select('*').eq('id', uid).maybeSingle(),
+                const [data, isSeller, hasPayment, orders, provinces] = await Promise.all([
+                    getUserProfileById(uid),
                     isCurrentUserSeller(),
                     hasPaymentAccount(),
                     listMyOrders(5),
@@ -91,7 +91,7 @@ export default {
                     email: me.user.email || '',
                     location: data?.location || '',
                     bio: data?.bio || '',
-                    avatar_url: data?.avatar_url ? await signedAvatarUrl(data.avatar_url) : '',
+                    avatar_url: data?.avatar_url || '',
                 }
                 this.isSeller = isSeller
                 this.hasPayment = hasPayment
@@ -320,6 +320,10 @@ export default {
                                     {{ userProfile.location || 'Sin completar' }}
                                     <RouterLink v-if="!userProfile.location" to="/mi-perfil/editar" class="ml-1 text-sm font-semibold text-primary-700 hover:underline">Agregar</RouterLink>
                                 </dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm text-gray-600">Sobre vos</dt>
+                                <dd class="m-0 whitespace-pre-line" :class="userProfile.bio ? 'text-gray-800' : 'text-gray-600'">{{ userProfile.bio || 'Sin completar' }}<RouterLink v-if="!userProfile.bio" to="/mi-perfil/editar" class="ml-2 text-sm font-semibold text-primary-700 hover:underline">Agregar</RouterLink></dd>
                             </div>
                         </dl>
 

@@ -34,8 +34,9 @@ subscribeToSupabaseAuth()
 
 async function loadCurrentUserAuthState() {
   try {
-    const { data } = await supabase.auth.getUser()
-    const sUser = data?.user
+    // getSession lee la sesión guardada sin ir al servidor (evita 403 con sesiones vencidas)
+    const { data } = await supabase.auth.getSession()
+    const sUser = data?.session?.user
     if (!sUser) return
     setUser({ id: sUser.id, email: sUser.email })
     fetchFullProfile()
