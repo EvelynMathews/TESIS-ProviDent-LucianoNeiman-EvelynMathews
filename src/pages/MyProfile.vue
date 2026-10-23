@@ -261,7 +261,7 @@ export default {
                 <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                     <div class="h-24 sm:h-28" style="background: linear-gradient(135deg, #C7DDF1 0%, #D4F4EC 55%, #F3DDD3 100%);"></div>
                     <div class="px-6 pb-6">
-                        <div class="flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6 -mt-12">
+                        <div class="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 -mt-12">
                             <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden flex-shrink-0 border-4 border-white bg-primary-50 shadow-sm">
                                 <img v-if="userProfile.avatar_url" :src="userProfile.avatar_url" alt="Tu foto de perfil" class="w-full h-full object-cover" @error="userProfile.avatar_url = ''" />
                                 <div v-else class="w-full h-full flex items-center justify-center text-3xl font-bold text-primary" aria-hidden="true">
@@ -269,7 +269,7 @@ export default {
                                 </div>
                             </div>
 
-                            <div class="flex-1 text-center sm:text-left min-w-0">
+                            <div class="flex-1 text-center sm:text-left min-w-0 sm:pt-14">
                                 <h1 class="font-heading text-2xl sm:text-3xl font-bold text-gray-800 mb-1 break-words">
                                     {{ userProfile.name }} {{ userProfile.lastName }}
                                 </h1>
@@ -281,7 +281,7 @@ export default {
                             </div>
 
                             <RouterLink to="/mi-perfil/editar"
-                                class="inline-flex items-center gap-2 h-11 px-5 border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary-50 transition">
+                                class="inline-flex items-center gap-2 h-11 px-5 border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary-50 transition sm:mt-16">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13l6.232-6.232a2.5 2.5 0 113.536 3.536L12.536 16.536 9 17l.464-3.536z" /></svg>
                                 Editar perfil
                             </RouterLink>

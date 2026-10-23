@@ -140,7 +140,7 @@ export default {
 
         <ul v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           <li v-for="p in visibleItems" :key="p.id" class="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col transition-opacity" :class="{ 'opacity-60': busyId === p.id }">
-            <div class="relative aspect-[16/10] bg-gray-100">
+            <div class="relative aspect-[16/10] bg-gray-100 overflow-hidden">
               <img :src="p.image || '/placeholder-product.svg'" alt="" class="w-full h-full object-cover" :class="{ 'grayscale': !p.is_active }" />
               <span class="absolute top-2 left-2 text-xs font-semibold px-2 py-1 rounded-md"
                 :class="p.is_active ? 'bg-secondary-700 text-white' : 'bg-gray-800 text-white'">
