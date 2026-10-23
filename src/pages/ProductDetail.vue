@@ -25,7 +25,11 @@ export default {
             },
             product: null,
             quantity: 1,
-            loading: false,
+            loading: true,
+            loadError: false,
+            addingToCart: false,
+            needsLogin: false,
+            imageFailed: false,
             relatedProducts: [],
             // For prosthesis products
             materials: [],
@@ -57,6 +61,20 @@ export default {
         }
     },
     computed: {
+        todayISO() {
+            const d = new Date()
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+            return d.toISOString().slice(0, 10)
+        },
+        hasRating() {
+            return Number(this.product?.seller?.rating) > 0 || Number(this.product?.seller?.sales_count) > 0
+        },
+        typeLabel() {
+            return { SUPPLY: 'Insumo', PROSTHESIS: 'Prótesis por encargo', PLASTER_SERVICE: 'Modelado en yeso', RENTAL: 'Alquiler de equipo' }[this.product?.product_type] || ''
+        },
+        imageSrc() {
+            return (!this.imageFailed && this.product?.image) || '/placeholder-product.svg'
+        },
         uiMode() {
             return this.$route.query.ui || 'default'
         },
@@ -226,8 +244,16 @@ export default {
             }
         },
         async addToCart() {
+            if (this.addingToCart) return
+            if (this.product.is_active === false) {
+                this.cartMessage = 'Esta publicación está pausada y no se puede comprar por ahora.'
+                this.cartMessageType = 'error'
+                return
+            }
             this.cartMessage = ''
             this.cartMessageType = ''
+            this.needsLogin = false
+            this.addingToCart = true
 
             try {
                 let productData = {
@@ -287,6 +313,7 @@ export default {
                 }
 
                 const result = await addToCartService(productData, typeSpecificData)
+                this.needsLogin = !!result.needsAuth
 
                 if (result.success) {
                     this.cartMessage = result.message
@@ -302,32 +329,49 @@ export default {
                         this.rentalEndTime = '18:00'
                     }
 
-                    setTimeout(() => {
+                    clearTimeout(this._msgTimer)
+                    this._msgTimer = setTimeout(() => {
                         this.cartMessage = ''
-                    }, 3000)
+                    }, 5000)
                 } else {
                     this.cartMessage = result.message || 'Error al agregar al carrito'
                     this.cartMessageType = 'error'
                 }
             } catch (error) {
                 console.error('Error in addToCart:', error)
-                this.cartMessage = 'Error al agregar al carrito'
+                this.cartMessage = 'No pudimos agregarlo al carrito. Intentá de nuevo.'
                 this.cartMessageType = 'error'
+            } finally {
+                this.addingToCart = false
             }
         },
         async loadRelatedProducts() {
             try {
                 const items = await listActiveProducts()
                 const currentId = this.product?.id
-                this.relatedProducts = items.filter(p => p.id !== currentId).slice(0, 4)
+                const sameType = items.filter(p => p.id !== currentId && p.product_type === this.product?.product_type)
+                const others = items.filter(p => p.id !== currentId && p.product_type !== this.product?.product_type)
+                this.relatedProducts = [...sameType, ...others].slice(0, 4)
             } catch (e) { console.error(e) }
         },
         async loadProduct() {
+            this.loading = true
+            this.loadError = false
+            this.imageFailed = false
+            this.quantity = 1
+            this.cartMessage = ''
+            this.selectedTeethIds = []
+            this.selectedCombinations = []
             try {
-                this.loading = true
                 const id = this.$route.params.id
-                const p = await getProductById(id)
+                // Un id con formato inválido no puede existir: se evita la consulta (y el error 400)
+                const p = /^[0-9a-f-]{36}$/i.test(id) ? await getProductById(id) : null
                 this.product = p
+                if (!p) {
+                    this.relatedProducts = []
+                    return
+                }
+                document.title = `${p.name} · ProviDent`
 
                 // Load catalogs for prosthesis products
                 if (p.product_type === 'PROSTHESIS') {
@@ -345,7 +389,12 @@ export default {
 
                 await this.loadRelatedProducts()
             } catch (e) {
-                console.error('Failed to load product', e)
+                // Un id con formato inválido devuelve error de Postgres: se muestra como "no encontrado"
+                if (e?.code !== '22P02') {
+                    console.error('Failed to load product', e)
+                    this.loadError = true
+                }
+                this.product = null
             } finally {
                 this.loading = false
             }
@@ -410,45 +459,60 @@ export default {
         }
     },
     mounted() {
-        subscribeToAuthStateChanges(newUserState => {
+        this.unsubscribe = subscribeToAuthStateChanges(newUserState => {
             this.user = newUserState
         })
         this.loadProduct()
+    },
+    beforeUnmount() {
+        clearTimeout(this._msgTimer)
+        if (this.unsubscribe) this.unsubscribe()
     }
 }
 </script>
 
 <template>
-    <div class="min-h-screen bg-gray-50 pt-20 pb-12">
+    <div class="min-h-screen bg-gray-50 pt-6 pb-16">
         <div class="max-w-7xl mx-auto px-4">
-            <div class="mb-6">
-                <RouterLink to="/productos" class="text-primary hover:text-primary-700 font-medium">
-                    ← Volver a productos
-                </RouterLink>
+            <nav aria-label="Ruta de navegación" class="mb-6 text-sm">
+                <ol class="flex flex-wrap items-center gap-1 text-gray-600">
+                    <li><RouterLink to="/productos" class="text-primary-700 font-medium hover:underline">Catálogo</RouterLink></li>
+                    <li v-if="product" aria-hidden="true">/</li>
+                    <li v-if="product" class="truncate max-w-[60vw] text-gray-700" aria-current="page">{{ product.name }}</li>
+                </ol>
+            </nav>
+
+            <LoadingSpinner v-if="loading" message="Cargando producto..." />
+
+            <div v-else-if="!product" class="bg-white rounded-xl border border-gray-200 p-10 sm:p-12 text-center" :role="loadError ? 'alert' : null">
+                <h1 class="font-heading text-2xl font-bold text-gray-800 mb-2">
+                    {{ loadError ? 'No pudimos cargar esta publicación' : 'No encontramos esta publicación' }}
+                </h1>
+                <p class="text-gray-600 mb-6">
+                    {{ loadError ? 'Revisá tu conexión e intentá de nuevo.' : 'Puede que ya no esté disponible o que el enlace sea incorrecto.' }}
+                </p>
+                <div class="flex flex-wrap gap-3 justify-center">
+                    <button v-if="loadError" type="button" @click="loadProduct" class="px-5 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-600 transition">Reintentar</button>
+                    <RouterLink to="/productos" class="px-5 py-2.5 border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary-50 transition">Ver catálogo</RouterLink>
+                </div>
             </div>
 
-            <LoadingSpinner v-if="loading && !product" message="Cargando producto..." />
-
-            <div v-else-if="!product" class="bg-white rounded-lg shadow-md p-12 text-center">
-                <h2 class="font-heading text-xl font-bold text-gray-800 mb-2">No encontramos este producto</h2>
-                <p class="text-gray-600">Puede que ya no esté disponible o el enlace sea incorrecto.</p>
-            </div>
-
-            <div v-if="product" class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div v-else class="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 md:p-8">
                     <div>
-                        <img :src="product.image" :alt="product.name" class="w-full rounded-lg shadow-lg" />
+                        <img :src="imageSrc" :alt="product.name" class="w-full aspect-[4/3] object-cover rounded-xl bg-gray-100 md:sticky md:top-24" @error="imageFailed = true" />
                     </div>
 
                     <div>
-                        <div class="mb-4">
-                            <span class="text-sm text-secondary font-semibold uppercase">{{ product.category }}</span>
-                            <p v-if="product.brand" class="text-gray-500 text-sm mt-1">{{ product.brand }}</p>
-                        </div>
+                        <p v-if="typeLabel" class="inline-block mb-3 px-2.5 py-1 rounded-md bg-secondary-50 text-secondary-800 text-xs font-semibold">{{ typeLabel }}</p>
 
-                        <h1 class="font-heading text-3xl font-bold text-gray-800 mb-4">{{ product.name }}</h1>
+                        <h1 class="font-heading text-2xl sm:text-3xl font-bold text-gray-800 mb-3">{{ product.name }}</h1>
 
-                        <div class="flex items-center gap-3 mb-6">
+                        <p v-if="product.is_active === false" class="mb-4 px-3 py-2 rounded-lg bg-gray-100 text-gray-800 text-sm font-medium" role="status">
+                            Esta publicación está pausada por el vendedor: se puede ver pero no comprar.
+                        </p>
+
+                        <div v-if="hasRating" class="flex items-center gap-3 mb-6">
                             <div class="flex items-center gap-1">
                                 <svg class="w-5 h-5 text-accent" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -461,19 +525,19 @@ export default {
 
                         <!-- Price section for SUPPLY products -->
                         <div v-if="product.product_type === 'SUPPLY'" class="mb-6">
-                            <p class="text-4xl font-bold text-secondary mb-2">${{ formatPrice(product.price) }}</p>
-                            <p class="text-sm text-gray-600">{{ product.unit || 'unidad' }}</p>
+                            <p class="text-4xl font-bold text-gray-900 mb-1 tabular-nums">${{ formatPrice(product.price) }}</p>
+                            <p class="text-sm text-gray-600">por {{ product.unit || 'unidad' }}</p>
                         </div>
 
                         <!-- Price section for PLASTER_SERVICE products -->
                         <div v-if="product.product_type === 'PLASTER_SERVICE'" class="mb-6">
-                            <p class="text-4xl font-bold text-secondary mb-2">${{ formatPrice(product.base_price) }}</p>
+                            <p class="text-4xl font-bold text-gray-900 mb-1 tabular-nums">${{ formatPrice(product.base_price) }}</p>
                             <p class="text-sm text-gray-600">Precio base</p>
                         </div>
 
                         <!-- Price section for RENTAL products -->
                         <div v-if="product.product_type === 'RENTAL'" class="mb-6">
-                            <p class="text-4xl font-bold text-secondary mb-2">${{ formatPrice(product.daily_price) }}</p>
+                            <p class="text-4xl font-bold text-gray-900 mb-1 tabular-nums">${{ formatPrice(product.daily_price) }}</p>
                             <p class="text-sm text-gray-600">por día</p>
                             <p v-if="product.refundable_deposit_amount > 0" class="text-sm text-gray-600 mt-2">
                                 Depósito reembolsable: ${{ formatPrice(product.refundable_deposit_amount) }}
@@ -481,56 +545,67 @@ export default {
                         </div>
 
                         <div class="mb-6">
-                            <h3 class="font-heading font-semibold text-gray-800 mb-2">Descripción</h3>
-                            <p class="text-gray-600 leading-relaxed">{{ product.description }}</p>
+                            <h2 class="font-heading text-lg font-semibold text-gray-800 mb-2">Descripción</h2>
+                            <p class="text-gray-700 leading-relaxed whitespace-pre-line max-w-prose">{{ product.description || 'El vendedor no agregó una descripción.' }}</p>
                         </div>
 
                         <!-- Configuration section for PLASTER_SERVICE products -->
                         <div v-if="product.product_type === 'PLASTER_SERVICE'" class="mb-6 bg-gray-50 p-4 rounded-lg">
-                            <h3 class="font-heading font-semibold text-gray-800 mb-3">Describe lo que necesitas</h3>
+                            <label for="plaster-description" class="block font-heading font-semibold text-gray-800 mb-1">¿Qué necesitás?</label>
+                            <p id="plaster-description-hint" class="text-sm text-gray-600 mb-3">Contale al laboratorio el tipo de modelo, cantidad y cualquier detalle importante.</p>
                             <textarea
+                                id="plaster-description"
                                 v-model="plasterDescription"
                                 rows="4"
-                                placeholder="Describe con detalle el trabajo que necesitas..."
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                                placeholder="Ej: 2 modelos de trabajo en yeso tipo IV, arcada superior completa"
+                                aria-describedby="plaster-description-hint plaster-description-count"
+                                :aria-invalid="!!plasterError"
+                                class="field-input resize-y"
                             ></textarea>
-                            <p v-if="plasterError" class="text-red-600 text-sm mt-2">{{ plasterError }}</p>
-                            <p class="text-xs text-gray-500 mt-2">
-                                {{ plasterDescription.length }} caracteres (mínimo 10)
+                            <p v-if="plasterError" class="field-error" role="alert">{{ plasterError }}</p>
+                            <p id="plaster-description-count" class="field-hint">
+                                {{ plasterDescription.trim().length }} / mínimo 10 caracteres
                             </p>
                         </div>
 
                         <!-- Configuration section for RENTAL products -->
                         <div v-if="product.product_type === 'RENTAL'" class="mb-6 bg-gray-50 p-4 rounded-lg">
-                            <h3 class="font-heading font-semibold text-gray-800 mb-3">Configurar período de alquiler</h3>
+                            <h2 class="font-heading text-lg font-semibold text-gray-800 mb-3">Elegí las fechas</h2>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Fecha de inicio:</label>
+                                    <label for="rental-start" class="field-label">Desde</label>
                                     <input
+                                        id="rental-start"
                                         type="date"
                                         v-model="rentalStartDate"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                                        :min="todayISO"
+                                        :aria-invalid="!!rentalErrors.startDate"
+                                        class="field-input"
                                     />
-                                    <p v-if="rentalErrors.startDate" class="text-red-600 text-sm mt-1">{{ rentalErrors.startDate }}</p>
+                                    <p v-if="rentalErrors.startDate" class="field-error" role="alert">{{ rentalErrors.startDate }}</p>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Fecha de fin:</label>
+                                    <label for="rental-end" class="field-label">Hasta</label>
                                     <input
+                                        id="rental-end"
                                         type="date"
                                         v-model="rentalEndDate"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                                        :min="rentalStartDate || todayISO"
+                                        :aria-invalid="!!rentalErrors.endDate"
+                                        class="field-input"
                                     />
-                                    <p v-if="rentalErrors.endDate" class="text-red-600 text-sm mt-1">{{ rentalErrors.endDate }}</p>
+                                    <p v-if="rentalErrors.endDate" class="field-error" role="alert">{{ rentalErrors.endDate }}</p>
                                 </div>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Hora de entrega:</label>
+                                    <label for="rental-start-time" class="field-label">Hora de entrega</label>
                                     <select
+                                        id="rental-start-time"
                                         v-model="rentalStartTime"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                                        class="field-input"
                                     >
                                         <option value="08:00">08:00</option>
                                         <option value="09:00">09:00</option>
@@ -550,10 +625,11 @@ export default {
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-2">Hora de recogida:</label>
+                                    <label for="rental-end-time" class="field-label">Hora de devolución</label>
                                     <select
+                                        id="rental-end-time"
                                         v-model="rentalEndTime"
-                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                                        class="field-input"
                                     >
                                         <option value="08:00">08:00</option>
                                         <option value="09:00">09:00</option>
@@ -575,7 +651,7 @@ export default {
                             </div>
 
                             <div v-if="rentalErrors.availability" class="mb-4">
-                                <p class="text-red-600 text-sm">{{ rentalErrors.availability }}</p>
+                                <p class="text-red-700 text-sm font-medium" role="alert">{{ rentalErrors.availability }}</p>
                             </div>
 
                             <div v-if="product.stock_qty" class="mb-4">
@@ -589,7 +665,7 @@ export default {
 
                             <div v-if="rentalTotalDays > 0" class="pt-4 border-t border-gray-200">
                                 <p class="text-lg text-gray-700 mb-2">
-                                    Período: <span class="font-semibold">{{ rentalTotalDays }} día(s)</span>
+                                    Período: <span class="font-semibold">{{ rentalTotalDays }} {{ rentalTotalDays === 1 ? 'día' : 'días' }}</span>
                                 </p>
                                 <p class="text-lg text-gray-700 mb-2">
                                     Total: <span class="font-bold text-3xl text-secondary">${{ formatPrice(totalPrice) }}</span>
@@ -599,12 +675,11 @@ export default {
 
                         <!-- Configuration section for PROSTHESIS products - Variant A (Default) -->
                         <div v-if="product.product_type === 'PROSTHESIS' && uiMode === 'default'" class="mb-6 bg-gray-50 p-4 rounded-lg">
-                            <h3 class="font-heading font-semibold text-gray-800 mb-3">Configurar prótesis</h3>
+                            <h2 class="font-heading text-lg font-semibold text-gray-800 mb-3">Configurá tu pedido</h2>
 
                             <div class="mb-4">
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">Tipo de trabajo:</label>
-                                <select v-model="selectedWorkType"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                                <label for="work-type" class="field-label">1. Tipo de trabajo</label>
+                                <select id="work-type" v-model="selectedWorkType" class="field-input">
                                     <option v-for="wt in workTypes" :key="wt.id" :value="wt.id">
                                         {{ wt.name }}
                                     </option>
@@ -633,22 +708,22 @@ export default {
                             </div>
 
                             <div class="mb-4">
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">Seleccionar piezas dentales:</label>
+                                <p id="teeth-label" class="field-label">2. Piezas dentales</p>
                                 <div v-if="!selectedWorkType" class="text-sm text-gray-500 italic">
                                     Primero seleccioná un tipo de trabajo
                                 </div>
                                 <div v-else-if="availableTeethForWorkType.length === 0" class="text-sm text-gray-500 italic">
                                     No hay piezas disponibles para este tipo de trabajo
                                 </div>
-                                <div v-else class="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                                <div v-else role="group" aria-labelledby="teeth-label" class="space-y-1 max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-white">
                                     <div v-for="item in availableTeethForWorkType" :key="item.tooth.id"
-                                         class="flex items-center gap-3 p-2 hover:bg-gray-100 rounded">
+                                         class="flex items-center gap-3 px-2 py-2.5 hover:bg-gray-50 rounded-md">
                                         <input
                                             type="checkbox"
                                             :id="`tooth-${item.tooth.id}`"
                                             :value="item.tooth.id"
                                             v-model="selectedTeethIds"
-                                            class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-2 focus:ring-primary"
+                                            class="w-5 h-5 text-primary border-gray-300 rounded focus:ring-2 focus:ring-primary"
                                         />
                                         <label :for="`tooth-${item.tooth.id}`" class="flex-1 flex items-center justify-between cursor-pointer">
                                             <span class="text-sm font-medium text-gray-700">
@@ -666,13 +741,13 @@ export default {
                                 <p class="text-lg text-gray-700 mb-2">
                                     Total: <span class="font-bold text-3xl text-secondary">${{ formatPrice(totalPrice) }}</span>
                                 </p>
-                                <p class="text-xs text-gray-500">{{ selectedTeethIds.length }} pieza(s) seleccionada(s)</p>
+                                <p class="text-sm text-gray-600">{{ selectedTeethIds.length }} {{ selectedTeethIds.length === 1 ? 'pieza seleccionada' : 'piezas seleccionadas' }}</p>
                             </div>
                         </div>
 
                         <!-- Configuration section for PROSTHESIS products - Variant B (Matrix) -->
                         <div v-if="product.product_type === 'PROSTHESIS' && uiMode === 'matrix'" class="mb-6 bg-gray-50 p-4 rounded-lg">
-                            <h3 class="font-heading font-semibold text-gray-800 mb-3">Configurar prótesis - Vista Matriz</h3>
+                            <h2 class="font-heading text-lg font-semibold text-gray-800 mb-3">Configurá tu pedido</h2>
 
                             <div class="overflow-x-auto">
                                 <table class="w-full border-collapse border border-gray-300 text-sm">
@@ -695,9 +770,10 @@ export default {
                                                 <div v-if="isValidToothWorkTypeCombination(tooth.id, wt.id)">
                                                     <input
                                                         type="checkbox"
+                                                        :aria-label="`Diente ${tooth.fdi_code}, ${wt.name}`"
                                                         :checked="isCombinationSelected(tooth.id, wt.id)"
                                                         @change="toggleCombination(tooth.id, wt.id)"
-                                                        class="w-4 h-4 text-primary border-gray-300 rounded cursor-pointer"
+                                                        class="w-5 h-5 text-primary border-gray-300 rounded cursor-pointer"
                                                     />
                                                     <div class="text-xs text-gray-600 mt-1">
                                                         ${{ formatPrice(getPriceForToothAndWorkType(tooth.id, wt.id)) }}
@@ -720,7 +796,7 @@ export default {
 
                         <!-- Configuration section for PROSTHESIS products - Variant C (Matrix by Quadrant) -->
                         <div v-if="product.product_type === 'PROSTHESIS' && uiMode === 'matrix4'" class="mb-6 bg-gray-50 p-4 rounded-lg">
-                            <h3 class="font-heading font-semibold text-gray-800 mb-3">Configurar prótesis - Vista por Cuadrante</h3>
+                            <h2 class="font-heading text-lg font-semibold text-gray-800 mb-3">Configurá tu pedido por cuadrante</h2>
 
                             <div v-for="(quadrantTeeth, quadrant) in teethByQuadrant" :key="quadrant" class="mb-6">
                                 <h4 class="font-semibold text-gray-700 mb-2">Cuadrante {{ quadrant }}</h4>
@@ -745,9 +821,10 @@ export default {
                                                     <div v-if="isValidToothWorkTypeCombination(tooth.id, wt.id)">
                                                         <input
                                                             type="checkbox"
+                                                            :aria-label="`Diente ${tooth.fdi_code}, ${wt.name}`"
                                                             :checked="isCombinationSelected(tooth.id, wt.id)"
                                                             @change="toggleCombination(tooth.id, wt.id)"
-                                                            class="w-4 h-4 text-primary border-gray-300 rounded cursor-pointer"
+                                                            class="w-5 h-5 text-primary border-gray-300 rounded cursor-pointer"
                                                         />
                                                         <div class="text-xs text-gray-600 mt-1">
                                                             ${{ formatPrice(getPriceForToothAndWorkType(tooth.id, wt.id)) }}
@@ -771,7 +848,7 @@ export default {
 
                         <!-- Stock and quantity section for SUPPLY products -->
                         <div v-if="product.product_type === 'SUPPLY' && product.stock > 0" class="mb-6">
-                            <p class="text-sm text-green-600 mb-3">
+                            <p class="text-sm text-secondary-800 font-medium mb-3">
                                 <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                                 </svg>
@@ -779,16 +856,16 @@ export default {
                             </p>
 
                             <div class="flex items-center gap-4 mb-6">
-                                <label class="font-semibold text-gray-700">Cantidad:</label>
-                                <div class="flex items-center border border-gray-300 rounded-lg">
-                                    <button @click="decreaseQuantity"
-                                        class="px-4 py-2 hover:bg-gray-100 transition"
+                                <span id="qty-label" class="font-semibold text-gray-700">Cantidad</span>
+                                <div class="flex items-center border border-gray-300 rounded-lg" role="group" aria-labelledby="qty-label">
+                                    <button @click="decreaseQuantity" type="button" aria-label="Restar uno"
+                                        class="w-11 h-11 text-lg hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed rounded-l-lg"
                                         :disabled="quantity <= 1">
-                                        -
+                                        −
                                     </button>
-                                    <span class="px-6 py-2 border-x border-gray-300 font-semibold">{{ quantity }}</span>
-                                    <button @click="increaseQuantity"
-                                        class="px-4 py-2 hover:bg-gray-100 transition"
+                                    <output class="w-14 text-center font-semibold tabular-nums border-x border-gray-300 leading-[2.75rem]" aria-live="polite">{{ quantity }}</output>
+                                    <button @click="increaseQuantity" type="button" aria-label="Sumar uno"
+                                        class="w-11 h-11 text-lg hover:bg-gray-100 transition disabled:opacity-40 disabled:cursor-not-allowed rounded-r-lg"
                                         :disabled="quantity >= product.stock">
                                         +
                                     </button>
@@ -797,57 +874,64 @@ export default {
 
                             <div class="mb-6">
                                 <p class="text-lg text-gray-700">
-                                    Total: <span class="font-bold text-2xl text-primary">${{ formatPrice(totalPrice) }}</span>
+                                    Total: <span class="font-bold text-2xl text-gray-900 tabular-nums">${{ formatPrice(totalPrice) }}</span>
                                 </p>
                             </div>
 
-                            <button @click="addToCart"
-                                class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90"
-                                style="background-color: #2A6FAF;">
-                                Agregar al carrito
+                            <button @click="addToCart" type="button" :disabled="addingToCart"
+                                class="w-full h-12 bg-primary text-white font-semibold px-6 rounded-lg transition hover:bg-primary-600 disabled:opacity-70">
+                                {{ addingToCart ? 'Agregando…' : 'Agregar al carrito' }}
                             </button>
                         </div>
 
                         <!-- Out of stock message for SUPPLY products only -->
                         <div v-if="product.product_type === 'SUPPLY' && (!product.stock || product.stock === 0)" class="mb-6">
-                            <p class="text-red-600 font-extrabold tracking-wide">SIN STOCK</p>
+                            <p class="inline-block px-3 py-1.5 rounded-md bg-gray-100 text-gray-800 font-semibold">Sin stock por ahora</p>
+                            <p class="text-sm text-gray-600 mt-2">Consultá al vendedor o mirá productos similares más abajo.</p>
                         </div>
 
                         <!-- Cart feedback message -->
-                        <div v-if="cartMessage" class="mb-6 p-4 rounded-lg" :class="{
-                            'bg-green-100 border border-green-400 text-green-700': cartMessageType === 'success',
-                            'bg-red-100 border border-red-400 text-red-700': cartMessageType === 'error'
+                        <div v-if="cartMessage" class="mb-6 p-4 rounded-lg flex flex-wrap items-center justify-between gap-3" role="status" aria-live="polite" :class="{
+                            'bg-secondary-50 border border-secondary-200 text-secondary-800': cartMessageType === 'success',
+                            'bg-red-50 border border-red-200 text-red-800': cartMessageType === 'error'
                         }">
-                            <p class="font-semibold">{{ cartMessage }}</p>
+                            <p class="font-semibold m-0">{{ cartMessage }}</p>
+                            <RouterLink v-if="needsLogin" :to="{ path: '/login', query: { redirect: $route.fullPath } }" class="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-600">Iniciar sesión</RouterLink>
+                            <RouterLink v-else-if="cartMessageType === 'success'" to="/carrito" class="px-4 py-2 rounded-lg bg-white border border-secondary-300 text-secondary-800 text-sm font-semibold hover:bg-secondary-50">Ver carrito</RouterLink>
                         </div>
 
                         <!-- Action button for PROSTHESIS -->
                         <button v-if="product.product_type === 'PROSTHESIS'" @click="addToCart"
-                            :disabled="isMatrixMode ? selectedCombinations.length === 0 : selectedTeethIds.length === 0"
-                            class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed mb-6"
-                            style="background-color: #2A6FAF;">
-                            Solicitar prótesis
+                            type="button"
+                            :disabled="addingToCart || (isMatrixMode ? selectedCombinations.length === 0 : selectedTeethIds.length === 0)"
+                            class="w-full h-12 bg-primary text-white font-semibold px-6 rounded-lg transition hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed mb-2">
+                            {{ addingToCart ? 'Agregando…' : 'Agregar pedido al carrito' }}
                         </button>
+                        <p v-if="product.product_type === 'PROSTHESIS' && !(isMatrixMode ? selectedCombinations.length : selectedTeethIds.length)" class="text-sm text-gray-600 mb-6">
+                            Elegí al menos una pieza para continuar.
+                        </p>
 
                         <!-- Action button for PLASTER_SERVICE -->
-                        <button v-if="product.product_type === 'PLASTER_SERVICE'" @click="addToCart"
-                            class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90 mb-6"
-                            style="background-color: #2A6FAF;">
-                            Solicitar servicio
+                        <button v-if="product.product_type === 'PLASTER_SERVICE'" @click="addToCart" type="button" :disabled="addingToCart"
+                            class="w-full h-12 bg-primary text-white font-semibold px-6 rounded-lg transition hover:bg-primary-600 disabled:opacity-70 mb-6">
+                            {{ addingToCart ? 'Agregando…' : 'Agregar pedido al carrito' }}
                         </button>
 
                         <!-- Action button for RENTAL -->
                         <button v-if="product.product_type === 'RENTAL'" @click="addToCart"
-                            :disabled="!rentalStartDate || !rentalEndDate || rentalTotalDays === 0"
-                            class="w-full text-white font-semibold py-3 px-6 rounded-lg transition shadow-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed mb-6"
-                            style="background-color: #2A6FAF;">
-                            Agregar al carrito
+                            type="button"
+                            :disabled="addingToCart || !rentalStartDate || !rentalEndDate || rentalTotalDays === 0"
+                            class="w-full h-12 bg-primary text-white font-semibold px-6 rounded-lg transition hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed mb-2">
+                            {{ addingToCart ? 'Verificando disponibilidad…' : 'Agregar alquiler al carrito' }}
                         </button>
+                        <p v-if="product.product_type === 'RENTAL' && (!rentalStartDate || !rentalEndDate)" class="text-sm text-gray-600 mb-6">
+                            Elegí fecha de inicio y de fin para ver el total.
+                        </p>
 
                         <div class="border-t border-gray-200 pt-6">
-                            <h3 class="font-heading font-semibold text-gray-800 mb-3">Vendido por</h3>
+                            <h2 class="font-heading text-base font-semibold text-gray-800 mb-3">Vendido por</h2>
                             <div class="flex items-center gap-3">
-                                <img v-if="product.seller?.avatar_url" :src="product.seller.avatar_url" alt="avatar"
+                                <img v-if="product.seller?.avatar_url" :src="product.seller.avatar_url" alt=""
                                      class="w-12 h-12 rounded-full object-cover" />
                                 <div v-else class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-lg font-bold text-gray-700">
                                     {{ initials(product.seller?.username) }}
@@ -856,6 +940,7 @@ export default {
                                     <RouterLink :to="`/usuario/${product.seller?.id}`" class="font-semibold text-gray-800 hover:underline">
                                         {{ product.seller.username }}
                                     </RouterLink>
+                                    <p class="text-sm m-0"><RouterLink :to="`/usuario/${product.seller?.id}`" class="text-primary-700 hover:underline">Ver más publicaciones</RouterLink></p>
                                     <p v-if="product.seller.location" class="text-sm text-gray-600">{{ product.seller.location }}</p>
                                 </div>
                             </div>
@@ -864,13 +949,14 @@ export default {
                 </div>
             </div>
 
-            <div v-if="relatedProducts.length > 0" class="mt-12">
-                <h2 class="font-heading text-2xl font-bold text-gray-800 mb-6">Productos relacionados</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+            <div v-if="product && relatedProducts.length > 0" class="mt-12">
+                <h2 class="font-heading text-2xl font-bold text-gray-800 mb-6">También te puede interesar</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
                     <ProductCard
                         v-for="relatedProduct in relatedProducts"
                         :key="relatedProduct.id"
                         :product="relatedProduct"
+                        :heading-level="3"
                     />
                 </div>
             </div>

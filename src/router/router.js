@@ -5,74 +5,69 @@
  * Funcionamiento: Define un array `routes` con las rutas públicas y privadas.
  * El hook `router.beforeEach` intercepta la navegación para verificar si la
  * ruta requiere autenticación (`to.meta.requiresAuth`). Si es necesario y el usuario
- * no está logueado, lo redirige a `/login`. Las rutas de `/admin` utilizan
- * el middleware `requireAdmin` para la protección basada en roles.
+ * no está logueado, lo redirige a `/login` recordando a dónde quería ir (`?redirect=`).
+ * Las rutas de `/admin` utilizan el middleware `requireAdmin` para la protección basada en roles.
+ * Las páginas se cargan bajo demanda (lazy loading) para que la primera carga sea más rápida.
  */
 
 import { createRouter, createWebHistory } from "vue-router";
-import { subscribeToAuthStateChanges } from "../services/auth";
 import { supabase } from "../services/supabase";
 import { requireAdmin } from "../middleware/admin";
 import Home from "../pages/Home.vue";
-import Login from "../pages/Login.vue";
-import Register from "../pages/Register.vue";
-import GlobalChat from "../pages/GlobalChat.vue";
-import MyProfile from "../pages/MyProfile.vue";
-import MyProfileEdit from "../pages/MyProfileEdit.vue";
-import UserProfile from "../pages/UserProfile.vue";
-import Products from "../pages/Products.vue";
-import ProductDetail from "../pages/ProductDetail.vue";
-import ProductEdit from "../pages/ProductEdit.vue";
-import NewsDetail from "../pages/NewsDetail.vue";
-import Cart from "../pages/Cart.vue";
-import Publish from "../pages/Publish.vue";
-import MyProducts from "../pages/MyProducts.vue";
-import SellerSetup from "../pages/SellerSetup.vue";
-import ShippingMethodEdit from "../pages/ShippingMethodEdit.vue";
-import AuthCallback from "../pages/AuthCallback.vue";
-import AdminLogin from "../pages/admin/Login.vue";
-import AdminDashboard from "../pages/admin/Dashboard.vue";
-import AdminProducts from "../pages/admin/Products.vue";
-import AdminProfile from "../pages/admin/Profile.vue";
 
 const routes = [
-    { path: '/',                        name: 'Home',                       component: Home },
-    { path: '/login',                   name: 'Login',                      component: Login, },
-    { path: '/register',                name: 'Register',                   component: Register, },
-    { path: '/auth/callback',           name: 'AuthCallback',               component: AuthCallback, },
-    { path: '/mi-perfil',               name: 'MyProfile',                  component: MyProfile,             meta: { requiresAuth: true, }, },
-    { path: '/mi-perfil/editar',        name: 'MyProfileEdit',              component: MyProfileEdit,         meta: { requiresAuth: true, }, },
-    { path: '/usuario/:id',             name: 'UserProfile',                component: UserProfile,           meta: { requiresAuth: true, }, },
-    { path: '/chat',                    name: 'GlobalChat',                 component: GlobalChat,            meta: { requiresAuth: true, }, },
-    { path: '/productos',               name: 'Products',                   component: Products, },
-    { path: '/productos/:id',           name: 'ProductDetail',              component: ProductDetail, },
-    { path: '/productos/:id/editar',    name: 'ProductEdit',                component: ProductEdit,           meta: { requiresAuth: true, }, },
-    { path: '/servicios/:id',           name: 'ServiceDetail',              component: ProductDetail, },
-    { path: '/noticias/:slug',          name: 'NewsDetail',                 component: NewsDetail, },
-    { path: '/carrito',                 name: 'Cart',                       component: Cart,                  meta: { requiresAuth: true, }, },
-    { path: '/publicar',                name: 'Publish',                    component: Publish,               meta: { requiresAuth: true, }, },
-    { path: '/mis-productos',           name: 'MyProducts',                 component: MyProducts,            meta: { requiresAuth: true, }, },
-    { path: '/seller-setup',            name: 'SellerSetup',                component: SellerSetup,           meta: { requiresAuth: true, }, },
-    { path: '/metodos-envio/:id',       name: 'ShippingMethodEdit',         component: ShippingMethodEdit,    meta: { requiresAuth: true, }, },
-    { path: '/admin/login',             name: 'AdminLogin',                 component: AdminLogin, },
-    { path: '/admin/dashboard',         name: 'AdminDashboard',             component: AdminDashboard,        beforeEnter: requireAdmin, },
-    { path: '/admin/products',          name: 'AdminProducts',              component: AdminProducts,         beforeEnter: requireAdmin, },
-    { path: '/admin/profile',           name: 'AdminProfile',               component: AdminProfile,          beforeEnter: requireAdmin, },
+    { path: '/',                        name: 'Home',                       component: Home,                                            meta: { title: 'Marketplace odontológico' } },
+    { path: '/login',                   name: 'Login',                      component: () => import('../pages/Login.vue'),              meta: { title: 'Iniciar sesión' } },
+    { path: '/register',                name: 'Register',                   component: () => import('../pages/Register.vue'),           meta: { title: 'Crear cuenta' } },
+    { path: '/auth/callback',           name: 'AuthCallback',               component: () => import('../pages/AuthCallback.vue'),       meta: { title: 'Confirmando cuenta' } },
+    { path: '/mi-perfil',               name: 'MyProfile',                  component: () => import('../pages/MyProfile.vue'),          meta: { requiresAuth: true, title: 'Mi perfil' } },
+    { path: '/mi-perfil/editar',        name: 'MyProfileEdit',              component: () => import('../pages/MyProfileEdit.vue'),      meta: { requiresAuth: true, title: 'Editar perfil' } },
+    { path: '/usuario/:id',             name: 'UserProfile',                component: () => import('../pages/UserProfile.vue'),        meta: { title: 'Perfil del vendedor' } },
+    { path: '/chat',                    name: 'GlobalChat',                 component: () => import('../pages/GlobalChat.vue'),         meta: { requiresAuth: true, title: 'Soporte' } },
+    { path: '/productos',               name: 'Products',                   component: () => import('../pages/Products.vue'),           meta: { title: 'Catálogo' } },
+    { path: '/productos/:id',           name: 'ProductDetail',              component: () => import('../pages/ProductDetail.vue'),      meta: { title: 'Detalle del producto' } },
+    { path: '/productos/:id/editar',    name: 'ProductEdit',                component: () => import('../pages/ProductEdit.vue'),        meta: { requiresAuth: true, title: 'Editar publicación' } },
+    { path: '/servicios',               redirect: { path: '/productos', query: { tipo: 'servicios' } } },
+    { path: '/servicios/:id',           name: 'ServiceDetail',              component: () => import('../pages/ProductDetail.vue'),      meta: { title: 'Detalle del servicio' } },
+    { path: '/noticias/:slug',          name: 'NewsDetail',                 component: () => import('../pages/NewsDetail.vue'),         meta: { title: 'Noticias' } },
+    { path: '/carrito',                 name: 'Cart',                       component: () => import('../pages/Cart.vue'),               meta: { requiresAuth: true, title: 'Mi carrito' } },
+    { path: '/publicar',                name: 'Publish',                    component: () => import('../pages/Publish.vue'),            meta: { requiresAuth: true, title: 'Publicar' } },
+    { path: '/mis-productos',           name: 'MyProducts',                 component: () => import('../pages/MyProducts.vue'),         meta: { requiresAuth: true, title: 'Mis publicaciones' } },
+    { path: '/seller-setup',            name: 'SellerSetup',                component: () => import('../pages/SellerSetup.vue'),        meta: { requiresAuth: true, title: 'Configurar ventas' } },
+    { path: '/metodos-envio/:id',       name: 'ShippingMethodEdit',         component: () => import('../pages/ShippingMethodEdit.vue'), meta: { requiresAuth: true, title: 'Método de envío' } },
+    { path: '/admin/login',             name: 'AdminLogin',                 component: () => import('../pages/admin/Login.vue'),        meta: { title: 'Administración' } },
+    { path: '/admin',                   redirect: '/admin/dashboard' },
+    { path: '/admin/dashboard',         name: 'AdminDashboard',             component: () => import('../pages/admin/Dashboard.vue'),    beforeEnter: requireAdmin, meta: { title: 'Panel de administración' } },
+    { path: '/admin/products',          name: 'AdminProducts',              component: () => import('../pages/admin/Products.vue'),     beforeEnter: requireAdmin, meta: { title: 'Productos · Admin' } },
+    { path: '/admin/profile',           name: 'AdminProfile',               component: () => import('../pages/admin/Profile.vue'),      beforeEnter: requireAdmin, meta: { title: 'Perfil · Admin' } },
+    { path: '/:pathMatch(.*)*',         name: 'NotFound',                   component: () => import('../pages/NotFound.vue'),           meta: { title: 'Página no encontrada' } },
 ];
 
 
 const router = createRouter({
     history: createWebHistory(),
     routes,
+    // Al navegar a otra página siempre se arranca desde arriba; "Atrás" recupera la posición previa.
+    scrollBehavior(to, from, savedPosition) {
+        if (savedPosition) return savedPosition
+        if (to.hash) return { el: to.hash, top: 80 }
+        if (to.path === from.path) return false
+        return { top: 0 }
+    },
 });
 
-router.beforeEach(async (to, from) => {
+router.beforeEach(async (to) => {
     if (to.meta.requiresAuth) {
         const { data } = await supabase.auth.getUser();
         if (!data?.user) {
-            return '/login';
+            return { path: '/login', query: { redirect: to.fullPath } };
         }
     }
+});
+
+router.afterEach((to) => {
+    const title = to.meta?.title;
+    document.title = title ? `${title} · ProviDent` : 'ProviDent · Marketplace odontológico';
 });
 
 export default router;

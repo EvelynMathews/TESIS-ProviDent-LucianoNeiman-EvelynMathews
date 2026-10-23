@@ -153,7 +153,7 @@ export default {
                 const product = await getProductById(id)
 
                 if (!product) {
-                    this.errorMessage = 'Producto no encontrado'
+                    this.errorMessage = 'No encontramos esta publicación. Puede que se haya eliminado.'
                     return
                 }
 
@@ -188,7 +188,7 @@ export default {
             this.supplyData.imagePreview = product.image
 
             // Handle unit
-            const standardUnits = ['unidad', 'kg', 'g', 'l', 'ml', 'metro']
+            const standardUnits = ['unidad', 'caja', 'pack', 'kilo', 'kg', 'g', 'litro', 'l', 'ml', 'metro']
             if (standardUnits.includes(product.unit)) {
                 this.supplyData.unit = product.unit
             } else {
@@ -263,16 +263,17 @@ export default {
         async loadRentalData(product) {
             this.rentalData.name = product.name
             this.rentalData.description = product.description
-            this.rentalData.stock = product.stock
+            this.rentalData.stock = product.stock_qty ?? product.stock ?? ''
             this.rentalData.is_active = product.is_active !== false
             this.rentalData.imagePreview = product.image
 
             // Load rental pricing
             if (product.rental_pricing && product.rental_pricing.length > 0) {
                 product.rental_pricing.forEach(rp => {
-                    if (rp.period === 'DAY') this.rentalData.priceDay = rp.price
-                    if (rp.period === 'WEEK') this.rentalData.priceWeek = rp.price
-                    if (rp.period === 'MONTH') this.rentalData.priceMonth = rp.price
+                    // La base guarda los períodos como '1 day' / '7 days' / '30 days'
+                    if (rp.period === '1 day' || rp.period === 'DAY') this.rentalData.priceDay = rp.price
+                    if (rp.period === '7 days' || rp.period === 'WEEK') this.rentalData.priceWeek = rp.price
+                    if (rp.period === '30 days' || rp.period === 'MONTH') this.rentalData.priceMonth = rp.price
                 })
             }
         },
@@ -298,7 +299,7 @@ export default {
 
         async saveChanges() {
             if (!this.canSave) {
-                this.errorMessage = 'Completá los campos obligatorios'
+                this.errorMessage = 'Completá los campos marcados con *.'
                 return
             }
 
@@ -316,13 +317,13 @@ export default {
                     await this.saveRentalProduct()
                 }
 
-                this.successMessage = 'Producto actualizado correctamente'
+                this.successMessage = 'Cambios guardados. Volviendo a tus publicaciones…'
                 setTimeout(() => {
                     this.$router.push('/mis-productos')
                 }, 1500)
             } catch (e) {
                 console.error('Error saving:', e)
-                this.errorMessage = `Error al guardar: ${e?.message || String(e)}`
+                this.errorMessage = "No pudimos guardar los cambios. Revisá los datos e intentá de nuevo."
             } finally {
                 this.saving = false
             }
@@ -440,11 +441,11 @@ export default {
 </script>
 
 <template>
-    <div class="min-h-screen bg-gray-50 pt-20 pb-12">
+    <div class="min-h-screen bg-gray-50 pt-8 pb-16">
         <div class="max-w-4xl mx-auto px-4">
             <div class="mb-6">
                 <button @click="cancel" class="text-primary hover:text-primary-700 font-medium">
-                    ← Volver a mis productos
+                    ← Mis publicaciones
                 </button>
             </div>
 
@@ -458,19 +459,19 @@ export default {
             <div v-else-if="productType === 'SUPPLY'" class="bg-white rounded-lg shadow-md p-6">
                 <h1 class="font-heading text-3xl font-bold text-gray-800 mb-6">Editar Producto</h1>
 
-                <div v-if="errorMessage" class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                <div v-if="errorMessage" class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4" role="alert">
                     <p class="text-red-800">{{ errorMessage }}</p>
                 </div>
 
-                <div v-if="successMessage" class="mb-4 bg-green-50 border border-green-200 rounded-lg p-4">
+                <div v-if="successMessage" class="mb-4 bg-green-50 border border-green-200 rounded-lg p-4" role="status">
                     <p class="text-green-800">{{ successMessage }}</p>
                 </div>
 
                 <div class="space-y-6">
                     <!-- Name -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre *</label>
-                        <input
+                        <label for="f-supplyData-name" class="block text-sm font-semibold text-gray-700 mb-2">Nombre *</label>
+                        <input id="f-supplyData-name"
                             v-model="supplyData.name"
                             type="text"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -480,8 +481,8 @@ export default {
 
                     <!-- Description -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Descripción *</label>
-                        <textarea
+                        <label for="f-supplyData-description" class="block text-sm font-semibold text-gray-700 mb-2">Descripción *</label>
+                        <textarea id="f-supplyData-description"
                             v-model="supplyData.description"
                             rows="4"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -491,11 +492,12 @@ export default {
 
                     <!-- Image -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Imagen</label>
+                        <label for="edit-image" class="block text-sm font-semibold text-gray-700 mb-2">Imagen</label>
                         <div v-if="supplyData.imagePreview" class="mb-3">
                             <img :src="supplyData.imagePreview" alt="Preview" class="w-48 h-48 object-cover rounded-lg" />
                         </div>
                         <input
+                            id="edit-image"
                             type="file"
                             @change="handleImageChange"
                             accept="image/*"
@@ -505,8 +507,8 @@ export default {
 
                     <!-- Price -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Precio *</label>
-                        <input
+                        <label for="f-supplyData-price" class="block text-sm font-semibold text-gray-700 mb-2">Precio *</label>
+                        <input id="f-supplyData-price"
                             v-model="supplyData.price"
                             type="number"
                             step="0.01"
@@ -517,12 +519,16 @@ export default {
 
                     <!-- Unit -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Unidad *</label>
-                        <select
+                        <label for="f-supplyData-unit" class="block text-sm font-semibold text-gray-700 mb-2">Unidad *</label>
+                        <select id="f-supplyData-unit"
                             v-model="supplyData.unit"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                         >
                             <option value="unidad">Unidad</option>
+                            <option value="caja">Caja</option>
+                            <option value="pack">Pack</option>
+                            <option value="kilo">Kilo</option>
+                            <option value="litro">Litro</option>
                             <option value="kg">Kilogramo</option>
                             <option value="g">Gramo</option>
                             <option value="l">Litro</option>
@@ -541,8 +547,8 @@ export default {
 
                     <!-- Stock -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Stock *</label>
-                        <input
+                        <label for="f-supplyData-stock" class="block text-sm font-semibold text-gray-700 mb-2">Stock *</label>
+                        <input id="f-supplyData-stock"
                             v-model="supplyData.stock"
                             type="number"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -552,8 +558,8 @@ export default {
 
                     <!-- SKU -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">SKU (opcional)</label>
-                        <input
+                        <label for="f-supplyData-sku" class="block text-sm font-semibold text-gray-700 mb-2">SKU (opcional)</label>
+                        <input id="f-supplyData-sku"
                             v-model="supplyData.sku"
                             type="text"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -598,19 +604,19 @@ export default {
             <div v-else-if="productType === 'PROSTHESIS'" class="bg-white rounded-lg shadow-md p-6">
                 <h1 class="font-heading text-3xl font-bold text-gray-800 mb-6">Editar Prótesis</h1>
 
-                <div v-if="errorMessage" class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                <div v-if="errorMessage" class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4" role="alert">
                     <p class="text-red-800">{{ errorMessage }}</p>
                 </div>
 
-                <div v-if="successMessage" class="mb-4 bg-green-50 border border-green-200 rounded-lg p-4">
+                <div v-if="successMessage" class="mb-4 bg-green-50 border border-green-200 rounded-lg p-4" role="status">
                     <p class="text-green-800">{{ successMessage }}</p>
                 </div>
 
                 <div class="space-y-6">
                     <!-- Name -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre *</label>
-                        <input
+                        <label for="f-prosthesisData-name" class="block text-sm font-semibold text-gray-700 mb-2">Nombre *</label>
+                        <input id="f-prosthesisData-name"
                             v-model="prosthesisData.name"
                             type="text"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -620,8 +626,8 @@ export default {
 
                     <!-- Description -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Descripción *</label>
-                        <textarea
+                        <label for="f-prosthesisData-description" class="block text-sm font-semibold text-gray-700 mb-2">Descripción *</label>
+                        <textarea id="f-prosthesisData-description"
                             v-model="prosthesisData.description"
                             rows="4"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -631,8 +637,8 @@ export default {
 
                     <!-- Material -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Material *</label>
-                        <input
+                        <label for="f-prosthesisData-material" class="block text-sm font-semibold text-gray-700 mb-2">Material *</label>
+                        <input id="f-prosthesisData-material"
                             v-model="prosthesisData.material"
                             type="text"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -642,11 +648,12 @@ export default {
 
                     <!-- Image -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Imagen</label>
+                        <label for="edit-image" class="block text-sm font-semibold text-gray-700 mb-2">Imagen</label>
                         <div v-if="prosthesisData.imagePreview" class="mb-3">
                             <img :src="prosthesisData.imagePreview" alt="Preview" class="w-48 h-48 object-cover rounded-lg" />
                         </div>
                         <input
+                            id="edit-image"
                             type="file"
                             @change="handleImageChange"
                             accept="image/*"
@@ -710,8 +717,8 @@ export default {
 
                     <!-- Manufacturing Days -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Días de fabricación</label>
-                        <input
+                        <label for="f-prosthesisData-deliveryTime" class="block text-sm font-semibold text-gray-700 mb-2">Días de fabricación</label>
+                        <input id="f-prosthesisData-deliveryTime"
                             v-model="prosthesisData.deliveryTime"
                             type="number"
                             min="1"
@@ -757,19 +764,19 @@ export default {
             <div v-else-if="productType === 'PLASTER_SERVICE'" class="bg-white rounded-lg shadow-md p-6">
                 <h1 class="font-heading text-3xl font-bold text-gray-800 mb-6">Editar Servicio de Enyesado</h1>
 
-                <div v-if="errorMessage" class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                <div v-if="errorMessage" class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4" role="alert">
                     <p class="text-red-800">{{ errorMessage }}</p>
                 </div>
 
-                <div v-if="successMessage" class="mb-4 bg-green-50 border border-green-200 rounded-lg p-4">
+                <div v-if="successMessage" class="mb-4 bg-green-50 border border-green-200 rounded-lg p-4" role="status">
                     <p class="text-green-800">{{ successMessage }}</p>
                 </div>
 
                 <div class="space-y-6">
                     <!-- Name -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre *</label>
-                        <input
+                        <label for="f-plasterData-name" class="block text-sm font-semibold text-gray-700 mb-2">Nombre *</label>
+                        <input id="f-plasterData-name"
                             v-model="plasterData.name"
                             type="text"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -779,8 +786,8 @@ export default {
 
                     <!-- Description -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Descripción *</label>
-                        <textarea
+                        <label for="f-plasterData-description" class="block text-sm font-semibold text-gray-700 mb-2">Descripción *</label>
+                        <textarea id="f-plasterData-description"
                             v-model="plasterData.description"
                             rows="4"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -790,11 +797,12 @@ export default {
 
                     <!-- Image -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Imagen</label>
+                        <label for="edit-image" class="block text-sm font-semibold text-gray-700 mb-2">Imagen</label>
                         <div v-if="plasterData.imagePreview" class="mb-3">
                             <img :src="plasterData.imagePreview" alt="Preview" class="w-48 h-48 object-cover rounded-lg" />
                         </div>
                         <input
+                            id="edit-image"
                             type="file"
                             @change="handleImageChange"
                             accept="image/*"
@@ -804,8 +812,8 @@ export default {
 
                     <!-- Base Price -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Precio base *</label>
-                        <input
+                        <label for="f-plasterData-basePrice" class="block text-sm font-semibold text-gray-700 mb-2">Precio base *</label>
+                        <input id="f-plasterData-basePrice"
                             v-model="plasterData.basePrice"
                             type="number"
                             step="0.01"
@@ -816,8 +824,8 @@ export default {
 
                     <!-- Manufacturing Days -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Días de fabricación</label>
-                        <input
+                        <label for="f-plasterData-deliveryTime" class="block text-sm font-semibold text-gray-700 mb-2">Días de fabricación</label>
+                        <input id="f-plasterData-deliveryTime"
                             v-model="plasterData.deliveryTime"
                             type="number"
                             min="1"
@@ -863,19 +871,19 @@ export default {
             <div v-else-if="productType === 'RENTAL'" class="bg-white rounded-lg shadow-md p-6">
                 <h1 class="font-heading text-3xl font-bold text-gray-800 mb-6">Editar Alquiler</h1>
 
-                <div v-if="errorMessage" class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                <div v-if="errorMessage" class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4" role="alert">
                     <p class="text-red-800">{{ errorMessage }}</p>
                 </div>
 
-                <div v-if="successMessage" class="mb-4 bg-green-50 border border-green-200 rounded-lg p-4">
+                <div v-if="successMessage" class="mb-4 bg-green-50 border border-green-200 rounded-lg p-4" role="status">
                     <p class="text-green-800">{{ successMessage }}</p>
                 </div>
 
                 <div class="space-y-6">
                     <!-- Name -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre *</label>
-                        <input
+                        <label for="f-rentalData-name" class="block text-sm font-semibold text-gray-700 mb-2">Nombre *</label>
+                        <input id="f-rentalData-name"
                             v-model="rentalData.name"
                             type="text"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -885,8 +893,8 @@ export default {
 
                     <!-- Description -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Descripción *</label>
-                        <textarea
+                        <label for="f-rentalData-description" class="block text-sm font-semibold text-gray-700 mb-2">Descripción *</label>
+                        <textarea id="f-rentalData-description"
                             v-model="rentalData.description"
                             rows="4"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -896,11 +904,12 @@ export default {
 
                     <!-- Image -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Imagen</label>
+                        <label for="edit-image" class="block text-sm font-semibold text-gray-700 mb-2">Imagen</label>
                         <div v-if="rentalData.imagePreview" class="mb-3">
                             <img :src="rentalData.imagePreview" alt="Preview" class="w-48 h-48 object-cover rounded-lg" />
                         </div>
                         <input
+                            id="edit-image"
                             type="file"
                             @change="handleImageChange"
                             accept="image/*"
@@ -910,8 +919,8 @@ export default {
 
                     <!-- Stock -->
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Cantidad disponible *</label>
-                        <input
+                        <label for="f-rentalData-stock" class="block text-sm font-semibold text-gray-700 mb-2">Cantidad disponible *</label>
+                        <input id="f-rentalData-stock"
                             v-model="rentalData.stock"
                             type="number"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -926,8 +935,8 @@ export default {
 
                         <div class="space-y-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Precio por día</label>
-                                <input
+                                <label for="f-rentalData-priceDay" class="block text-sm font-medium text-gray-700 mb-2">Precio por día</label>
+                                <input id="f-rentalData-priceDay"
                                     v-model="rentalData.priceDay"
                                     type="number"
                                     step="0.01"
@@ -936,8 +945,8 @@ export default {
                                 />
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Precio por semana</label>
-                                <input
+                                <label for="f-rentalData-priceWeek" class="block text-sm font-medium text-gray-700 mb-2">Precio por semana</label>
+                                <input id="f-rentalData-priceWeek"
                                     v-model="rentalData.priceWeek"
                                     type="number"
                                     step="0.01"
@@ -946,8 +955,8 @@ export default {
                                 />
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Precio por mes</label>
-                                <input
+                                <label for="f-rentalData-priceMonth" class="block text-sm font-medium text-gray-700 mb-2">Precio por mes</label>
+                                <input id="f-rentalData-priceMonth"
                                     v-model="rentalData.priceMonth"
                                     type="number"
                                     step="0.01"

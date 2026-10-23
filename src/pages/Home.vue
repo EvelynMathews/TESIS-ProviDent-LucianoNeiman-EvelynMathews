@@ -11,7 +11,8 @@ import CategoryIcon from '../components/CategoryIcon.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { listActiveProducts, listActiveServices } from '../services/products'
 import { listPublishedNews, getNewsImageUrl } from '../services/news'
-import { categories } from '../data/mockProducts'
+import { catalogTypes } from '../data/catalog'
+import { isCurrentUserSeller } from '../services/sellers'
 
 export default {
     name: 'Home',
@@ -37,11 +38,12 @@ export default {
             loadingProducts: false,
             loadingServices: false,
             loadingNews: false,
+            isSeller: false,
         }
     },
     methods: {
         async loadData() {
-            this.categories = categories
+            this.categories = catalogTypes
             this.loadProducts()
             this.loadServices()
             this.loadNews()
@@ -90,13 +92,15 @@ export default {
             const date = new Date(dateString)
             return date.toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' })
         },
-        showComingSoon(planName) {
-            alert(`El plan ${planName} estará disponible próximamente. ¡Gracias por tu interés!`)
+        onNewsImageError(item) {
+            this.newsImages[item.id] = null
         }
     },
     mounted() {
-        subscribeToAuthStateChanges(newUserState => {
+        subscribeToAuthStateChanges(async newUserState => {
+            const changed = newUserState.id !== this.user.id
             this.user = newUserState
+            if (changed) this.isSeller = newUserState.id ? await isCurrentUserSeller() : false
         })
         this.loadData()
     }
@@ -128,7 +132,7 @@ export default {
                         <p class="text-2xl mb-6" style="color: #2A6FAF;">
                             Conectamos productos odontológicos con quienes lo necesitan
                         </p>
-                        <div class="flex gap-4 justify-center md:justify-start mt-8">
+                        <div class="flex flex-wrap gap-3 justify-center md:justify-start mt-8">
                             <RouterLink to="/productos"
                                 class="px-6 py-3 text-white font-semibold rounded-lg transition shadow-md hover:opacity-90"
                                 style="background-color: #2A6FAF;">
@@ -142,7 +146,7 @@ export default {
                         </div>
                     </div>
                     <div class="flex-1 hidden md:block">
-                        <img src="/hero-dentist.webp"
+                        <img src="/hero-dentist.webp" fetchpriority="high"
                             alt="Profesional odontológico usando ProviDent"
                             class="rounded-lg shadow-2xl object-cover w-full h-auto" />
                     </div>
@@ -161,14 +165,13 @@ export default {
                 <h2 class="font-heading text-2xl font-bold mb-6" style="color: #2A6FAF;">Categorías principales</h2>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <RouterLink v-for="category in categories" :key="category.id"
-                        :to="`/productos?categoria=${category.slug}`"
-                        class="bg-white rounded-lg p-6 text-center hover:shadow-lg hover:scale-105 transition-all duration-300 border-2"
-                        style="border-color: #A4C5DF;">
-                        <div class="w-16 h-16 mx-auto mb-4" style="color: #2A6FAF;">
+                        :to="{ path: '/productos', query: { tipo: category.slug } }"
+                        class="group bg-white rounded-xl p-4 sm:p-6 text-center border border-primary-100 hover:border-primary-300 hover:shadow-[0_12px_28px_-12px_rgba(18,45,70,0.3)] hover:-translate-y-0.5 transition-all duration-200">
+                        <div class="w-12 h-12 sm:w-14 sm:h-14 mx-auto mb-3 sm:mb-4 p-2.5 rounded-xl bg-primary-50 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                             <CategoryIcon :icon="category.icon" />
                         </div>
-                        <h3 class="font-heading font-semibold text-gray-800 mb-2">{{ category.name }}</h3>
-                        <p class="text-sm text-gray-600">{{ category.description }}</p>
+                        <h3 class="font-heading font-semibold text-gray-800 text-base sm:text-lg mb-1">{{ category.name }}</h3>
+                        <p class="text-xs sm:text-sm text-gray-600 m-0">{{ category.description }}</p>
                     </RouterLink>
                 </div>
             </div>
@@ -188,7 +191,7 @@ export default {
                                 confiables depende de contactos y llamadas.
                             </p>
                             <p>
-                                <span class="font-semibold" style="color: #29A68C;">Nuestra oportunidad:</span> centralizar
+                                <span class="font-semibold text-secondary-700">Nuestra oportunidad:</span> centralizar
                                 y democratizar el acceso a materiales —especialmente materia prima—, fomentando la economía
                                 local y brindando confianza a profesionales de todo tamaño.
                             </p>
@@ -197,11 +200,11 @@ export default {
                                 haciendo que el acceso a productos y servicios sea más transparente, seguro y eficiente.
                             </p>
                         </div>
-                        <div class="mt-8 flex gap-4">
-                            <RouterLink to="/register"
+                        <div class="mt-8 flex flex-wrap gap-3">
+                            <RouterLink :to="user.id ? '/productos' : '/register'"
                                 class="px-6 py-3 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90"
-                                style="background-color: #29A68C;">
-                                Comenzar ahora
+                                style="background-color: #196454;">
+                                {{ user.id ? 'Ir al catálogo' : 'Crear cuenta gratis' }}
                             </RouterLink>
                             <RouterLink to="/productos"
                                 class="px-6 py-3 border-2 font-semibold rounded-lg transition hover:bg-gray-50"
@@ -212,7 +215,7 @@ export default {
                     </div>
                     <div class="flex-1">
                         <div class="relative" style="max-height: 28.5rem;">
-                            <img src="/provident-office.webp"
+                            <img src="/provident-office.webp" loading="lazy"
                                 alt="ProviDent - Profesionales trabajando en consultorio odontológico"
                                 class="rounded-lg shadow-xl w-full object-cover" style="height: 28.5rem;" />
                         </div>
@@ -229,18 +232,21 @@ export default {
             <div class="organic-shape-products organic-shape-products-5"></div>
 
             <div class="max-w-7xl mx-auto px-4 relative z-10">
-                <div class="flex items-center justify-between mb-6">
-                    <h2 class="font-heading text-2xl font-bold" style="color: #2A6FAF;">Productos destacados</h2>
+                <div class="flex items-end justify-between gap-4 mb-6">
+                    <h2 class="font-heading text-2xl font-bold m-0" style="color: #2A6FAF;">Productos destacados</h2>
                     <RouterLink to="/productos"
-                        class="font-medium transition hover:underline"
-                        style="color: #2A6FAF;">
+                        class="shrink-0 font-semibold text-primary-700 hover:underline underline-offset-4">
                         Ver todos
                     </RouterLink>
                 </div>
 
                 <LoadingSpinner v-if="loadingProducts" message="Cargando productos..." />
 
-                <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                <p v-else-if="!featuredProducts.length" class="text-gray-600 bg-white/70 rounded-xl p-6 text-center">
+                    Todavía no hay productos publicados. <RouterLink :to="user.id ? '/seller-setup' : '/register'" class="text-primary-700 font-semibold underline">Publicá el primero</RouterLink>.
+                </p>
+
+                <div v-else class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
                     <ProductCard
                         v-for="product in featuredProducts"
                         :key="product.id"
@@ -253,21 +259,24 @@ export default {
 
         <section class="py-12 bg-white relative z-10">
             <div class="max-w-7xl mx-auto px-4">
-                <div class="flex items-center justify-between mb-6">
+                <div class="flex items-end justify-between gap-4 mb-6">
                     <div>
-                        <h2 class="font-heading text-2xl font-bold mb-2" style="color: #29A68C;">Servicios profesionales</h2>
+                        <h2 class="font-heading text-2xl font-bold mb-1 text-secondary-700">Servicios profesionales</h2>
                         <p class="text-gray-600">Prótesis, modelado en yeso y alquiler de equipos</p>
                     </div>
-                    <RouterLink to="/servicios"
-                        class="font-medium transition hover:underline"
-                        style="color: #29A68C;">
+                    <RouterLink :to="{ path: '/productos', query: { tipo: 'servicios' } }"
+                        class="shrink-0 font-semibold text-secondary-700 hover:underline underline-offset-4">
                         Ver todos
                     </RouterLink>
                 </div>
 
                 <LoadingSpinner v-if="loadingServices" message="Cargando servicios..." />
 
-                <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                <p v-else-if="!featuredServices.length" class="text-gray-600 bg-gray-50 rounded-xl p-6 text-center">
+                    Todavía no hay servicios publicados.
+                </p>
+
+                <div v-else class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
                     <ServiceCard
                         v-for="service in featuredServices"
                         :key="service.id"
@@ -277,24 +286,19 @@ export default {
             </div>
         </section>
 
-        <section v-if="user.id" class="py-12 relative z-10" style="background-color: #F8E8E2;">
+        <section v-if="user.id && !isSeller" class="py-12 relative z-10" style="background-color: #F8E8E2;">
             <div class="max-w-7xl mx-auto px-4">
                 <div class="bg-white rounded-lg shadow-md p-8 text-center">
-                    <div class="w-16 h-16 mx-auto mb-4" style="color: #EBD0C7;">
+                    <div class="w-16 h-16 mx-auto mb-4 text-accent-600" aria-hidden="true">
                         <svg class="w-full h-full" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M20 6h-2.18c.11-.31.18-.65.18-1 0-1.66-1.34-3-3-3-1.05 0-1.96.54-2.5 1.35l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM9 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36L15.38 12 17 10.83 14.92 8H20v6z"/>
                         </svg>
                     </div>
-                    <RouterLink to="/publicar" class="inline-block">
-                        <h2 class="font-heading text-2xl font-bold text-gray-800 mb-2 transition cursor-pointer hover:opacity-80">
-                            Quiero ser vendedor
-                        </h2>
-                    </RouterLink>
-                    <p class="text-gray-600 mb-6">Publica tus productos o servicios y llega a miles de profesionales</p>
-                    <RouterLink to="/publicar"
-                        class="inline-block px-6 py-3 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90"
-                        style="background-color: #EBD0C7;">
-                        Comenzar a vender
+                    <h2 class="font-heading text-2xl font-bold text-gray-800 mb-2">Vendé en ProviDent</h2>
+                    <p class="text-gray-600 mb-6">Publicá tus productos o servicios y llegá a profesionales de todo el país.</p>
+                    <RouterLink to="/seller-setup"
+                        class="inline-block px-6 py-3 text-white font-semibold rounded-lg shadow-sm transition bg-accent-700 hover:bg-accent-800">
+                        Empezar a vender
                     </RouterLink>
                 </div>
             </div>
@@ -309,8 +313,8 @@ export default {
 
             <div class="max-w-6xl mx-auto px-4 relative z-10">
                 <div class="text-center mb-12">
-                    <h2 class="font-heading text-3xl font-bold text-gray-800 mb-3">¿Te interesa convertirte en vendedor?</h2>
-                    <p class="text-lg text-gray-600">Es muy simple. Elegí el plan que mejor se adapte a tus necesidades</p>
+                    <h2 class="font-heading text-3xl font-bold text-gray-800 mb-3">Planes para vendedores</h2>
+                    <p class="text-lg text-gray-600">Empezá gratis hoy. Los planes pagos se habilitan próximamente.</p>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -326,10 +330,11 @@ export default {
                             <p class="text-gray-700 mb-2">Perfil básico <strong>sin prioridad</strong> en búsquedas.</p>
                             <p class="text-gray-700 mb-4">Ideal para <strong>probar</strong> la plataforma.</p>
                         </div>
-                        <p class="text-4xl font-bold mb-6" style="color: #A4C5DF;">$0<span class="text-lg font-normal text-gray-500">/mes</span></p>
-                        <button @click="showComingSoon('Gratuito')" class="w-full py-3 px-6 rounded-lg font-semibold transition text-white hover:opacity-90" style="background-color: #A4C5DF;">
-                            Gratuito
-                        </button>
+                        <p class="text-sm font-semibold uppercase tracking-wide text-primary-700 mb-1">Gratuito</p>
+                        <p class="text-4xl font-bold mb-6 text-gray-800 tabular-nums">$0<span class="text-lg font-normal text-gray-600">/mes</span></p>
+                        <RouterLink :to="user.id ? '/seller-setup' : '/register'" class="w-full py-3 px-6 rounded-lg font-semibold transition text-white bg-primary hover:bg-primary-600">
+                            Empezar gratis
+                        </RouterLink>
                     </div>
 
                     <!-- Plan Profesional -->
@@ -344,10 +349,11 @@ export default {
                             <p class="text-gray-700 mb-2"><strong>Perfil destacado</strong> con prioridad de búsquedas.</p>
                             <p class="text-gray-700 mb-4">Acceso a <strong>métricas básicas</strong>.</p>
                         </div>
-                        <p class="text-4xl font-bold text-gray-800 mb-6">$15.000<span class="text-lg font-normal text-gray-600">/mes</span></p>
-                        <button @click="showComingSoon('Profesional')" class="w-full py-3 px-6 bg-gray-700 text-white rounded-lg font-semibold hover:bg-gray-800 transition">
-                            Profesional
-                        </button>
+                        <p class="text-sm font-semibold uppercase tracking-wide text-secondary-800 mb-1">Profesional</p>
+                        <p class="text-4xl font-bold text-gray-800 mb-6 tabular-nums">$15.000<span class="text-lg font-normal text-gray-600">/mes</span></p>
+                        <p class="w-full py-3 px-6 rounded-lg font-semibold text-gray-700 bg-white/70 border border-gray-300 m-0">
+                            Próximamente
+                        </p>
                     </div>
 
                     <!-- Plan Premium -->
@@ -364,10 +370,11 @@ export default {
                             <p class="text-gray-700 mb-2"><strong>Promociones destacadas</strong> y cupones.</p>
                             <p class="text-gray-700 mb-4">Soporte <strong>prioritario</strong>.</p>
                         </div>
-                        <p class="text-4xl font-bold text-gray-800 mb-6">$30.000<span class="text-lg font-normal text-gray-600">/mes</span></p>
-                        <button @click="showComingSoon('Premium')" class="w-full py-3 px-6 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition shadow-md">
-                            Premium
-                        </button>
+                        <p class="text-sm font-semibold uppercase tracking-wide text-primary-700 mb-1">Premium</p>
+                        <p class="text-4xl font-bold text-gray-800 mb-6 tabular-nums">$30.000<span class="text-lg font-normal text-gray-600">/mes</span></p>
+                        <p class="w-full py-3 px-6 rounded-lg font-semibold text-gray-700 bg-white/70 border border-gray-300 m-0">
+                            Próximamente
+                        </p>
                     </div>
                 </div>
             </div>
@@ -379,18 +386,20 @@ export default {
 
                 <LoadingSpinner v-if="loadingNews" message="Cargando noticias..." />
 
-                <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div v-else-if="news.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     <RouterLink v-for="item in news" :key="item.id" :to="`/noticias/${item.slug}`"
-                        class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition block">
+                        class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-[0_12px_28px_-12px_rgba(18,45,70,0.3)] transition block">
                         <img
-                            :src="newsImages[item.id] || 'https://placehold.co/600x300/2A6FAF/ffffff?text=Noticia'"
-                            :alt="item.news_images?.[0]?.alt_text || item.title"
+                            :src="newsImages[item.id] || '/placeholder-news.svg'"
+                            :alt="item.news_images?.[0]?.alt_text || ''"
+                            loading="lazy"
                             class="news-card-image"
+                            @error="onNewsImageError(item)"
                         />
                         <div class="p-4">
                             <h3 class="font-heading font-semibold text-gray-800 mt-2 mb-2 line-clamp-2">{{ item.title }}</h3>
                             <p class="text-sm text-gray-600 mb-3 line-clamp-2">{{ item.preview }}</p>
-                            <p class="text-xs text-gray-500">{{ formatDate(item.published_at) }}</p>
+                            <p class="text-xs text-gray-600 m-0"><time :datetime="item.published_at">{{ formatDate(item.published_at) }}</time></p>
                         </div>
                     </RouterLink>
                 </div>
@@ -401,9 +410,9 @@ export default {
             <div class="max-w-7xl mx-auto px-4 text-center">
                 <h2 class="font-heading text-3xl font-bold mb-4" style="color: #2A6FAF;">Unite a la comunidad ProviDent</h2>
                 <p class="text-xl mb-8 text-gray-700">
-                    Accede a miles de productos, servicios y conecta con proveedores de confianza
+                    Accedé a productos, servicios y proveedores de confianza en un solo lugar
                 </p>
-                <div class="flex gap-4 justify-center">
+                <div class="flex flex-wrap gap-3 justify-center">
                     <RouterLink to="/register"
                         class="px-8 py-3 text-white font-semibold rounded-lg transition shadow-md hover:opacity-90"
                         style="background-color: #2A6FAF;">
@@ -421,13 +430,6 @@ export default {
 </template>
 
 <style scoped>
-.line-clamp-2 {
-    display: -webkit-box;
-    --webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
 .organic-shape {
     position: absolute;
     border-radius: 50% 40% 60% 50%;

@@ -2,13 +2,16 @@
 /**
  * Propósito: Vista para que el usuario edite su información personal y avatar.
  * Función: Permitir al usuario actualizar su nombre, apellido, biografía, ubicación y subir una nueva foto de perfil (avatar).
- * Cómo funciona: Se suscribe al estado de autenticación para precargar los datos actuales. `handleFileChange` actualiza la previsualización del avatar. `handleSubmit` gestiona la lógica clave: si hay un `avatarFile`, lo sube a Supabase Storage con un nombre único antes de llamar a `updateAuthUser` para guardar todos los cambios en la base de datos (tablas `users` y `user_profiles`).
+ * Cómo funciona: Al montarse carga el perfil actual desde Supabase (`getUserProfileById`) para precargar el formulario.
+ * `handleFileChange` valida el archivo (imagen de hasta 5 MB) y muestra la vista previa. `handleSubmit` sube el avatar
+ * (si cambió) a Storage y llama a `updateAuthUser` para guardar los cambios en `users` y `user_profiles`.
  */
-import { subscribeToAuthStateChanges, updateAuthUser } from '../services/auth'
+import { updateAuthUser } from '../services/auth'
+import { getUserProfileById } from '../services/user-profiles'
 import { supabase } from '../services/supabase'
 import { clearCache } from '../services/cache'
 
-let unsubscribeFromAuth = () => { }
+const MAX_AVATAR_MB = 5
 
 export default {
     name: 'MyProfileEdit',
@@ -24,44 +27,66 @@ export default {
             },
             avatarFile: null,
             avatarPreview: '',
+            avatarError: '',
+            loadingProfile: true,
             loading: false,
-            error: null
+            error: '',
+            touched: false,
+        }
+    },
+    computed: {
+        nameError() {
+            return this.touched && !this.formData.first_name.trim() ? 'El nombre no puede quedar vacío.' : ''
+        },
+        lastNameError() {
+            return this.touched && !this.formData.last_name.trim() ? 'El apellido no puede quedar vacío.' : ''
+        },
+        initials() {
+            return ((this.formData.first_name[0] || '') + (this.formData.last_name[0] || '')).toUpperCase() || '?'
         }
     },
     methods: {
         handleFileChange(event) {
             const file = event.target.files[0]
-            if (file) {
-                this.avatarFile = file
-                this.avatarPreview = URL.createObjectURL(file)
+            this.avatarError = ''
+            if (!file) return
+            if (!file.type.startsWith('image/')) {
+                this.avatarError = 'Elegí un archivo de imagen (JPG, PNG o WebP).'
+                event.target.value = ''
+                return
             }
+            if (file.size > MAX_AVATAR_MB * 1024 * 1024) {
+                this.avatarError = `La imagen pesa más de ${MAX_AVATAR_MB} MB. Probá con una más liviana.`
+                event.target.value = ''
+                return
+            }
+            this.avatarFile = file
+            this.avatarPreview = URL.createObjectURL(file)
         },
 
         async handleSubmit() {
-            try {
-                this.loading = true
+            this.touched = true
+            this.error = ''
+            if (this.nameError || this.lastNameError) return
 
-                // Preparar datos a guardar
+            this.loading = true
+            try {
                 const dataToUpdate = {
-                    first_name: this.formData.first_name,
-                    last_name: this.formData.last_name,
-                    bio: this.formData.bio,
-                    location: this.formData.location,
+                    first_name: this.formData.first_name.trim(),
+                    last_name: this.formData.last_name.trim(),
+                    bio: this.formData.bio.trim(),
+                    location: this.formData.location.trim(),
                 }
 
-                // Subir nuevo avatar si corresponde
                 if (this.avatarFile) {
-                    // El nombre debe estar en formato: {userId}/{timestamp}_{filename}
-                    // para cumplir con las políticas de RLS del bucket
-                    const fileName = `${this.userId}/${Date.now()}_${this.avatarFile.name}`
+                    // Formato {userId}/{timestamp}_{nombre} para cumplir las políticas RLS del bucket
+                    const safeName = this.avatarFile.name.replace(/[^\w.-]+/g, '_')
+                    const fileName = `${this.userId}/${Date.now()}_${safeName}`
                     const { error: uploadError } = await supabase.storage
                         .from('avatars')
                         .upload(fileName, this.avatarFile, { cacheControl: '3600', upsert: false })
 
                     if (uploadError) throw uploadError
-
-                    // Guardar la ruta del archivo (no la URL pública completa)
-                    // porque MyProfile.vue usa createSignedUrl que necesita la ruta
                     dataToUpdate.avatar_url = fileName
                 }
 
@@ -70,7 +95,7 @@ export default {
                 this.$router.push('/mi-perfil')
             } catch (error) {
                 console.error('Error al guardar:', error)
-                alert('Error al guardar cambios. Verificá tu conexión o permisos.')
+                this.error = 'No pudimos guardar los cambios. Revisá tu conexión e intentá de nuevo.'
             } finally {
                 this.loading = false
             }
@@ -78,113 +103,110 @@ export default {
     },
 
     async mounted() {
-        unsubscribeFromAuth = subscribeToAuthStateChanges(async (newUserState) => {
-            this.userId = newUserState.id
+        try {
+            const { data } = await supabase.auth.getUser()
+            this.userId = data?.user?.id || null
+            if (!this.userId) return
+            const profile = await getUserProfileById(this.userId)
             this.formData = {
-                first_name: newUserState.first_name || '',
-                last_name: newUserState.last_name || '',
-                email: newUserState.email || '',
-                bio: newUserState.bio || '',
-                location: newUserState.location || '',
+                first_name: profile?.first_name || '',
+                last_name: profile?.last_name || '',
+                email: profile?.email || data.user.email || '',
+                bio: profile?.bio || '',
+                location: profile?.location || '',
             }
-
-            // Convertir ruta del avatar a URL pública para el preview
-            if (newUserState.avatar_url) {
-                const { data } = supabase.storage.from('avatars').getPublicUrl(newUserState.avatar_url)
-                this.avatarPreview = data.publicUrl
-            } else {
-                this.avatarPreview = ''
-            }
-        })
-    },
-
-    unmounted() {
-        unsubscribeFromAuth()
+            this.avatarPreview = profile?.avatar_url || ''
+        } catch (e) {
+            this.error = 'No pudimos cargar tus datos. Recargá la página para intentar de nuevo.'
+        } finally {
+            this.loadingProfile = false
+        }
     },
 }
 </script>
 
 <template>
-    <section class="pt-24 px-6 flex flex-col items-center min-h-screen pb-12" style="background-color: #F5FEFF;">
-        <div class="bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full border-2" style="border-color: #2A6FAF;">
-            <h1 class="text-center mb-6 text-3xl font-heading font-bold flex items-center justify-center gap-2" style="color: #2A6FAF;">
-                <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path>
-                </svg>
-                Editar Perfil
-            </h1>
-
-            <form @submit.prevent="handleSubmit" class="flex flex-col gap-8">
-                <div class="flex flex-col items-center relative">
-                    <div
-                        class="relative w-32 h-32 rounded-full overflow-hidden border-4 cursor-pointer group"
-                        style="border-color: #29A68C;">
-                        <img :src="avatarPreview || '/default-avatar.svg'" alt="avatar preview" loading="lazy"
-                            class="object-cover w-full h-full group-hover:opacity-70 transition" />
-                        <input type="file" accept="image/*" @change="handleFileChange"
-                            class="absolute inset-0 opacity-0 cursor-pointer" />
-                        <div
-                            class="absolute bottom-0 w-full text-white text-xs text-center py-1 opacity-0 group-hover:opacity-100 transition"
-                            style="background-color: rgba(42, 111, 175, 0.9);">
-                            Cambiar foto
-                        </div>
-                    </div>
-                    <p class="text-sm text-gray-600 mt-2">Hacé clic en la foto para cambiarla</p>
-                </div>
-
-                <div class="border-2 rounded-lg p-6" style="border-color: #E3EEF8; background-color: #F9FCFE;">
-                    <h3 class="font-heading text-xl font-bold mb-4" style="color: #2A6FAF;">Datos personales</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Nombre</label>
-                            <input v-model="formData.first_name" placeholder="Ingresá tu nombre"
-                                class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
-                                 />
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Apellido</label>
-                            <input v-model="formData.last_name" placeholder="Ingresá tu apellido"
-                                class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
-                                 />
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Correo electrónico</label>
-                            <input v-model="formData.email" type="email" placeholder="correo@ejemplo.com" disabled
-                                class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed"
-                                 />
-                            <p class="text-xs text-gray-500 mt-1">El email no puede modificarse</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="border-2 rounded-lg p-6" style="border-color: #E3EEF8; background-color: #F9FCFE;">
-                    <h3 class="font-heading text-xl font-bold mb-4" style="color: #2A6FAF;">Información adicional</h3>
-                    <div class="grid grid-cols-1 gap-4">
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Biografía</label>
-                            <textarea v-model="formData.bio" rows="4" placeholder="Contanos un poco sobre vos"
-                                class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition resize-none"
-                                ></textarea>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Ubicación</label>
-                            <input v-model="formData.location" placeholder="Ciudad, Provincia"
-                                class="w-full px-4 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:border-primary transition"
-                                 />
-                        </div>
-                    </div>
-                </div>
-
-                <button type="submit"
-                    class="mt-4 px-6 py-3 rounded-lg text-white font-semibold shadow-md hover:opacity-90 transition text-lg"
-                    style="background-color: #2A6FAF;">
-                    {{ loading ? 'Guardando...' : 'Guardar cambios' }}
-                </button>
-            </form>
-
-            <RouterLink to="/mi-perfil" class="block text-center mt-6 font-semibold hover:underline transition" style="color: #29A68C;">
-                ← Volver al perfil
+    <section class="px-4 py-8 sm:py-10 flex flex-col items-center min-h-screen" style="background-color: #F5FEFF;">
+        <div class="w-full max-w-2xl">
+            <RouterLink to="/mi-perfil" class="inline-flex items-center gap-1 mb-4 text-sm font-semibold text-primary-700 hover:underline">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                Mi perfil
             </RouterLink>
+
+            <div class="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8">
+                <h1 class="font-heading text-2xl sm:text-3xl font-bold text-gray-800 mb-6">Editar perfil</h1>
+
+                <p v-if="loadingProfile" class="text-gray-600" role="status">Cargando tus datos…</p>
+
+                <form v-else @submit.prevent="handleSubmit" class="flex flex-col gap-8" novalidate>
+                    <div class="flex flex-col sm:flex-row items-center gap-5">
+                        <div class="w-28 h-28 rounded-full overflow-hidden border-4 border-primary-100 bg-primary-50 flex-shrink-0">
+                            <img v-if="avatarPreview" :src="avatarPreview" alt="Vista previa de tu foto" class="object-cover w-full h-full" @error="avatarPreview = ''" />
+                            <span v-else class="w-full h-full flex items-center justify-center text-3xl font-bold text-primary" aria-hidden="true">{{ initials }}</span>
+                        </div>
+                        <div class="text-center sm:text-left">
+                            <label for="avatar-input"
+                                class="inline-flex items-center gap-2 h-11 px-4 border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary-50 transition cursor-pointer focus-within:outline focus-within:outline-2 focus-within:outline-primary">
+                                Cambiar foto
+                                <input id="avatar-input" type="file" accept="image/*" @change="handleFileChange" class="sr-only" aria-describedby="avatar-hint avatar-error" />
+                            </label>
+                            <p id="avatar-hint" class="field-hint">JPG, PNG o WebP, hasta 5 MB.</p>
+                            <p v-if="avatarError" id="avatar-error" class="field-error" role="alert">{{ avatarError }}</p>
+                        </div>
+                    </div>
+
+                    <fieldset class="space-y-4">
+                        <legend class="font-heading text-lg font-bold text-gray-800 mb-3">Datos personales</legend>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="first-name" class="field-label">Nombre</label>
+                                <input id="first-name" v-model="formData.first_name" autocomplete="given-name" class="field-input"
+                                    :aria-invalid="!!nameError" aria-describedby="first-name-error" />
+                                <p v-if="nameError" id="first-name-error" class="field-error">{{ nameError }}</p>
+                            </div>
+                            <div>
+                                <label for="last-name" class="field-label">Apellido</label>
+                                <input id="last-name" v-model="formData.last_name" autocomplete="family-name" class="field-input"
+                                    :aria-invalid="!!lastNameError" aria-describedby="last-name-error" />
+                                <p v-if="lastNameError" id="last-name-error" class="field-error">{{ lastNameError }}</p>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="email" class="field-label">Email</label>
+                                <input id="email" :value="formData.email" type="email" readonly aria-describedby="email-hint"
+                                    class="field-input bg-gray-100 text-gray-700" />
+                                <p id="email-hint" class="field-hint">El email es tu usuario para ingresar. Para cambiarlo, escribinos desde Soporte.</p>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="space-y-4">
+                        <legend class="font-heading text-lg font-bold text-gray-800 mb-3">Perfil público</legend>
+                        <div>
+                            <label for="bio" class="field-label">Sobre vos</label>
+                            <textarea id="bio" v-model="formData.bio" rows="4" maxlength="500" class="field-input resize-y"
+                                placeholder="Ej: Odontóloga en CABA, especializada en rehabilitación oral." aria-describedby="bio-hint"></textarea>
+                            <p id="bio-hint" class="field-hint">Lo ven los compradores en tu perfil. {{ formData.bio.length }}/500</p>
+                        </div>
+                        <div>
+                            <label for="location" class="field-label">Ubicación</label>
+                            <input id="location" v-model="formData.location" autocomplete="address-level2" class="field-input" placeholder="Ciudad, provincia" />
+                        </div>
+                    </fieldset>
+
+                    <p v-if="error" class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm font-semibold m-0" role="alert">{{ error }}</p>
+
+                    <div class="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+                        <RouterLink to="/mi-perfil"
+                            class="h-12 px-6 inline-flex items-center justify-center font-semibold text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                            Cancelar
+                        </RouterLink>
+                        <button type="submit" :disabled="loading"
+                            class="h-12 px-6 rounded-lg bg-primary text-white font-semibold hover:bg-primary-600 transition disabled:opacity-60">
+                            {{ loading ? 'Guardando…' : 'Guardar cambios' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </section>
 </template>

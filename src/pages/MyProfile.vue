@@ -1,15 +1,28 @@
 <script>
 /**
  * Propósito: Vista del perfil personal del usuario logueado.
- * Función: Servir como el centro de control del usuario, mostrando datos personales, roles, direcciones, cuentas bancarias (mock), un resumen de actividad (compras/ventas) y productos publicados.
- * Cómo funciona: `loadProfile` carga el perfil completo, verifica el rol de vendedor (`isCurrentUserSeller`) y carga el avatar firmado desde Storage. La data es poblada a través de `userProfile` y otros arrays de mock. Ofrece navegación a la edición de perfil y manejo de acciones de cuenta como cambio de contraseña y eliminación de cuenta.
+ * Función: Centro de control del usuario: datos personales, contraseña, domicilios, compras,
+ * estado de vendedor (cobros y publicaciones) y acciones de cuenta.
+ * Cómo funciona: `loadProfile` carga en paralelo el perfil (`public_user_profiles`), el rol de vendedor,
+ * la cuenta de cobro, los domicilios y los pedidos reales del usuario. Todo lo que se muestra viene de
+ * Supabase; cuando no hay datos se muestra un estado vacío con la acción siguiente.
  */
-import { subscribeToAuthStateChanges, logout, updatePassword } from '../services/auth'
-import { isCurrentUserSeller } from '../services/sellers'
+import { logout, updatePassword, translateAuthError } from '../services/auth'
+import { isCurrentUserSeller, hasPaymentAccount } from '../services/sellers'
 import { supabase } from '../services/supabase'
-import { listMyProducts } from '../services/products'
-import { getCached, setCached } from '../services/cache'
+import { listMyProducts, listProvinces } from '../services/products'
+import { signedAvatarUrl } from '../services/user-profiles'
+import { listMyAddresses, saveAddress, deleteAddress, setPrimaryAddress, listMyOrders } from '../services/addresses'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+
+const EMPTY_ADDRESS = { id: null, recipient_name: '', street: '', city: '', province_id: '', postal_code: '', is_primary: false }
+
+const ORDER_STATUS = {
+    CREATED: { label: 'Pendiente de pago', cls: 'bg-amber-100 text-amber-900' },
+    PAID: { label: 'Pagado', cls: 'bg-primary-50 text-primary-800' },
+    FULFILLED: { label: 'Entregado', cls: 'bg-secondary-50 text-secondary-800' },
+    CANCELED: { label: 'Cancelado', cls: 'bg-gray-100 text-gray-700' },
+}
 
 export default {
     name: 'MyProfile',
@@ -18,21 +31,16 @@ export default {
     },
     data() {
         return {
-            user: {
-                id: null,
-                email: null,
-                username: null,
-            },
             userProfile: null,
-            addresses: [],
-            bankAccounts: [],
-            recentPurchases: [],
-            recentSales: [],
-
             isSeller: false,
-            sellerMessage: '',
+            hasPayment: false,
             myProducts: [],
+            addresses: [],
+            addressesError: '',
+            provinces: [],
+            orders: [],
             loading: true,
+            loadError: '',
             showPasswordChange: false,
             newPassword: '',
             confirmPassword: '',
@@ -41,201 +49,97 @@ export default {
             passwordSaving: false,
             deleteAccountMessage: '',
             showAddressEdit: false,
-            editingAddress: {
-                street: '',
-                city: '',
-                province: '',
-                postal_code: '',
-                country: 'Argentina'
-            }
+            editingAddress: { ...EMPTY_ADDRESS },
+            addressError: '',
+            addressSaving: false,
+            addressNotice: '',
         }
     },
     computed: {
-        primaryAddress() {
-            return this.addresses.find(addr => addr.is_primary) || this.addresses[0]
+        initials() {
+            const p = this.userProfile
+            return ((p?.name?.[0] || '') + (p?.lastName?.[0] || '')).toUpperCase() || '?'
         }
     },
     methods: {
         async handleLogout() {
-            logout()
-            this.$router.push('/login')
+            await logout()
+            this.$router.push('/')
         },
         async loadProfile() {
+            this.loading = true
+            this.loadError = ''
             try {
-                this.loading = true
                 const { data: me } = await supabase.auth.getUser()
                 const uid = me?.user?.id
-                if (!uid) return
-
-                const cacheKey = `profile:${uid}`
-                const cached = getCached(cacheKey)
-
-                if (cached) {
-                    this.userProfile = cached.userProfile
-                    this.isSeller = cached.isSeller
-                    this.myProducts = cached.myProducts
-                    this.addresses = cached.addresses
-                    this.bankAccounts = cached.bankAccounts
-                    this.recentPurchases = cached.recentPurchases
-                    this.recentSales = cached.recentSales
-                    this.loading = false
-
-                    if (cached.avatarPath) {
-                        try {
-                            const { data: signed, error } = await supabase.storage.from('avatars').createSignedUrl(cached.avatarPath, 60 * 60)
-                            if (!error && signed?.signedUrl) {
-                                this.userProfile.avatar_url = signed.signedUrl
-                            }
-                        } catch (e) {
-                            console.warn('Avatar URL generation failed', e?.message || e)
-                        }
-                    }
+                if (!uid) {
+                    this.$router.replace({ path: '/login', query: { redirect: '/mi-perfil' } })
                     return
                 }
 
-                const { data } = await supabase.from('public_user_profiles').select('*').eq('id', uid).single()
+                const [{ data }, isSeller, hasPayment, orders, provinces] = await Promise.all([
+                    supabase.from('public_user_profiles').select('*').eq('id', uid).maybeSingle(),
+                    isCurrentUserSeller(),
+                    hasPaymentAccount(),
+                    listMyOrders(5),
+                    listProvinces(),
+                ])
 
                 this.userProfile = {
                     name: data?.first_name || '',
                     lastName: data?.last_name || '',
                     email: me.user.email || '',
-                    phone: data?.phone || null,
-                    avatar_url: null,
-                    roles: []
+                    location: data?.location || '',
+                    bio: data?.bio || '',
+                    avatar_url: data?.avatar_url ? await signedAvatarUrl(data.avatar_url) : '',
                 }
+                this.isSeller = isSeller
+                this.hasPayment = hasPayment
+                this.orders = orders
+                this.provinces = provinces
 
-                const avatarPath = data?.avatar_url || null
-
-                if (avatarPath) {
-                    try {
-                        const { data: signed, error } = await supabase.storage.from('avatars').createSignedUrl(avatarPath, 60 * 60)
-                        if (!error && signed?.signedUrl) {
-                            this.userProfile.avatar_url = signed.signedUrl
-                        } else {
-                            const dl = await supabase.storage.from('avatars').download(avatarPath)
-                            if (!dl.error && dl.data) {
-                                this.userProfile.avatar_url = URL.createObjectURL(dl.data)
-                            }
-                        }
-                    } catch (e) {
-                        console.warn('Avatar URL generation failed', e?.message || e)
-                        this.userProfile.avatar_url = null
-                    }
-                }
-
-                this.isSeller = await isCurrentUserSeller()
-                this.userProfile.roles = ['Comprador'].concat(this.isSeller ? ['Vendedor'] : [])
+                await this.loadAddresses()
 
                 if (this.isSeller) {
-                    try { this.myProducts = (await listMyProducts()).slice(0, 4) } catch (e) { this.myProducts = [] }
+                    try { this.myProducts = (await listMyProducts()).slice(0, 4) } catch { this.myProducts = [] }
                 } else {
                     this.myProducts = []
                 }
-
-                this.addresses = [
-                    {
-                        id: 1,
-                        street: 'Av. Corrientes 1234',
-                        city: 'CABA',
-                        province: 'Buenos Aires',
-                        postal_code: 'C1043',
-                        country: 'Argentina',
-                        is_primary: true
-                    }
-                ]
-
-                this.bankAccounts = [
-                    {
-                        id: 1,
-                        bank_name: 'Banco Galicia',
-                        account_holder: `${this.userProfile.name} ${this.userProfile.lastName}`,
-                        account_number: '1234-567890/1',
-                        cbu: '0070123430000005678901',
-                        alias: 'juan.perez.dental'
-                    }
-                ]
-
-                this.recentPurchases = [
-                    {
-                        id: 'ORD-001',
-                        date: '2025-01-15',
-                        total: 63500,
-                        status: 'delivered',
-                        items_count: 2
-                    },
-                    {
-                        id: 'ORD-002',
-                        date: '2025-01-10',
-                        total: 45000,
-                        status: 'in_progress',
-                        items_count: 1
-                    }
-                ]
-
-                this.recentSales = [
-                    {
-                        id: 'SALE-001',
-                        buyer_name: 'Dra. María González',
-                        date: '2025-01-14',
-                        product: 'Resina Compuesta Flow A2',
-                        amount: 18500,
-                        status: 'paid'
-                    }
-                ]
-
-                setCached(cacheKey, {
-                    userProfile: {
-                        ...this.userProfile,
-                        avatar_url: null
-                    },
-                    avatarPath,
-                    isSeller: this.isSeller,
-                    myProducts: this.myProducts,
-                    addresses: this.addresses,
-                    bankAccounts: this.bankAccounts,
-                    recentPurchases: this.recentPurchases,
-                    recentSales: this.recentSales
-                })
             } catch (error) {
                 console.error('Error loading profile:', error)
+                this.loadError = 'No pudimos cargar tu perfil. Revisá tu conexión e intentá de nuevo.'
             } finally {
                 this.loading = false
             }
         },
-        goToEditProfile() {
-            this.$router.push('/mi-perfil/editar')
+        async loadAddresses() {
+            this.addressesError = ''
+            try {
+                this.addresses = await listMyAddresses()
+            } catch (e) {
+                this.addresses = []
+                this.addressesError = 'No pudimos cargar tus domicilios.'
+            }
         },
         formatPrice(price) {
-            return new Intl.NumberFormat('es-AR').format(price)
+            return new Intl.NumberFormat('es-AR').format(price || 0)
         },
-        getStatusText(status) {
-            const statuses = {
-                'pending': 'Pendiente',
-                'in_progress': 'En preparación',
-                'delivered': 'Completado',
-                'cancelled': 'Cancelado',
-                'active': 'Activo',
-                'paused': 'Pausado',
-                'finished': 'Finalizado',
-                'paid': 'Pagado'
-            }
-            return statuses[status] || status
+        formatDate(value) {
+            return value ? new Date(value).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
         },
-        getStatusColor(status) {
-            const colors = {
-                'pending': '#DC8C73',
-                'in_progress': '#2A6FAF',
-                'delivered': '#29A68C',
-                'cancelled': '#DC2626',
-                'active': '#29A68C',
-                'paused': '#F59E0B',
-                'finished': '#6B7280',
-                'paid': '#29A68C'
-            }
-            return colors[status] || '#6B7280'
+        orderStatus(status) {
+            return ORDER_STATUS[status] || { label: status, cls: 'bg-gray-100 text-gray-700' }
         },
-        goToPublish() {
-            this.$router.push('/publicar')
+        productPrice(p) {
+            if (p.product_type === 'PROSTHESIS') return 'Precio según trabajo'
+            if (p.product_type === 'RENTAL') return `$${this.formatPrice(p.price_day)}/día`
+            return `$${this.formatPrice(p.price)}`
+        },
+        cancelPasswordChange() {
+            this.showPasswordChange = false
+            this.newPassword = ''
+            this.confirmPassword = ''
+            this.passwordMessage = ''
         },
         async changePassword() {
             this.passwordMessage = ''
@@ -252,79 +156,91 @@ export default {
             this.passwordSaving = true
             try {
                 await updatePassword(this.newPassword)
-                this.passwordMessage = 'Contraseña cambiada exitosamente.'
+                this.passwordMessage = 'Listo, tu contraseña se actualizó.'
                 this.passwordMessageType = 'success'
                 this.newPassword = ''
                 this.confirmPassword = ''
-                setTimeout(() => {
-                    this.showPasswordChange = false
-                    this.passwordMessage = ''
-                }, 2000)
+                setTimeout(() => this.cancelPasswordChange(), 2500)
             } catch (error) {
-                this.passwordMessage = error.message || 'No se pudo cambiar la contraseña.'
+                this.passwordMessage = translateAuthError(error?.message)
                 this.passwordMessageType = 'error'
             } finally {
                 this.passwordSaving = false
             }
         },
         deleteAccount() {
-            this.deleteAccountMessage = 'Esta función todavía no está disponible. Por tu seguridad, la eliminación de cuentas se procesa manualmente: escribinos desde Soporte para solicitarla.'
+            this.deleteAccountMessage = 'Por tu seguridad, la eliminación de cuentas se procesa a mano. Escribinos desde Soporte y la gestionamos.'
         },
-        editAddress() {
-            if (this.primaryAddress) {
-                this.editingAddress = { ...this.primaryAddress }
-            } else {
-                this.editingAddress = {
-                    street: '',
-                    city: '',
-                    province: '',
-                    postal_code: '',
-                    country: 'Argentina'
-                }
-            }
+        // --- Domicilios ---
+        openAddressForm(address = null) {
+            this.addressError = ''
+            this.editingAddress = address
+                ? { ...EMPTY_ADDRESS, ...address }
+                : { ...EMPTY_ADDRESS, is_primary: this.addresses.length === 0, recipient_name: `${this.userProfile?.name || ''} ${this.userProfile?.lastName || ''}`.trim() }
             this.showAddressEdit = true
+            this._lastFocus = document.activeElement
+            this.$nextTick(() => this.$refs.firstAddressField?.focus())
         },
-        async saveAddress() {
-            // TODO: Implementar guardado en base de datos
-            // Por ahora solo actualizar localmente
-            const index = this.addresses.findIndex(addr => addr.is_primary)
-            if (index >= 0) {
-                this.addresses[index] = {
-                    ...this.addresses[index],
-                    ...this.editingAddress
-                }
-            } else {
-                this.addresses.push({
-                    id: Date.now(),
-                    ...this.editingAddress,
-                    is_primary: true
-                })
-            }
+        closeAddressForm() {
             this.showAddressEdit = false
-            alert('Dirección actualizada correctamente')
+            this.$nextTick(() => this._lastFocus?.focus?.())
         },
-        cancelAddressEdit() {
-            this.showAddressEdit = false
-            this.editingAddress = {
-                street: '',
-                city: '',
-                province: '',
-                postal_code: '',
-                country: 'Argentina'
+        async submitAddress() {
+            const a = this.editingAddress
+            if (!a.street.trim() || !a.city.trim() || !a.province_id) {
+                this.addressError = 'Completá calle, ciudad y provincia.'
+                return
             }
+            this.addressSaving = true
+            this.addressError = ''
+            try {
+                await saveAddress(a)
+                await this.loadAddresses()
+                this.addressNotice = a.id ? 'Domicilio actualizado.' : 'Domicilio agregado.'
+                this.closeAddressForm()
+            } catch (e) {
+                console.error('Error saving address:', e)
+                this.addressError = 'No pudimos guardar el domicilio. Intentá de nuevo.'
+            } finally {
+                this.addressSaving = false
+            }
+        },
+        async removeAddress(address) {
+            if (!confirm('¿Eliminar este domicilio?')) return
+            try {
+                await deleteAddress(address.id)
+                await this.loadAddresses()
+                this.addressNotice = 'Domicilio eliminado.'
+            } catch (e) {
+                // Un domicilio usado en un pedido no se puede borrar (restricción de la base)
+                this.addressNotice = 'No se puede eliminar un domicilio que ya se usó en un pedido.'
+            }
+        },
+        async makePrimary(address) {
+            try {
+                await setPrimaryAddress(address.id)
+                await this.loadAddresses()
+                this.addressNotice = 'Domicilio principal actualizado.'
+            } catch {
+                this.addressNotice = 'No pudimos cambiar el domicilio principal.'
+            }
+        },
+        onKeydown(e) {
+            if (e.key === 'Escape' && this.showAddressEdit) this.closeAddressForm()
         }
     },
     mounted() {
-        subscribeToAuthStateChanges(newUserState => {
-            this.user = newUserState
-            this.loadProfile()
-        })
+        document.addEventListener('keydown', this.onKeydown)
+        this.loadProfile()
+    },
+    beforeUnmount() {
+        document.removeEventListener('keydown', this.onKeydown)
     }
 }
 </script>
 
 <template>
-    <section class="pt-20 min-h-screen pb-12 relative overflow-hidden" style="background-color: #F5FEFF;">
+    <section class="min-h-screen pb-16 relative overflow-hidden" style="background-color: #F5FEFF;">
         <div class="organic-shape organic-shape-1"></div>
         <div class="organic-shape organic-shape-2"></div>
         <div class="organic-shape organic-shape-3"></div>
@@ -332,374 +248,276 @@ export default {
         <div class="organic-shape organic-shape-5"></div>
         <div class="organic-shape organic-shape-6"></div>
 
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-            <LoadingSpinner v-if="loading" message="Cargando perfil..." />
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 relative z-10">
+            <LoadingSpinner v-if="loading" message="Cargando tu perfil..." />
 
-            <div v-else>
-                <div v-if="sellerMessage" class="mb-4 p-3 rounded border border-green-200 bg-green-50 text-green-700">
-                    {{ sellerMessage }}
-                </div>
-                <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-                <div class="h-32" style="background: linear-gradient(135deg, #A4C5DF 0%, #D4F4EC 50%, #F8E8E2 100%);"></div>
-                <div class="px-6 pb-6">
-                    <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6 -mt-16">
-                        <div class="w-32 h-32 rounded-full overflow-hidden shadow-lg flex-shrink-0 border-4 border-white" style="background-color: #E3EEF8;">
-                            <img v-if="userProfile.avatar_url" :src="userProfile.avatar_url" alt="Avatar" class="w-full h-full object-cover" />
-                            <div v-else class="w-full h-full flex items-center justify-center text-4xl font-bold" style="color: #2A6FAF;">
-                                {{ userProfile.name.charAt(0) }}{{ userProfile.lastName.charAt(0) }}
-                            </div>
-                        </div>
-
-                        <div class="flex-1 text-center sm:text-left mt-6">
-                            <h1 class="font-heading text-3xl font-bold text-gray-800 mb-2">
-                                {{ userProfile.name }} {{ userProfile.lastName }}
-                            </h1>
-                            <div class="flex flex-wrap gap-2 justify-center sm:justify-start mb-2">
-                                <span v-for="role in userProfile.roles" :key="role"
-                                    class="px-3 py-1 text-sm font-semibold rounded-full text-white shadow-md"
-                                    style="background: linear-gradient(135deg, #2A6FAF 0%, #29A68C 100%);">
-                                    {{ role }}
-                                </span>
-                            </div>
-                            <p class="text-gray-600">{{ userProfile.email }}</p>
-                        </div>
-
-                        <button @click="goToEditProfile"
-                            class="mt-6 px-6 py-2 bg-white border-2 font-semibold rounded-lg transition hover:bg-gray-50 shadow-md"
-                            style="color: #2A6FAF; border-color: #2A6FAF;">
-                            Editar datos personales
-                        </button>
-                    </div>
-                </div>
+            <div v-else-if="loadError" class="bg-white rounded-xl border border-red-200 p-8 text-center" role="alert">
+                <p class="text-red-800 font-semibold mb-4">{{ loadError }}</p>
+                <button type="button" @click="loadProfile" class="px-5 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-600">Reintentar</button>
             </div>
 
-            <div v-if="!isSeller" class="rounded-lg shadow-md p-8 mb-6 border-2" style="background-color: #F8E8E2; border-color: #DC8C73;">
-                <div class="text-center">
-                    <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background-color: #DC8C73;">
-                        <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"></path>
-                        </svg>
+            <div v-else-if="userProfile" class="space-y-6">
+                <!-- Encabezado -->
+                <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                    <div class="h-24 sm:h-28" style="background: linear-gradient(135deg, #C7DDF1 0%, #D4F4EC 55%, #F3DDD3 100%);"></div>
+                    <div class="px-6 pb-6">
+                        <div class="flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6 -mt-12">
+                            <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden flex-shrink-0 border-4 border-white bg-primary-50 shadow-sm">
+                                <img v-if="userProfile.avatar_url" :src="userProfile.avatar_url" alt="Tu foto de perfil" class="w-full h-full object-cover" @error="userProfile.avatar_url = ''" />
+                                <div v-else class="w-full h-full flex items-center justify-center text-3xl font-bold text-primary" aria-hidden="true">
+                                    {{ initials }}
+                                </div>
+                            </div>
+
+                            <div class="flex-1 text-center sm:text-left min-w-0">
+                                <h1 class="font-heading text-2xl sm:text-3xl font-bold text-gray-800 mb-1 break-words">
+                                    {{ userProfile.name }} {{ userProfile.lastName }}
+                                </h1>
+                                <p class="text-gray-600 m-0 break-all">{{ userProfile.email }}</p>
+                                <div class="flex flex-wrap gap-2 justify-center sm:justify-start mt-2">
+                                    <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-primary-50 text-primary-800">Comprador</span>
+                                    <span v-if="isSeller" class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-secondary-50 text-secondary-800">Vendedor</span>
+                                </div>
+                            </div>
+
+                            <RouterLink to="/mi-perfil/editar"
+                                class="inline-flex items-center gap-2 h-11 px-5 border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary-50 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13l6.232-6.232a2.5 2.5 0 113.536 3.536L12.536 16.536 9 17l.464-3.536z" /></svg>
+                                Editar perfil
+                            </RouterLink>
+                        </div>
                     </div>
-                    <h2 class="font-heading text-2xl font-bold text-gray-800 mb-2">¿Querés empezar a vender en ProviDent?</h2>
-                    <p class="text-gray-600 mb-6">Configurá tu perfil de vendedor para comenzar a publicar productos.</p>
+                </div>
+
+                <!-- Invitación a vender -->
+                <div v-if="!isSeller" class="rounded-2xl p-6 sm:p-8 border border-accent-200 flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left" style="background-color: #F9EEE9;">
+                    <div class="flex-1">
+                        <h2 class="font-heading text-xl font-bold text-gray-800 mb-1">¿Querés vender en ProviDent?</h2>
+                        <p class="text-gray-700 m-0">Activá tu cuenta de vendedor y publicá insumos, prótesis o alquileres.</p>
+                    </div>
                     <RouterLink to="/seller-setup"
-                        class="inline-block px-8 py-3 text-white font-semibold rounded-lg shadow-lg hover:opacity-90 transition"
-                        style="background-color: #DC8C73;">
-                        Quiero ser vendedor
+                        class="inline-flex items-center h-12 px-6 bg-accent-700 text-white font-semibold rounded-lg hover:bg-accent-800 transition whitespace-nowrap">
+                        Empezar a vender
                     </RouterLink>
                 </div>
-            </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div class="p-4" style="background-color: #E3EEF8;">
-                        <h2 class="font-heading text-xl font-bold flex items-center gap-2" style="color: #2A6FAF;">
-                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
-                            </svg>
-                            Datos personales
-                        </h2>
-                    </div>
-                    <div class="p-6">
-                    <div class="space-y-4">
-                        <div>
-                            <p class="text-sm text-gray-600">Nombre completo</p>
-                            <p class="font-semibold text-gray-800">{{ userProfile.name }} {{ userProfile.lastName }}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-600">Correo electrónico</p>
-                            <p class="font-semibold text-gray-800">{{ userProfile.email }}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-600">Teléfono</p>
-                            <p class="font-semibold text-gray-800">{{ userProfile.phone || 'No especificado' }}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-600 mb-2">Contraseña</p>
-                            <button v-if="!showPasswordChange" @click="showPasswordChange = true"
-                                class="px-4 py-2 text-sm font-semibold border-2 rounded-lg transition hover:bg-gray-50"
-                                style="color: #2A6FAF; border-color: #2A6FAF;">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Datos personales -->
+                    <div class="bg-white rounded-2xl border border-gray-200 p-6">
+                        <h2 class="font-heading text-xl font-bold text-gray-800 mb-4">Datos personales</h2>
+                        <dl class="space-y-4">
+                            <div>
+                                <dt class="text-sm text-gray-600">Nombre completo</dt>
+                                <dd class="font-semibold text-gray-800 m-0">{{ userProfile.name }} {{ userProfile.lastName }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm text-gray-600">Email</dt>
+                                <dd class="font-semibold text-gray-800 m-0 break-all">{{ userProfile.email }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm text-gray-600">Ubicación</dt>
+                                <dd class="m-0" :class="userProfile.location ? 'font-semibold text-gray-800' : 'text-gray-600'">
+                                    {{ userProfile.location || 'Sin completar' }}
+                                    <RouterLink v-if="!userProfile.location" to="/mi-perfil/editar" class="ml-1 text-sm font-semibold text-primary-700 hover:underline">Agregar</RouterLink>
+                                </dd>
+                            </div>
+                        </dl>
+
+                        <div class="mt-6 pt-5 border-t border-gray-100">
+                            <h3 class="text-base font-semibold text-gray-800 mb-3">Contraseña</h3>
+                            <button v-if="!showPasswordChange" type="button" @click="showPasswordChange = true"
+                                class="h-10 px-4 text-sm font-semibold border-2 border-primary text-primary rounded-lg hover:bg-primary-50 transition">
                                 Cambiar contraseña
                             </button>
-                            <div v-else class="space-y-3">
-                                <input v-model="newPassword" type="password" placeholder="Nueva contraseña" minlength="6"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
-                                    />
-                                <input v-model="confirmPassword" type="password" placeholder="Confirmar contraseña" minlength="6"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
-                                    />
-                                <p v-if="passwordMessage" class="text-sm font-semibold" :class="passwordMessageType === 'success' ? 'text-green-600' : 'text-red-600'" role="status">
+                            <form v-else class="space-y-3" @submit.prevent="changePassword">
+                                <div>
+                                    <label for="new-password" class="field-label">Nueva contraseña</label>
+                                    <input id="new-password" v-model="newPassword" type="password" autocomplete="new-password" minlength="6" class="field-input" aria-describedby="new-password-hint" />
+                                    <p id="new-password-hint" class="field-hint">Mínimo 6 caracteres.</p>
+                                </div>
+                                <div>
+                                    <label for="confirm-new-password" class="field-label">Repetí la contraseña</label>
+                                    <input id="confirm-new-password" v-model="confirmPassword" type="password" autocomplete="new-password" minlength="6" class="field-input" />
+                                </div>
+                                <p v-if="passwordMessage" class="text-sm font-semibold m-0" :class="passwordMessageType === 'success' ? 'text-secondary-800' : 'text-red-700'" role="status">
                                     {{ passwordMessage }}
                                 </p>
                                 <div class="flex gap-2">
-                                    <button @click="changePassword" :disabled="passwordSaving"
-                                        class="px-4 py-2 text-sm text-white font-semibold rounded-lg transition hover:opacity-90 disabled:opacity-50"
-                                        style="background-color: #2A6FAF;">
-                                        {{ passwordSaving ? 'Guardando...' : 'Guardar' }}
+                                    <button type="submit" :disabled="passwordSaving"
+                                        class="h-10 px-4 text-sm bg-primary text-white font-semibold rounded-lg hover:bg-primary-600 transition disabled:opacity-50">
+                                        {{ passwordSaving ? 'Guardando…' : 'Guardar contraseña' }}
                                     </button>
-                                    <button @click="showPasswordChange = false; newPassword = ''; confirmPassword = ''; passwordMessage = ''"
-                                        class="px-4 py-2 text-sm text-gray-600 font-semibold rounded-lg border border-gray-300 hover:bg-gray-50">
+                                    <button type="button" @click="cancelPasswordChange"
+                                        class="h-10 px-4 text-sm text-gray-700 font-semibold rounded-lg border border-gray-300 hover:bg-gray-50">
                                         Cancelar
                                     </button>
                                 </div>
-                            </div>
+                            </form>
                         </div>
                     </div>
-                    </div>
-                </div>
 
-                <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div class="p-4" style="background-color: #D4F4EC;">
-                        <h2 class="font-heading text-xl font-bold flex items-center gap-2" style="color: #29A68C;">
-                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path>
-                            </svg>
-                            Domicilios
-                        </h2>
-                    </div>
-                    <div class="p-6">
-                    <div v-if="primaryAddress" class="mb-4 p-4 rounded-lg bg-gray-50">
-                        <p class="text-sm font-semibold text-gray-600 mb-2">Dirección principal</p>
-                        <p class="text-gray-800 font-semibold">{{ primaryAddress.street }}</p>
-                        <p class="text-gray-600 text-sm">{{ primaryAddress.city }}, {{ primaryAddress.province }}</p>
-                        <p class="text-gray-600 text-sm">CP: {{ primaryAddress.postal_code }} - {{ primaryAddress.country }}</p>
-                    </div>
-                    <div class="flex gap-2">
-                        <button @click="editAddress"
-                            class="px-4 py-2 text-sm font-semibold border-2 rounded-lg transition hover:bg-gray-50"
-                            style="color: #2A6FAF; border-color: #2A6FAF;">
-                            Editar
-                        </button>
-                        <button @click="editAddress"
-                            class="px-4 py-2 text-sm font-semibold border-2 rounded-lg transition hover:bg-gray-50"
-                            style="color: #29A68C; border-color: #29A68C;">
-                            Agregar nuevo domicilio
-                        </button>
-                    </div>
-                    </div>
-                </div>
-            </div>
+                    <!-- Domicilios -->
+                    <div class="bg-white rounded-2xl border border-gray-200 p-6">
+                        <div class="flex items-center justify-between gap-3 mb-4">
+                            <h2 class="font-heading text-xl font-bold text-gray-800 m-0">Domicilios</h2>
+                            <button v-if="addresses.length" type="button" @click="openAddressForm()"
+                                class="h-10 px-4 text-sm font-semibold border-2 border-primary text-primary rounded-lg hover:bg-primary-50 transition">
+                                Agregar
+                            </button>
+                        </div>
 
-            <div v-if="isSeller" class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-                <div class="p-4" style="background-color: #F8E8E2;">
-                    <h2 class="font-heading text-xl font-bold flex items-center gap-2" style="color: #DC8C73;">
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"></path>
-                            <path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"></path>
-                        </svg>
-                        Información bancaria
-                    </h2>
-                </div>
-                <div class="p-6">
-                <div v-for="account in bankAccounts" :key="account.id" class="mb-4 p-4 rounded-lg bg-gray-50">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <p class="text-sm text-gray-600">Banco</p>
-                            <p class="font-semibold text-gray-800">{{ account.bank_name }}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-600">Titular</p>
-                            <p class="font-semibold text-gray-800">{{ account.account_holder }}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-600">CBU</p>
-                            <p class="font-semibold text-gray-800">{{ account.cbu }}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-600">Alias</p>
-                            <p class="font-semibold text-gray-800">{{ account.alias }}</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex gap-2">
-                    <button class="px-4 py-2 text-sm font-semibold border-2 rounded-lg transition hover:bg-gray-50"
-                        style="color: #2A6FAF; border-color: #2A6FAF;">
-                        Editar cuenta principal
-                    </button>
-                    <button class="px-4 py-2 text-sm font-semibold border-2 rounded-lg transition hover:bg-gray-50"
-                        style="color: #29A68C; border-color: #29A68C;">
-                        Agregar otra cuenta
-                    </button>
-                </div>
-                </div>
-            </div>
+                        <p v-if="addressNotice" class="mb-3 text-sm text-secondary-800 bg-secondary-50 rounded-lg px-3 py-2" role="status">{{ addressNotice }}</p>
+                        <p v-if="addressesError" class="mb-3 text-sm text-red-800 bg-red-50 rounded-lg px-3 py-2" role="alert">{{ addressesError }}</p>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <div class="bg-white rounded-lg shadow-md p-6">
-                    <h2 class="font-heading text-xl font-bold text-gray-800 mb-4 flex items-center justify-between">
-                        <span class="flex items-center gap-2">
-                            <svg class="w-6 h-6" style="color: #2A6FAF;" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"></path>
-                            </svg>
-                            Últimas compras
-                        </span>
-                        <RouterLink to="/mis-compras" class="text-sm font-semibold hover:underline" style="color: #2A6FAF;">
-                            Ver historial
-                        </RouterLink>
-                    </h2>
-                    <div class="space-y-3">
-                        <div v-for="purchase in recentPurchases" :key="purchase.id"
-                            class="p-4 border border-gray-200 rounded-lg hover:shadow-md transition">
-                            <div class="flex justify-between items-start mb-2">
-                                <div>
-                                    <p class="font-semibold text-gray-800">{{ purchase.id }}</p>
-                                    <p class="text-sm text-gray-600">{{ purchase.date }} • {{ purchase.items_count }} artículos</p>
+                        <ul v-if="addresses.length" class="space-y-3">
+                            <li v-for="a in addresses" :key="a.id" class="p-4 rounded-xl border" :class="a.is_primary ? 'border-primary-200 bg-primary-50/50' : 'border-gray-200'">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <p v-if="a.is_primary" class="text-xs font-semibold text-primary-800 mb-1">Principal</p>
+                                        <p class="font-semibold text-gray-800 m-0 break-words">{{ a.street }}</p>
+                                        <p class="text-sm text-gray-600 m-0">{{ a.city }}{{ a.province_name ? `, ${a.province_name}` : '' }}{{ a.postal_code ? ` · CP ${a.postal_code}` : '' }}</p>
+                                        <p v-if="a.recipient_name" class="text-sm text-gray-600 m-0">Recibe: {{ a.recipient_name }}</p>
+                                    </div>
                                 </div>
-                                <span class="px-2 py-1 text-xs font-semibold rounded-full text-white"
-                                    :style="{backgroundColor: getStatusColor(purchase.status)}">
-                                    {{ getStatusText(purchase.status) }}
-                                </span>
-                            </div>
-                            <p class="font-bold text-gray-800">${{ formatPrice(purchase.total) }}</p>
-                        </div>
-                        <div v-if="recentPurchases.length === 0" class="text-center py-8 text-gray-500">
-                            <p>No hay compras recientes</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div v-if="isSeller" class="bg-white rounded-lg shadow-md p-6">
-                    <h2 class="font-heading text-xl font-bold text-gray-800 mb-4 flex items-center justify-between">
-                        <span class="flex items-center gap-2">
-                            <svg class="w-6 h-6" style="color: #29A68C;" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"></path>
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clip-rule="evenodd"></path>
-                            </svg>
-                            Últimas ventas
-                        </span>
-                        <RouterLink to="/mis-ventas" class="text-sm font-semibold hover:underline" style="color: #29A68C;">
-                            Ver todas
-                        </RouterLink>
-                    </h2>
-                    <div class="space-y-3">
-                        <div v-for="sale in recentSales" :key="sale.id"
-                            class="p-4 border border-gray-200 rounded-lg hover:shadow-md transition">
-                            <div class="flex justify-between items-start mb-2">
-                                <div>
-                                    <p class="font-semibold text-gray-800">{{ sale.buyer_name }}</p>
-                                    <p class="text-sm text-gray-600">{{ sale.product }}</p>
-                                    <p class="text-sm text-gray-600">{{ sale.date }}</p>
+                                <div class="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-sm font-semibold">
+                                    <button type="button" @click="openAddressForm(a)" class="text-primary-700 hover:underline">Editar</button>
+                                    <button v-if="!a.is_primary" type="button" @click="makePrimary(a)" class="text-primary-700 hover:underline">Usar como principal</button>
+                                    <button type="button" @click="removeAddress(a)" class="text-red-700 hover:underline">Eliminar</button>
                                 </div>
-                                <span class="px-2 py-1 text-xs font-semibold rounded-full text-white"
-                                    :style="{backgroundColor: getStatusColor(sale.status)}">
-                                    {{ getStatusText(sale.status) }}
+                            </li>
+                        </ul>
+
+                        <div v-else-if="!addressesError" class="text-center py-6">
+                            <p class="text-gray-600 mb-4">Todavía no cargaste ningún domicilio. Lo vas a necesitar para recibir tus pedidos.</p>
+                            <button type="button" @click="openAddressForm()"
+                                class="h-11 px-5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-600 transition">
+                                Agregar domicilio
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Compras -->
+                    <div class="bg-white rounded-2xl border border-gray-200 p-6">
+                        <h2 class="font-heading text-xl font-bold text-gray-800 mb-4">Mis compras</h2>
+                        <ul v-if="orders.length" class="space-y-3">
+                            <li v-for="order in orders" :key="order.id" class="p-4 border border-gray-200 rounded-xl flex items-start justify-between gap-3">
+                                <div>
+                                    <p class="font-semibold text-gray-800 m-0">Pedido del {{ formatDate(order.created_at) }}</p>
+                                    <p class="text-sm text-gray-600 m-0">{{ order.items_count }} {{ order.items_count === 1 ? 'artículo' : 'artículos' }} · <span class="tabular-nums">${{ formatPrice(order.total_amount) }}</span></p>
+                                </div>
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap" :class="orderStatus(order.status).cls">
+                                    {{ orderStatus(order.status).label }}
                                 </span>
-                            </div>
-                            <p class="font-bold" style="color: #29A68C;">${{ formatPrice(sale.amount) }}</p>
+                            </li>
+                        </ul>
+                        <div v-else class="text-center py-6">
+                            <p class="text-gray-600 mb-4">Todavía no hiciste compras. Cuando el pago online esté disponible, tus pedidos van a aparecer acá.</p>
+                            <RouterLink to="/productos" class="inline-flex h-11 items-center px-5 border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary-50 transition">
+                                Ver catálogo
+                            </RouterLink>
                         </div>
-                        <div v-if="recentSales.length === 0" class="text-center py-8 text-gray-500">
-                            <p>No hay ventas recientes</p>
+                    </div>
+
+                    <!-- Vendedor -->
+                    <div v-if="isSeller" class="bg-white rounded-2xl border border-gray-200 p-6">
+                        <div class="flex items-center justify-between gap-3 mb-4">
+                            <h2 class="font-heading text-xl font-bold text-gray-800 m-0">Mis publicaciones</h2>
+                            <RouterLink to="/mis-productos" class="text-sm font-semibold text-primary-700 hover:underline">Ver todas</RouterLink>
+                        </div>
+
+                        <p class="text-sm mb-4 px-3 py-2 rounded-lg" :class="hasPayment ? 'bg-secondary-50 text-secondary-800' : 'bg-amber-50 text-amber-900'">
+                            <template v-if="hasPayment">Cuenta de cobro conectada.</template>
+                            <template v-else>Falta conectar tu cuenta de cobro. <RouterLink to="/seller-setup" class="font-semibold underline">Conectala ahora</RouterLink></template>
+                        </p>
+
+                        <ul v-if="myProducts.length" class="divide-y divide-gray-100">
+                            <li v-for="p in myProducts" :key="p.id" class="py-3 flex items-center gap-3">
+                                <img :src="p.image || '/placeholder-product.svg'" alt="" class="w-12 h-12 rounded-lg object-cover bg-gray-100 flex-shrink-0" />
+                                <div class="flex-1 min-w-0">
+                                    <RouterLink :to="`/productos/${p.id}`" class="font-semibold text-gray-800 truncate block hover:underline">{{ p.name }}</RouterLink>
+                                    <p class="text-xs text-gray-600 m-0">{{ productPrice(p) }} · <span :class="p.is_active ? 'text-secondary-800' : 'text-gray-600'">{{ p.is_active ? 'Activa' : 'Pausada' }}</span></p>
+                                </div>
+                                <RouterLink :to="`/productos/${p.id}/editar`" class="text-sm font-semibold text-primary-700 hover:underline">Editar</RouterLink>
+                            </li>
+                        </ul>
+                        <div v-else class="text-center py-4">
+                            <p class="text-gray-600 mb-4">Todavía no publicaste nada.</p>
+                            <RouterLink to="/publicar" class="inline-flex h-11 items-center px-5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-600 transition">
+                                Crear publicación
+                            </RouterLink>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div v-if="isSeller && myProducts.length" class="bg-white rounded-lg shadow-md p-6 mb-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="font-heading text-xl font-bold text-gray-800 flex items-center gap-2">
-                        <svg class="w-6 h-6" style="color: #2A6FAF;" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path>
-                        </svg>
-                        Mis productos
-                    </h2>
-                    <RouterLink to="/mis-productos"
-                        class="px-4 py-2 text-sm text-white font-semibold rounded-lg transition hover:opacity-90"
-                        style="background-color: #29A68C;">
-                        Ver todos
-                    </RouterLink>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div v-for="p in myProducts" :key="p.id"
-                        class="border border-gray-200 rounded-lg overflow-hidden">
-                        <img :src="p.image || 'https://placehold.co/600x400?text=Producto'" class="w-full h-28 object-cover" alt="mi-producto"/>
-                        <div class="p-3">
-                            <p class="font-semibold text-gray-800 truncate">{{ p.name }}</p>
-                            <p class="text-xs text-gray-600 truncate">${{ formatPrice(p.price) }} · {{ p.unit || 'unidad' }}</p>
-                            <RouterLink :to="`/productos/${p.id}`" class="text-xs text-sky-600 hover:underline">Ver</RouterLink>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="font-heading text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <svg class="w-6 h-6" style="color: #2A6FAF;" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
-                    </svg>
-                    Configuración de cuenta
-                </h2>
-                <div class="space-y-4">
-                    <div class="flex items-center justify-between p-4 border border-red-200 rounded-lg bg-red-50">
-                        <div>
-                            <p class="font-semibold text-red-600">Eliminar cuenta</p>
-                            <p class="text-sm text-red-600">Esta acción no se puede deshacer</p>
-                        </div>
-                        <button @click="deleteAccount"
-                            class="px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
-                            Eliminar
+                <!-- Cuenta -->
+                <div class="bg-white rounded-2xl border border-gray-200 p-6">
+                    <h2 class="font-heading text-xl font-bold text-gray-800 mb-4">Cuenta</h2>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <button type="button" @click="handleLogout"
+                            class="h-11 px-5 border-2 border-gray-300 text-gray-800 font-semibold rounded-lg hover:bg-gray-50 transition">
+                            Cerrar sesión
+                        </button>
+                        <button type="button" @click="deleteAccount" class="text-sm font-semibold text-red-700 hover:underline self-start sm:self-auto">
+                            Quiero eliminar mi cuenta
                         </button>
                     </div>
-                    <p v-if="deleteAccountMessage" class="text-sm text-red-700" role="status">{{ deleteAccountMessage }}</p>
+                    <p v-if="deleteAccountMessage" class="mt-4 text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2" role="status">
+                        {{ deleteAccountMessage }} <RouterLink to="/chat" class="font-semibold text-primary-700 underline">Ir a Soporte</RouterLink>
+                    </p>
                 </div>
-            </div>
-
-            <div class="mt-8 flex justify-center">
-                <button @click="handleLogout"
-                    class="px-8 py-3 border-2 font-semibold rounded-lg hover:bg-gray-50 transition"
-                    style="color: #2A6FAF; border-color: #2A6FAF;">
-                    Cerrar sesión
-                </button>
-            </div>
             </div>
         </div>
 
-        <!-- Modal de edición de dirección -->
-        <div v-if="showAddressEdit" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">Editar dirección</h3>
+        <!-- Formulario de domicilio -->
+        <div v-if="showAddressEdit" class="fixed inset-0 bg-gray-900/50 flex items-end sm:items-center justify-center z-50 sm:p-4" @click.self="closeAddressForm">
+            <form role="dialog" aria-modal="true" aria-labelledby="address-dialog-title" @submit.prevent="submitAddress"
+                class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg p-6 max-h-[90dvh] overflow-y-auto">
+                <h2 id="address-dialog-title" class="text-xl font-bold text-gray-800 mb-4">{{ editingAddress.id ? 'Editar domicilio' : 'Nuevo domicilio' }}</h2>
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Calle</label>
-                        <input v-model="editingAddress.street" type="text"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500">
+                        <label for="addr-recipient" class="field-label">Quién recibe</label>
+                        <input id="addr-recipient" ref="firstAddressField" v-model="editingAddress.recipient_name" type="text" autocomplete="name" class="field-input" />
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Ciudad</label>
-                            <input v-model="editingAddress.city" type="text"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Provincia</label>
-                            <input v-model="editingAddress.province" type="text"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500">
-                        </div>
+                    <div>
+                        <label for="addr-street" class="field-label">Calle y número</label>
+                        <input id="addr-street" v-model="editingAddress.street" type="text" autocomplete="street-address" required class="field-input" placeholder="Ej: Av. Santa Fe 1234, piso 3" />
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">Código Postal</label>
-                            <input v-model="editingAddress.postal_code" type="text"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500">
+                            <label for="addr-city" class="field-label">Ciudad</label>
+                            <input id="addr-city" v-model="editingAddress.city" type="text" autocomplete="address-level2" required class="field-input" />
                         </div>
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-1">País</label>
-                            <input v-model="editingAddress.country" type="text"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500">
+                            <label for="addr-zip" class="field-label">Código postal</label>
+                            <input id="addr-zip" v-model="editingAddress.postal_code" type="text" autocomplete="postal-code" class="field-input" />
                         </div>
                     </div>
+                    <div>
+                        <label for="addr-province" class="field-label">Provincia</label>
+                        <select id="addr-province" v-model="editingAddress.province_id" required class="field-input">
+                            <option value="" disabled>Elegí una provincia</option>
+                            <option v-for="p in provinces" :key="p.id" :value="p.id">{{ p.name }}</option>
+                        </select>
+                    </div>
+                    <label class="flex items-center gap-3 text-sm text-gray-800">
+                        <input type="checkbox" v-model="editingAddress.is_primary" class="w-5 h-5 rounded border-gray-300 text-primary" />
+                        Usar como domicilio principal
+                    </label>
+                    <p v-if="addressError" class="text-sm text-red-800 bg-red-50 rounded-lg px-3 py-2 m-0" role="alert">{{ addressError }}</p>
                 </div>
-                <div class="mt-6 flex gap-3 justify-end">
-                    <button @click="cancelAddressEdit"
-                        class="px-4 py-2 text-sm font-semibold text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                <div class="mt-6 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+                    <button type="button" @click="closeAddressForm"
+                        class="h-11 px-5 font-semibold text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
                         Cancelar
                     </button>
-                    <button @click="saveAddress"
-                        class="px-4 py-2 text-sm font-semibold text-white rounded-lg transition hover:opacity-90"
-                        style="background-color: #2A6FAF;">
-                        Guardar
+                    <button type="submit" :disabled="addressSaving"
+                        class="h-11 px-5 font-semibold text-white bg-primary rounded-lg hover:bg-primary-600 transition disabled:opacity-60">
+                        {{ addressSaving ? 'Guardando…' : 'Guardar domicilio' }}
                     </button>
                 </div>
-            </div>
+            </form>
         </div>
     </section>
 </template>
@@ -783,12 +601,4 @@ export default {
     }
 }
 
-@keyframes shimmer {
-    0% {
-        background-position: 200% 0;
-    }
-    100% {
-        background-position: -200% 0;
-    }
-}
 </style>
