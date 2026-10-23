@@ -29,12 +29,13 @@ export async function signedAvatarUrl(path) {
  * Combina datos de las tablas users y user_profiles.
  */
 export async function getUserProfileById(id) {
-    // Obtener datos combinados de public_user_profiles (view)
-    const { data: profileData, error: profileError } = await supabase
-        .from('public_user_profiles')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle()
+    // La vista public_user_profiles solo expone nombre, apellido y avatar.
+    // Bio y ubicación viven en user_profiles, así que se leen aparte y se combinan.
+    const [{ data: viewData, error: profileError }, { data: extra }] = await Promise.all([
+        supabase.from('public_user_profiles').select('*').eq('id', id).maybeSingle(),
+        supabase.from('user_profiles').select('bio, location').eq('user_id', id).maybeSingle(),
+    ])
+    const profileData = viewData ? { ...viewData, bio: extra?.bio ?? viewData.bio, location: extra?.location ?? viewData.location } : null
 
     if (profileError) {
         console.error('[user-profiles.js getUserProfileById] Error al traer datos de public_user_profiles:', id, profileError)
@@ -178,10 +179,10 @@ export async function updateUserData(userId, data) {
 
     // Actualizar user_profiles si hay cambios
     if (Object.keys(profilesData).length > 0) {
+        // upsert: si el usuario todavía no tiene fila en user_profiles, se crea (un update la ignoraría en silencio)
         const { error: profilesError } = await supabase
             .from('user_profiles')
-            .update(profilesData)
-            .eq('user_id', userId)
+            .upsert({ user_id: userId, ...profilesData, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
 
         if (profilesError) {
             console.error('[user-profiles.js updateUserData] Error al actualizar user_profiles:', userId, profilesError)

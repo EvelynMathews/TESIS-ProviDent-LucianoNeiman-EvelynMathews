@@ -60,8 +60,9 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
     if (to.meta.requiresAuth) {
-        const { data } = await supabase.auth.getUser();
-        if (!data?.user) {
+        // Sesión local: rápida y sin pedido de red. Los datos igual están protegidos por RLS en Supabase.
+        const { data } = await supabase.auth.getSession();
+        if (!data?.session?.user) {
             return { path: '/login', query: { redirect: to.fullPath } };
         }
     }
