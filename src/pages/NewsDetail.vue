@@ -8,6 +8,7 @@ export default {
       news: null,
       imageUrl: null,
       loading: true,
+      notFound: false,
       error: null
     }
   },
@@ -15,8 +16,17 @@ export default {
     async loadNews() {
       try {
         this.loading = true
+        this.error = null
+        this.notFound = false
+        this.imageUrl = null
         const slug = this.$route.params.slug
         this.news = await getNewsBySlug(slug)
+
+        if (!this.news) {
+          this.notFound = true
+          return
+        }
+        document.title = `${this.news.title} · ProviDent`
 
         // cargar imagen principal si existe
         if (this.news.news_images && this.news.news_images.length > 0) {
@@ -25,7 +35,7 @@ export default {
         }
       } catch (err) {
         console.error('Error cargando noticia:', err)
-        this.error = 'No se pudo cargar la noticia'
+        this.error = 'No pudimos cargar la noticia. Revisá tu conexión e intentá de nuevo.'
       } finally {
         this.loading = false
       }
@@ -62,18 +72,22 @@ export default {
       </div>
     </div>
 
-    <div v-else-if="error" class="flex-1 flex items-center justify-center py-20">
-      <div class="text-center">
-        <p class="text-red-600 mb-4">{{ error }}</p>
-        <RouterLink to="/" class="text-primary hover:underline">Volver al inicio</RouterLink>
+    <div v-else-if="error || notFound" class="flex-1 flex items-center justify-center py-20 px-4">
+      <div class="text-center max-w-md" :role="error ? 'alert' : null">
+        <h1 class="font-heading text-2xl font-bold text-gray-800 mb-2">{{ notFound ? 'No encontramos esta noticia' : 'Algo salió mal' }}</h1>
+        <p class="text-gray-600 mb-6">{{ notFound ? 'Puede que se haya despublicado o que el enlace sea incorrecto.' : error }}</p>
+        <div class="flex flex-wrap gap-3 justify-center">
+          <button v-if="error" type="button" @click="loadNews" class="px-5 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-600">Reintentar</button>
+          <RouterLink to="/" class="px-5 py-2.5 border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary-50">Volver al inicio</RouterLink>
+        </div>
       </div>
     </div>
 
     <article v-else class="flex-1">
       <div class="relative w-full h-64 md:h-96 overflow-hidden">
         <img
-          :src="imageUrl || 'https://placehold.co/1200x600/2A6FAF/ffffff?text=Noticia'"
-          :alt="news.news_images?.[0]?.alt_text || news.title"
+          :src="imageUrl || '/placeholder-news.svg'"
+          :alt="news.news_images?.[0]?.alt_text || ''"
           class="news-hero-image"
         />
         <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
@@ -81,8 +95,8 @@ export default {
 
       <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         <div class="bg-white rounded-lg shadow-lg p-6 md:p-8 lg:p-12 -mt-20 relative z-10">
-          <p class="text-sm text-gray-500 mb-2">
-            {{ formatDate(news.published_at) }}
+          <p class="text-sm text-gray-600 mb-2">
+            <time :datetime="news.published_at">{{ formatDate(news.published_at) }}</time>
           </p>
 
           <h1 class="text-3xl md:text-4xl lg:text-5xl font-heading font-bold mb-6" style="color: #2A6FAF;">
@@ -93,8 +107,8 @@ export default {
             {{ news.preview }}
           </p>
 
-          <div class="prose prose-lg max-w-none">
-            <div v-html="formatContent(news.content)" class="text-gray-800 leading-relaxed whitespace-pre-line"></div>
+          <div class="prose prose-lg max-w-prose">
+            <div v-html="formatContent(news.content)" class="text-gray-800 text-lg leading-relaxed whitespace-pre-line"></div>
           </div>
 
           <div class="mt-12 pt-6 border-t border-gray-200">

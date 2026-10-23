@@ -1,8 +1,11 @@
 <script>
 /**
  * Propósito: Flujo de configuración inicial para un usuario que se convierte en vendedor.
- * Función: Guía al usuario a través de los pasos obligatorios: activar el rol de vendedor, conectar una cuenta de pago y configurar los métodos de envío.
- * Cómo funciona: `refreshStatus` verifica el estado del vendedor (`isSeller`) y la conexión de una cuenta de pago (`hasPayment`). `activateSeller` y `connectPayment` invocan los servicios correspondientes. Permite la gestión básica de métodos de envío (`createMethod`, `toggleActive`, `startEdit`) y alerta si se intenta desactivar un método en uso (`warnDisableId`).
+ * Función: Guía al usuario por tres pasos obligatorios: activar el rol de vendedor, conectar una cuenta de cobro
+ * y crear al menos un método de envío. Después puede publicar.
+ * Cómo funciona: `refreshStatus` verifica el rol (`isSeller`) y la cuenta de cobro (`hasPayment`). `activateSeller` y
+ * `connectPayment` invocan los servicios correspondientes. Los métodos de envío se crean, renombran, pausan y configuran
+ * desde acá, con aviso si se pausa un método usado por publicaciones (`warnDisableId`).
  */
 import { listShippingMethods, createShippingMethod, updateShippingMethod, countShippingMethodUsage } from '../services/products'
 import { isCurrentUserSeller, grantSellerSelf, hasPaymentAccount, connectDummyPaymentAccount } from '../services/sellers'
@@ -12,20 +15,44 @@ export default {
   data() {
     return {
       loading: false,
-      checking: false,
+      checking: true,
       isSeller: false,
       hasPayment: false,
       methods: [],
       newName: '',
       message: '',
+      messageType: 'success',
+      busy: false,
       editingId: null,
       editingName: '',
       warnDisableId: null,
       warnDisableCount: 0,
-      justActivatedSeller: false,
+    }
+  },
+  computed: {
+    hasShipping() {
+      return this.methods.some(m => m.active)
+    },
+    steps() {
+      return [
+        { n: 1, title: 'Activar cuenta de vendedor', done: this.isSeller },
+        { n: 2, title: 'Conectar cuenta de cobro', done: this.hasPayment },
+        { n: 3, title: 'Crear un método de envío', done: this.hasShipping },
+      ]
+    },
+    currentStep() {
+      const next = this.steps.find(s => !s.done)
+      return next ? next.n : 4
+    },
+    ready() {
+      return this.isSeller && this.hasPayment
     }
   },
   methods: {
+    notify(text, type = 'success') {
+      this.message = text
+      this.messageType = type
+    },
     async refreshStatus() {
       this.checking = true
       try {
@@ -37,72 +64,73 @@ export default {
       try {
         this.loading = true
         this.methods = await listShippingMethods()
+      } catch {
+        this.notify('No pudimos cargar tus métodos de envío.', 'error')
       } finally { this.loading = false }
     },
     async activateSeller() {
+      this.busy = true
       try {
         await grantSellerSelf()
         await this.refreshStatus()
-        this.justActivatedSeller = true
-        this.message = '¡Cuenta de vendedor activada! Ahora conectá tu cuenta de pago para continuar.'
+        window.dispatchEvent(new Event('seller:changed'))
+        this.notify('Listo, tu cuenta de vendedor está activa. Ahora conectá tu cuenta de cobro.')
       } catch {
-        this.message = 'No se pudo activar vendedor'
-      }
+        this.notify('No pudimos activar tu cuenta de vendedor. Intentá de nuevo.', 'error')
+      } finally { this.busy = false }
     },
     async connectPayment() {
+      this.busy = true
       try {
         await connectDummyPaymentAccount('MERCADOPAGO')
         await this.refreshStatus()
-        this.justActivatedSeller = false
-        this.message = '¡Cuenta de pago conectada! Ya podés empezar a vender.'
-        // Cargar métodos de envío ahora que tiene cuenta de pago
         await this.load()
+        this.notify('Cuenta de cobro conectada. Último paso: creá un método de envío.')
       } catch {
-        this.message = 'No se pudo asociar el método de cobro'
-      }
+        this.notify('No pudimos conectar la cuenta de cobro. Intentá de nuevo.', 'error')
+      } finally { this.busy = false }
     },
     async createMethod() {
-      if (!this.newName.trim()) { this.message = 'Ingresá un nombre para el método'; return }
+      if (!this.newName.trim()) { this.notify('Escribí un nombre para el método, por ejemplo "Envío estándar".', 'error'); return }
+      this.busy = true
       try {
         const newId = await createShippingMethod(this.newName.trim(), true)
         this.newName = ''
-        await this.load()
-        this.$router.push(`/metodos-envio/${newId}`)
-        this.message = 'Método creado. Ya podés publicar productos.'
+        this.$router.push({ path: `/metodos-envio/${newId}`, query: { nuevo: '1' } })
       } catch (e) {
-        this.message = 'No se pudo crear el método'
-      }
+        this.notify('No pudimos crear el método. Intentá de nuevo.', 'error')
+      } finally { this.busy = false }
     },
     startEdit(m) {
       this.editingId = m.id
       this.editingName = m.name
     },
     async saveEdit(m) {
-      if (!this.editingName.trim()) { this.message = 'Ingresá un nombre válido'; return }
+      if (!this.editingName.trim()) { this.notify('El nombre no puede quedar vacío.', 'error'); return }
       try {
         await updateShippingMethod(m.id, { name: this.editingName.trim() })
         this.editingId = null
         this.editingName = ''
         await this.load()
-        this.message = 'Método actualizado'
-      } catch { this.message = 'No se pudo actualizar' }
+        this.notify('Nombre actualizado.')
+      } catch { this.notify('No pudimos actualizar el nombre.', 'error') }
     },
     cancelEdit() { this.editingId = null; this.editingName = '' },
     async toggleActive(m) {
-      if (m.active) {
-        // request deactivate: warn if used
-        const used = await countShippingMethodUsage(m.id)
-        if (used > 0) {
-          this.warnDisableId = m.id
-          this.warnDisableCount = used
-          return
+      try {
+        if (m.active) {
+          const used = await countShippingMethodUsage(m.id)
+          if (used > 0) {
+            this.warnDisableId = m.id
+            this.warnDisableCount = used
+            return
+          }
+          await updateShippingMethod(m.id, { active: false })
+        } else {
+          await updateShippingMethod(m.id, { active: true })
         }
-        await updateShippingMethod(m.id, { active: false })
         await this.load()
-      } else {
-        await updateShippingMethod(m.id, { active: true })
-        await this.load()
-      }
+      } catch { this.notify('No pudimos cambiar el estado del método.', 'error') }
     },
     async confirmDisable() {
       if (!this.warnDisableId) return
@@ -112,11 +140,9 @@ export default {
       await this.load()
     },
     cancelDisable() { this.warnDisableId = null; this.warnDisableCount = 0 },
-    goPublish() { this.$router.push('/publicar') }
   },
   async mounted() {
     await this.refreshStatus()
-    // Solo cargar métodos de envío si ya es seller con cuenta de pago
     if (this.isSeller && this.hasPayment) {
       await this.load()
     }
@@ -125,116 +151,130 @@ export default {
 </script>
 
 <template>
-  <section class="pt-20 bg-gray-50 min-h-screen pb-12">
-    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div class="bg-white rounded-lg shadow-md p-8">
-        <h1 class="text-2xl font-bold text-gray-800 mb-2">Configurar ventas</h1>
-        <p class="text-gray-600 mb-6">Asociá tu método de cobro y configurá tus envíos.</p>
+  <section class="bg-gray-50 min-h-screen pb-16">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+      <h1 class="text-3xl font-bold text-gray-800 mb-1">Configurar ventas</h1>
+      <p class="text-gray-600 mb-6">Tres pasos y ya podés publicar.</p>
 
-        <div v-if="message" class="mb-4 p-3 rounded border" :class="justActivatedSeller ? 'border-emerald-500 bg-emerald-50 text-emerald-800' : 'border-gray-200 bg-gray-50 text-gray-700'">
-          {{ message }}
-        </div>
+      <p v-if="message" class="mb-6 px-4 py-3 rounded-lg border" role="status"
+        :class="messageType === 'error' ? 'border-red-200 bg-red-50 text-red-800' : 'border-secondary-200 bg-secondary-50 text-secondary-800'">
+        {{ message }}
+      </p>
 
-        <div v-if="checking" class="text-gray-600">Verificando estado de vendedor…</div>
-        <div v-else class="mb-6 p-4 border rounded bg-gray-50">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <p v-if="checking" class="text-gray-600" role="status">Verificando tu cuenta…</p>
+
+      <template v-else>
+        <!-- Progreso -->
+        <ol class="grid grid-cols-3 gap-2 mb-8" aria-label="Pasos para empezar a vender">
+          <li v-for="s in steps" :key="s.n" class="flex flex-col gap-2">
+            <span class="h-1.5 rounded-full" :class="s.done ? 'bg-secondary-600' : (currentStep === s.n ? 'bg-primary' : 'bg-gray-200')"></span>
+            <span class="text-xs sm:text-sm font-medium" :class="s.done ? 'text-secondary-800' : (currentStep === s.n ? 'text-primary-800' : 'text-gray-600')">
+              <span class="sr-only">{{ s.done ? 'Completado: ' : (currentStep === s.n ? 'Paso actual: ' : 'Pendiente: ') }}</span>
+              {{ s.n }}. {{ s.title }}
+            </span>
+          </li>
+        </ol>
+
+        <!-- Paso 1 -->
+        <div class="bg-white rounded-2xl border p-6 mb-4" :class="currentStep === 1 ? 'border-primary-300 shadow-[0_8px_24px_-12px_rgba(18,45,70,0.25)]' : 'border-gray-200'">
+          <div class="flex items-start justify-between gap-4">
             <div>
-              <p class="text-gray-800 font-medium">Estado actual</p>
-              <p class="text-sm text-gray-600">
-                Rol vendedor:
-                <span :class="isSeller ? 'text-emerald-700' : 'text-gray-700'">{{ isSeller ? 'Habilitado' : 'Pendiente' }}</span>
-                · Método de cobro:
-                <span :class="hasPayment ? 'text-emerald-700' : 'text-gray-700'">{{ hasPayment ? 'Asociado' : 'Falta asociar' }}</span>
-              </p>
+              <h2 class="text-lg font-semibold text-gray-800 mb-1">1. Activar cuenta de vendedor</h2>
+              <p class="text-sm text-gray-600 m-0">Habilita tus herramientas para publicar y gestionar ventas.</p>
             </div>
-            <div class="flex gap-2">
-              <button v-if="!isSeller" @click="activateSeller" class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700">Activar vendedor</button>
-              <button v-if="isSeller && !hasPayment" @click="connectPayment"
-                      class="px-6 py-3 text-white font-semibold rounded-lg shadow-md transition"
-                      :class="justActivatedSeller ? 'bg-sky-600 hover:bg-sky-700 animate-pulse' : 'bg-sky-600 hover:bg-sky-700'">
-                Conectar Cuenta de Pago
-              </button>
-              <router-link v-if="isSeller && hasPayment" to="/publicar" class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700">Publicar producto</router-link>
-            </div>
+            <span v-if="isSeller" class="text-sm font-semibold text-secondary-800 whitespace-nowrap inline-flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>Activa</span>
           </div>
+          <button v-if="!isSeller" type="button" @click="activateSeller" :disabled="busy"
+            class="mt-4 h-11 px-5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-600 transition disabled:opacity-60">
+            {{ busy ? 'Activando…' : 'Activar cuenta de vendedor' }}
+          </button>
         </div>
 
-        <!-- Destacar siguiente paso después de activar vendedor -->
-        <div v-if="justActivatedSeller && isSeller && !hasPayment" class="mb-6 p-6 border-2 border-sky-500 rounded-lg bg-sky-50">
-          <div class="flex items-start gap-4">
-            <div class="flex-shrink-0">
-              <svg class="w-12 h-12 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
+        <!-- Paso 2 -->
+        <div class="bg-white rounded-2xl border p-6 mb-4" :class="[currentStep === 2 ? 'border-primary-300 shadow-[0_8px_24px_-12px_rgba(18,45,70,0.25)]' : 'border-gray-200', { 'opacity-60': !isSeller }]">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-semibold text-gray-800 mb-1">2. Conectar cuenta de cobro</h2>
+              <p class="text-sm text-gray-600 m-0">Por ahora es una conexión de demostración con Mercado Pago: no se mueve dinero real.</p>
             </div>
-            <div class="flex-1">
-              <h3 class="text-xl font-bold text-sky-900 mb-2">Paso siguiente: Conectar tu cuenta de pago</h3>
-              <p class="text-sky-800 mb-4">Para poder recibir pagos de tus ventas, necesitás conectar una cuenta de pago. Este es un paso obligatorio para comenzar a vender.</p>
-              <button @click="connectPayment" class="px-8 py-4 bg-sky-600 text-white font-bold rounded-lg hover:bg-sky-700 shadow-lg transform hover:scale-105 transition">
-                Conectar Cuenta de Pago Ahora
-              </button>
-            </div>
+            <span v-if="hasPayment" class="text-sm font-semibold text-secondary-800 whitespace-nowrap inline-flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>Conectada</span>
           </div>
+          <button v-if="isSeller && !hasPayment" type="button" @click="connectPayment" :disabled="busy"
+            class="mt-4 h-11 px-5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-600 transition disabled:opacity-60">
+            {{ busy ? 'Conectando…' : 'Conectar Mercado Pago' }}
+          </button>
         </div>
 
-        <div v-if="loading" class="text-gray-600">Cargando…</div>
-
-        <div v-else>
-          <div v-if="!(isSeller && hasPayment)" class="mb-6 p-4 border rounded bg-yellow-50 text-yellow-800">
-            Para configurar envíos primero activá tu cuenta de vendedor y asociá un método de cobro.
-          </div>
-
-          <div v-if="methods.length === 0" class="mb-6">
-            <p class="text-gray-700 mb-3">Aún no tenés métodos de envío.</p>
-            <div class="flex gap-2">
-              <input v-model="newName" type="text" placeholder="Nombre del método (ej: Envío estándar)"
-                     class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500" />
-              <button @click="createMethod" :disabled="!(isSeller && hasPayment)"
-                      class="px-4 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700">Crear</button>
+        <!-- Paso 3 -->
+        <div class="bg-white rounded-2xl border p-6 mb-6" :class="[currentStep === 3 ? 'border-primary-300 shadow-[0_8px_24px_-12px_rgba(18,45,70,0.25)]' : 'border-gray-200', { 'opacity-60': !ready }]">
+          <div class="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <h2 class="text-lg font-semibold text-gray-800 mb-1">3. Métodos de envío</h2>
+              <p class="text-sm text-gray-600 m-0">Definí cómo llegan tus productos: zonas que cubrís y cuánto cuesta.</p>
             </div>
+            <span v-if="hasShipping" class="text-sm font-semibold text-secondary-800 whitespace-nowrap inline-flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>Listo</span>
           </div>
 
-          <div v-else class="mb-6">
-            <h2 class="font-semibold text-gray-800 mb-3">Tus métodos de envío</h2>
-            <div class="space-y-3">
-              <div v-for="m in methods" :key="m.id" class="p-3 border rounded">
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-3">
-                    <span :class="m.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'" class="text-xs px-2 py-1 rounded-full">{{ m.active ? 'Activo' : 'Pausado' }}</span>
-                    <span v-if="editingId !== m.id" class="font-semibold text-gray-800">{{ m.name }}</span>
-                    <input v-else v-model="editingName" class="px-2 py-1 border rounded" />
+          <p v-if="!ready" class="text-sm text-gray-600 m-0">Completá los pasos anteriores para configurar envíos.</p>
+
+          <template v-else>
+            <p v-if="loading" class="text-gray-600" role="status">Cargando métodos…</p>
+
+            <ul v-else-if="methods.length" class="space-y-3 mb-5">
+              <li v-for="m in methods" :key="m.id" class="p-4 border border-gray-200 rounded-xl">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div class="flex items-center gap-3 min-w-0">
+                    <span :class="m.active ? 'bg-secondary-50 text-secondary-800' : 'bg-gray-100 text-gray-700'" class="text-xs font-semibold px-2 py-1 rounded-full">{{ m.active ? 'Activo' : 'Pausado' }}</span>
+                    <span v-if="editingId !== m.id" class="font-semibold text-gray-800 truncate">{{ m.name }}</span>
+                    <template v-else>
+                      <label :for="`rename-${m.id}`" class="sr-only">Nuevo nombre</label>
+                      <input :id="`rename-${m.id}`" v-model="editingName" class="h-9 px-3 border border-gray-300 rounded-lg focus:outline-none focus:border-primary" @keyup.enter="saveEdit(m)" @keyup.esc="cancelEdit" />
+                    </template>
                   </div>
-                  <div class="flex items-center gap-2">
-                    <button v-if="editingId !== m.id" @click="startEdit(m)" class="text-sky-600 text-sm hover:underline">Editar</button>
-                    <button v-else @click="saveEdit(m)" class="text-emerald-600 text-sm hover:underline">Guardar</button>
-                    <button v-if="editingId === m.id" @click="cancelEdit" class="text-gray-600 text-sm hover:underline">Cancelar</button>
-                    <router-link :to="`/metodos-envio/${m.id}`" class="text-sm px-2 py-1 rounded border border-sky-600 text-sky-700 hover:bg-sky-50">Configurar</router-link>
-                    <button @click="toggleActive(m)" class="text-sm px-2 py-1 rounded border" :class="m.active ? 'border-red-600 text-red-600 hover:bg-red-50' : 'border-emerald-600 text-emerald-600 hover:bg-emerald-50'">
-                      {{ m.active ? 'Desactivar' : 'Activar' }}
-                    </button>
+                  <div class="flex flex-wrap items-center gap-1 text-sm font-semibold">
+                    <template v-if="editingId === m.id">
+                      <button type="button" @click="saveEdit(m)" class="h-9 px-3 rounded-lg text-primary-700 hover:bg-primary-50">Guardar</button>
+                      <button type="button" @click="cancelEdit" class="h-9 px-3 rounded-lg text-gray-700 hover:bg-gray-100">Cancelar</button>
+                    </template>
+                    <template v-else>
+                      <RouterLink :to="`/metodos-envio/${m.id}`" class="h-9 px-3 inline-flex items-center rounded-lg bg-primary text-white hover:bg-primary-600">Zonas y tarifas</RouterLink>
+                      <button type="button" @click="startEdit(m)" class="h-9 px-3 rounded-lg text-primary-700 hover:bg-primary-50">Renombrar</button>
+                      <button type="button" @click="toggleActive(m)" class="h-9 px-3 rounded-lg text-gray-800 hover:bg-gray-100">{{ m.active ? 'Pausar' : 'Activar' }}</button>
+                    </template>
                   </div>
                 </div>
-                <div v-if="warnDisableId === m.id" class="mt-2 p-2 rounded bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm flex items-center justify-between">
-                  <span>Este método está asociado a {{ warnDisableCount }} producto(s). ¿Desactivar igualmente?</span>
+                <div v-if="warnDisableId === m.id" class="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm flex flex-wrap items-center justify-between gap-2" role="alert">
+                  <span>Lo usan {{ warnDisableCount }} {{ warnDisableCount === 1 ? 'publicación' : 'publicaciones' }}. Si lo pausás, no se podrán enviar.</span>
                   <div class="flex gap-2">
-                    <button @click="confirmDisable" class="px-2 py-1 bg-yellow-600 text-white rounded">Desactivar</button>
-                    <button @click="cancelDisable" class="px-2 py-1 border rounded">Cancelar</button>
+                    <button type="button" @click="confirmDisable" class="h-9 px-3 bg-amber-700 text-white font-semibold rounded-lg hover:bg-amber-800">Pausar igual</button>
+                    <button type="button" @click="cancelDisable" class="h-9 px-3 border border-amber-300 font-semibold rounded-lg hover:bg-amber-100">Cancelar</button>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
+              </li>
+            </ul>
 
-          <div class="flex gap-3">
-            <button @click="goPublish" :disabled="!(isSeller && hasPayment)" class="px-5 py-2 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50">
-              Publicar producto
-            </button>
-            <router-link to="/mis-productos" class="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-              Ver mis productos
-            </router-link>
-          </div>
+            <form class="flex flex-col sm:flex-row gap-2" @submit.prevent="createMethod">
+              <label for="new-method" class="sr-only">Nombre del nuevo método de envío</label>
+              <input id="new-method" v-model="newName" type="text" placeholder="Ej: Envío estándar, Retiro en local"
+                class="field-input flex-1" />
+              <button type="submit" :disabled="busy"
+                class="h-12 px-5 whitespace-nowrap font-semibold rounded-lg transition disabled:opacity-60"
+                :class="methods.length ? 'border-2 border-primary text-primary hover:bg-primary-50' : 'bg-primary text-white hover:bg-primary-600'">
+                {{ methods.length ? 'Agregar otro' : 'Crear método' }}
+              </button>
+            </form>
+          </template>
         </div>
-      </div>
+
+        <div class="flex flex-wrap gap-3">
+          <RouterLink v-if="ready" to="/publicar" class="h-12 px-6 inline-flex items-center bg-secondary-700 text-white font-semibold rounded-lg hover:bg-secondary-800 transition">
+            Publicar ahora
+          </RouterLink>
+          <RouterLink v-if="isSeller" to="/mis-productos" class="h-12 px-6 inline-flex items-center border border-gray-300 rounded-lg text-gray-800 font-semibold hover:bg-white">
+            Ver mis publicaciones
+          </RouterLink>
+        </div>
+      </template>
     </div>
   </section>
 </template>

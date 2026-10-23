@@ -14,17 +14,26 @@ export default {
 </script>
 
 <template>
-    <footer class="w-full text-white py-8 mt-12 bg-secondary-700">
+    <footer class="w-full text-white py-10 bg-secondary-700">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex flex-col items-center gap-6">
                 <div class="text-center">
                     <p class="text-lg font-heading font-semibold mb-2">
-                        © 2025 ProviDent
+                        © {{ new Date().getFullYear() }} ProviDent
                     </p>
                     <p class="text-sm text-secondary-100 italic mb-4">
                         "Conectamos productos odontológicos con quienes lo necesitan"
                     </p>
                 </div>
+
+                <nav aria-label="Enlaces del sitio">
+                    <ul class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm">
+                        <li><RouterLink to="/productos" class="text-white hover:underline underline-offset-4">Catálogo</RouterLink></li>
+                        <li><RouterLink :to="{ path: '/productos', query: { tipo: 'servicios' } }" class="text-white hover:underline underline-offset-4">Servicios</RouterLink></li>
+                        <li><RouterLink to="/seller-setup" class="text-white hover:underline underline-offset-4">Vender en ProviDent</RouterLink></li>
+                        <li><RouterLink to="/chat" class="text-white hover:underline underline-offset-4">Soporte</RouterLink></li>
+                    </ul>
+                </nav>
 
                 <div class="flex items-center gap-6">
                     <a href="https://instagram.com" target="_blank" rel="noopener noreferrer"

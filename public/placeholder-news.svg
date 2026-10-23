@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" role="img" aria-label="Noticia sin imagen">
+  <rect width="1200" height="600" fill="#C7DDF1"/>
+  <circle cx="1000" cy="80" r="220" fill="#E3EEF8"/>
+  <circle cx="160" cy="560" r="240" fill="#C7EFE7"/>
+  <g fill="none" stroke="#2A6FAF" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" opacity="0.55">
+    <rect x="490" y="220" width="220" height="160" rx="16"/>
+    <path d="M530 270h140M530 310h140M530 350h90"/>
+  </g>
+</svg>

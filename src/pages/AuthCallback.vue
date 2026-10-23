@@ -52,10 +52,21 @@ export default {
         try {
             // Obtener el token del hash de la URL
             const hashParams = new URLSearchParams(window.location.hash.substring(1))
+            const queryParams = new URLSearchParams(window.location.search)
             const accessToken = hashParams.get('access_token')
-            const type = hashParams.get('type')
+            const type = hashParams.get('type') || queryParams.get('type')
+            const linkError = hashParams.get('error_description') || queryParams.get('error_description')
 
-            if (type === 'signup' || type === 'email_change' || type === 'recovery' || accessToken) {
+            // Enlace vencido o ya usado: Supabase lo informa en la URL
+            if (linkError) {
+                this.error = /expired|invalid/i.test(linkError)
+                    ? 'El enlace venció o ya fue usado. Pedí uno nuevo desde "Iniciar sesión".'
+                    : 'No pudimos validar el enlace. Pedí uno nuevo desde "Iniciar sesión".'
+                this.loading = false
+                return
+            }
+
+            if (type === 'signup' || type === 'email_change' || type === 'recovery' || accessToken || queryParams.get('code')) {
                 // Supabase maneja automáticamente la sesión desde el hash
                 // Solo necesitamos esperar a que se procese
                 const { data, error } = await supabase.auth.getUser()
@@ -76,11 +87,18 @@ export default {
                     throw new Error('No se pudo establecer la sesión')
                 }
             } else {
-                throw new Error('Link de confirmación inválido')
+                // Se llegó sin enlace (ej. recargando la página): si ya hay sesión, seguir al perfil
+                const { data } = await supabase.auth.getUser()
+                if (data?.user) {
+                    this.$router.replace('/mi-perfil')
+                    return
+                }
+                this.error = 'Este enlace no es válido. Abrí el último email que te enviamos o pedí uno nuevo.'
+                this.loading = false
             }
         } catch (err) {
             console.error('Error en callback:', err)
-            this.error = err.message || 'Error al confirmar el email'
+            this.error = 'No pudimos confirmar tu cuenta. Probá abrir el enlace de nuevo o pedí uno nuevo.'
             this.loading = false
         }
     }
@@ -88,7 +106,7 @@ export default {
 </script>
 
 <template>
-    <section class="min-h-screen bg-gray-50 pt-20 flex items-center justify-center">
+    <section class="min-h-[calc(100vh-4rem)] bg-gray-50 py-12 flex items-center justify-center">
         <div class="max-w-md mx-auto px-4 text-center">
             <div v-if="loading" class="bg-white rounded-lg shadow-md p-8">
                 <div class="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center"
@@ -135,15 +153,15 @@ export default {
                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
                     </svg>
                 </div>
-                <h1 class="font-heading text-2xl font-bold text-gray-800 mb-2">Error al confirmar</h1>
+                <h1 class="font-heading text-2xl font-bold text-gray-800 mb-2">Enlace no válido</h1>
                 <p class="text-gray-600 mb-6">{{ error }}</p>
                 <div class="space-y-3">
                     <RouterLink to="/register"
-                        class="block px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">
-                        Volver a registrarse
+                        class="block px-6 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-600">
+                        Crear una cuenta
                     </RouterLink>
                     <RouterLink to="/login"
-                        class="block px-6 py-3 border-2 border-blue-600 text-blue-600 font-semibold rounded-lg hover:bg-blue-50">
+                        class="block px-6 py-3 border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary-50">
                         Ir a iniciar sesión
                     </RouterLink>
                 </div>

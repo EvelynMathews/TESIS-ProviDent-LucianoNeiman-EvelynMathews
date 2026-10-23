@@ -25,8 +25,8 @@
         <div class="filters-section">
             <div class="filters-grid">
                 <div class="filter-group">
-                    <label class="filter-label">Buscar producto</label>
-                    <input
+                    <label for="f-searchQuery" class="filter-label">Buscar producto</label>
+                    <input id="f-searchQuery"
                         v-model="searchQuery"
                         type="text"
                         class="filter-input"
@@ -35,8 +35,8 @@
                 </div>
 
                 <div class="filter-group">
-                    <label class="filter-label">Tipo</label>
-                    <select v-model="filterType" class="filter-select">
+                    <label for="f-filterType" class="filter-label">Tipo</label>
+                    <select id="f-filterType" v-model="filterType" class="filter-select">
                         <option value="all">Todos</option>
                         <option value="SUPPLY">Insumo</option>
                         <option value="PROSTHESIS">Prótesis</option>
@@ -46,8 +46,8 @@
                 </div>
 
                 <div class="filter-group">
-                    <label class="filter-label">Estado</label>
-                    <select v-model="filterStatus" class="filter-select">
+                    <label for="f-filterStatus" class="filter-label">Estado</label>
+                    <select id="f-filterStatus" v-model="filterStatus" class="filter-select">
                         <option value="all">Todos</option>
                         <option value="active">Activos</option>
                         <option value="inactive">Inactivos</option>

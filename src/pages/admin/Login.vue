@@ -39,7 +39,7 @@ export default {
 
                 if (role !== 'admin') {
                     await supabase.auth.signOut()
-                    this.error = 'No tienes permisos para acceder al panel de administración.'
+                    this.error = 'Esta cuenta no tiene permisos de administración.'
                     this.loading = false
                     return
                 }
@@ -48,14 +48,18 @@ export default {
                 this.$router.push('/admin/dashboard')
 
             } catch (error) {
-                this.error = 'Las credenciales no coinciden con nuestros registros.'
-                console.error('Error al iniciar sesión:', error)
+                this.error = /invalid login credentials/i.test(error?.message || '')
+                    ? 'El email o la contraseña no son correctos.'
+                    : 'No pudimos iniciar sesión. Revisá tu conexión e intentá de nuevo.'
             } finally {
                 this.loading = false
             }
         }
     },
     async mounted() {
+        if (this.$route.query.denied) {
+            this.error = 'Tu cuenta no tiene permisos de administración. Ingresá con una cuenta de administrador.'
+        }
         // Si ya está logueado como admin, redirigir al dashboard
         const { data } = await supabase.auth.getUser()
         if (data?.user) {

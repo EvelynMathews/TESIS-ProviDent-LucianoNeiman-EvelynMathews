@@ -28,9 +28,10 @@ export async function getNewsBySlug(slug) {
     .select('id, title, slug, preview, content, published_at, news_images(path, alt_text, is_primary, position)')
     .eq('slug', slug)
     .eq('is_published', true)
-    .single()
+    .maybeSingle()
 
   if (error) throw error
+  if (!data) return null
   setCached(cacheKey, data)
   return data
 }

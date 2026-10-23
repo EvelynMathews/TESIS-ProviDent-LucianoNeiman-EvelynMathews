@@ -56,8 +56,8 @@
 
                 <form @submit.prevent="updateProfile">
                     <div class="form-group">
-                        <label class="form-label">Nombre</label>
-                        <input
+                        <label for="f-profileForm-first_name" class="form-label">Nombre</label>
+                        <input id="f-profileForm-first_name"
                             v-model="profileForm.first_name"
                             type="text"
                             class="form-input"
@@ -66,8 +66,8 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Apellido</label>
-                        <input
+                        <label for="f-profileForm-last_name" class="form-label">Apellido</label>
+                        <input id="f-profileForm-last_name"
                             v-model="profileForm.last_name"
                             type="text"
                             class="form-input"
@@ -76,8 +76,8 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Email</label>
-                        <input
+                        <label for="f-profileForm-email" class="form-label">Email</label>
+                        <input id="f-profileForm-email"
                             v-model="profileForm.email"
                             type="email"
                             class="form-input"
@@ -87,8 +87,8 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Rol</label>
-                        <input
+                        <label for="f-role" class="form-label">Rol</label>
+                        <input id="f-role"
                             value="Administrador"
                             type="text"
                             class="form-input"
@@ -116,8 +116,8 @@
 
                 <form @submit.prevent="changePassword">
                     <div class="form-group">
-                        <label class="form-label">Contraseña Actual</label>
-                        <input
+                        <label for="f-passwordForm-currentPassword" class="form-label">Contraseña Actual</label>
+                        <input id="f-passwordForm-currentPassword"
                             v-model="passwordForm.currentPassword"
                             type="password"
                             class="form-input"
@@ -127,8 +127,8 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Nueva Contraseña</label>
-                        <input
+                        <label for="f-passwordForm-newPassword" class="form-label">Nueva Contraseña</label>
+                        <input id="f-passwordForm-newPassword"
                             v-model="passwordForm.newPassword"
                             type="password"
                             class="form-input"
@@ -139,8 +139,8 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Confirmar Nueva Contraseña</label>
-                        <input
+                        <label for="f-passwordForm-confirmPassword" class="form-label">Confirmar Nueva Contraseña</label>
+                        <input id="f-passwordForm-confirmPassword"
                             v-model="passwordForm.confirmPassword"
                             type="password"
                             class="form-input"

@@ -226,7 +226,10 @@ export function getCartCount() {
 export async function addToCart(productData, typeSpecificData = {}) {
   try {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Usuario no autenticado')
+    if (!user) {
+      // Caso esperado (visitante sin sesión): no es un error de la app
+      return { success: false, needsAuth: true, message: 'Iniciá sesión para agregar productos al carrito.' }
+    }
 
     const cartId = await initializeCart(user.id)
     if (!cartId) throw new Error('No se pudo inicializar el carrito')
@@ -281,10 +284,10 @@ export async function addToCart(productData, typeSpecificData = {}) {
 
     await fetchCartItems(user.id)
 
-    return { success: true, message: 'Producto agregado al carrito' }
+    return { success: true, message: 'Agregado al carrito' }
   } catch (error) {
     console.error('Error adding to cart:', error)
-    return { success: false, message: error.message }
+    return { success: false, message: 'No pudimos agregarlo al carrito. Intentá de nuevo.' }
   }
 }
 
@@ -362,6 +365,10 @@ export async function syncCartWithSupabase() {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       await fetchCartItems(user.id)
+    } else {
+      // Sin sesión el carrito queda vacío (evita mostrar el carrito del usuario anterior)
+      cartItems.value = []
+      currentUserId = null
     }
   } catch (error) {
     console.error('Error syncing cart:', error)

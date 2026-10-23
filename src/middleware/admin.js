@@ -5,7 +5,7 @@
  * Funcionamiento: En `requireAdmin`, verifica la sesión de Supabase.
  * Si no hay sesión, redirige inmediatamente a `/admin/login`. Si existe una sesión,
  * verifica que el usuario tenga `user_metadata.role` igual a 'admin'.
- * Si el rol no es 'admin', cierra la sesión por seguridad y redirige al login de administración.
+ * Si el rol no es 'admin', redirige al login de administración con un aviso (sin cerrar la sesión del usuario).
  * Si todo es correcto, permite la navegación (`next()`).
  */
 import { supabase } from '../services/supabase'
@@ -20,9 +20,8 @@ export async function requireAdmin(to, from, next) {
     const role = data.user.user_metadata?.role
 
     if (role !== 'admin') {
-        // No es admin, hacer logout y redirigir
-        await supabase.auth.signOut()
-        return next('/admin/login')
+        // No es admin: se le niega el acceso sin cerrar su sesión de comprador/vendedor
+        return next({ path: '/admin/login', query: { denied: '1' } })
     }
 
     next()

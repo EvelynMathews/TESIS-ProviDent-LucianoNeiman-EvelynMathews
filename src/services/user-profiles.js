@@ -11,6 +11,20 @@
 import { supabase } from './supabase'
 
 /**
+ * Devuelve una URL firmada (1 hora) para un avatar guardado en Storage.
+ * Si la ruta ya es una URL completa, la devuelve tal cual.
+ */
+export async function signedAvatarUrl(path) {
+    if (!path) return ''
+    if (/^https?:\/\//.test(path)) return path
+    try {
+        const { data, error } = await supabase.storage.from('avatars').createSignedUrl(path, 60 * 60)
+        if (!error && data?.signedUrl) return data.signedUrl
+    } catch { /* sin avatar: se muestran las iniciales */ }
+    return ''
+}
+
+/**
  * Obtiene el perfil completo de un usuario por su ID.
  * Combina datos de las tablas users y user_profiles.
  */
@@ -20,27 +34,23 @@ export async function getUserProfileById(id) {
         .from('public_user_profiles')
         .select('*')
         .eq('id', id)
-        .single()
+        .maybeSingle()
 
     if (profileError) {
         console.error('[user-profiles.js getUserProfileById] Error al traer datos de public_user_profiles:', id, profileError)
         throw new Error(profileError.message)
     }
 
+    // Perfil inexistente (ej. enlace viejo): lo informa quien llama, no es un error de red
+    if (!profileData) return null
+
     // Combinar nombre completo como username si no existe
     const username = profileData.username || `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || 'Usuario'
 
-    // Obtener URL del avatar si existe
+    // El bucket de avatares es privado: se usa URL firmada (la URL pública devuelve 400)
     let avatarUrl = ''
     if (profileData.avatar_url) {
-        try {
-            // Try to get public URL from storage
-            const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(profileData.avatar_url)
-            avatarUrl = urlData?.publicUrl || ''
-        } catch (e) {
-            console.warn('Error getting avatar URL:', e)
-            avatarUrl = profileData.avatar_url // Fallback to original path
-        }
+        avatarUrl = await signedAvatarUrl(profileData.avatar_url)
     } else if (profileData.photo_url) {
         avatarUrl = profileData.photo_url
     }
@@ -52,6 +62,7 @@ export async function getUserProfileById(id) {
         first_name: profileData.first_name,
         last_name: profileData.last_name,
         photo_url: profileData.photo_url,
+        avatar_path: profileData.avatar_url || null,
         avatar_url: avatarUrl,
         bio: profileData.bio || '',
         location: profileData.location || '',

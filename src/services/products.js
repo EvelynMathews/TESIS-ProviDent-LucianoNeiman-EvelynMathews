@@ -90,6 +90,20 @@ export async function listActiveProducts() {
   const ownerIds = data.map(p => p.owner_user_id)
   const owners = await fetchOwnerNames(ownerIds)
 
+  // Precios de alquiler en una sola consulta (antes era una por producto)
+  const rentalIds = data.filter(p => p.product_type === 'RENTAL').map(p => p.id)
+  const rentalPrices = {}
+  if (rentalIds.length) {
+    const { data: pricing } = await supabase
+      .from('rental_pricing')
+      .select('product_id, period, price')
+      .in('product_id', rentalIds)
+    ;(pricing || []).forEach(r => {
+      rentalPrices[r.product_id] = rentalPrices[r.product_id] || []
+      rentalPrices[r.product_id].push(r)
+    })
+  }
+
   const results = await Promise.all(data.map(async (p) => {
     let imgPath = pickPrimaryImage(p.product_images || [])
     if (!imgPath) {
@@ -103,6 +117,7 @@ export async function listActiveProducts() {
       name: p.name,
       description: p.description,
       product_type: p.product_type,
+      created_at: p.created_at,
       image: image,
       seller: { id: p.owner_user_id, username: owner.name, rating: 0, sales_count: 0, avatar_url: owner.avatar_url },
     }
@@ -110,21 +125,19 @@ export async function listActiveProducts() {
     if (p.product_type === 'SUPPLY') {
       const supply = p.supply_products || {}
       result.price = supply.unit_price || 0
-      result.unit = supply.unit_label || 'unit'
+      result.unit = supply.unit_label || 'unidad'
       result.stock = supply.stock_qty ?? null
     } else if (p.product_type === 'PLASTER_SERVICE') {
       const plaster = p.plaster_service_products || {}
       result.price = plaster.base_price || 0
     } else if (p.product_type === 'RENTAL') {
-      const { data: pricing } = await supabase
-        .from('rental_pricing')
-        .select('period, price')
-        .eq('product_id', p.id)
-        .order('price', { ascending: true })
-        .limit(1)
-      result.price_day = pricing?.[0]?.price || 0
-      result.price_week = 0
-      result.price_month = 0
+      const pricing = rentalPrices[p.id] || []
+      const byPeriod = (period) => pricing.find(pr => pr.period === period)?.price || null
+      const cheapest = pricing.length ? Math.min(...pricing.map(pr => Number(pr.price) || 0)) : 0
+      result.price_day = byPeriod('1 day') || cheapest
+      result.price_week = byPeriod('7 days')
+      result.price_month = byPeriod('30 days')
+      result.stock = p.rental_products?.stock_qty ?? null
     }
 
     return result
@@ -195,8 +208,8 @@ export async function getProductById(id) {
   const { data, error } = await supabase
     .from('products')
     .select(`
-      id, name, description, product_type, owner_user_id, created_at,
-      supply_products(unit_price, unit_label, stock_qty),
+      id, name, description, product_type, owner_user_id, created_at, is_active,
+      supply_products(unit_price, unit_label, stock_qty, sku),
       prosthesis_products(material_id, manufacturing_days),
       plaster_service_products(base_price, notes, manufacturing_days),
       rental_products(stock_qty, refundable_deposit_amount),
@@ -226,6 +239,7 @@ export async function getProductById(id) {
     name: p.name,
     description: p.description,
     product_type: p.product_type,
+    is_active: p.is_active,
     image,
     seller: {
       id: p.owner_user_id,
@@ -241,7 +255,7 @@ export async function getProductById(id) {
   if (p.product_type === 'SUPPLY') {
     const supply = p.supply_products || {}
     result.price = supply.unit_price || 0
-    result.unit = supply.unit_label || 'unit'
+    result.unit = supply.unit_label || 'unidad'
     result.stock = supply.stock_qty ?? null
     result.sku = supply.sku || null
   } else if (p.product_type === 'PROSTHESIS') {
@@ -356,6 +370,8 @@ export async function updateProduct(id, fields) {
     .update(fields)
     .eq('id', id)
   if (error) throw error
+  clearCache('products:active')
+  clearCache('services:active')
   return true
 }
 
@@ -367,6 +383,7 @@ export async function deleteProductById(id) {
   if (error) throw error
   clearCache('products:active')
   clearCache('services:active')
+  clearCache('products:active')
   return true
 }
 
@@ -587,6 +604,7 @@ export async function createProsthesisProduct({ name, description, imageFile, pr
   }
 
   clearCache('services:active')
+  clearCache('products:active')
   return prod.id
 }
 
@@ -712,6 +730,7 @@ export async function updateProsthesisProduct(productId, { name, description, im
   }
 
   clearCache('services:active')
+  clearCache('products:active')
   return true
 }
 
@@ -850,6 +869,7 @@ export async function updatePlasterServiceProduct(productId, { name, description
   }
 
   clearCache('services:active')
+  clearCache('products:active')
   return true
 }
 
@@ -937,6 +957,7 @@ export async function updateRentalProduct(productId, { name, description, stock_
   }
 
   clearCache('services:active')
+  clearCache('products:active')
   return true
 }
 
@@ -968,6 +989,7 @@ export async function createPlasterServiceProduct({ name, description, base_pric
     if (piErr) throw piErr
   }
   clearCache('services:active')
+  clearCache('products:active')
   return prod.id
 }
 
@@ -1003,6 +1025,7 @@ export async function createRentalProduct({ name, description, stock_qty, priceD
     if (piErr) throw piErr
   }
   clearCache('services:active')
+  clearCache('products:active')
   return prod.id
 }
 

@@ -43,7 +43,7 @@ export default {
         this.provinces = await listProvinces()
         this.zones = await listShippingZones(id)
         this.rates = await listShippingRates(id)
-      } catch (e) { this.error = 'No se pudo cargar el método' }
+      } catch (e) { this.method = null }
       finally { this.loading = false }
     },
     async saveMethod() {
@@ -60,7 +60,7 @@ export default {
         }
         if (!fields.name) { this.error = 'El nombre es obligatorio'; return }
         await updateShippingMethod(this.method.id, fields)
-        this.message = 'Método guardado'
+        this.message = 'Cambios guardados.'
       } catch (e) { this.error = 'No se pudo guardar el método' }
       finally { this.savingMethod = false }
     },
@@ -154,7 +154,7 @@ export default {
     },
     async saveAndBack() {
       await this.saveMethod()
-      this.goBack()
+      if (!this.error) this.goBack()
     },
   },
   mounted() { this.loadAll() }
@@ -162,180 +162,226 @@ export default {
 </script>
 
 <template>
-  <section class="pt-20 bg-gray-50 min-h-screen pb-12">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <div class="flex items-center justify-between mb-4">
-        <h1 class="text-2xl font-bold text-gray-800">Configurar método de envío</h1>
-        <button @click="goBack" class="px-4 py-2 border rounded">Volver</button>
+  <section class="bg-gray-50 min-h-screen pb-16">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      <button type="button" @click="goBack" class="inline-flex items-center gap-1 mb-4 text-sm font-semibold text-primary-700 hover:underline">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+        Volver
+      </button>
+
+      <h1 class="text-3xl font-bold text-gray-800 mb-1">{{ method?.name || 'Método de envío' }}</h1>
+      <p class="text-gray-600 mb-6">Definí dónde entregás (zonas) y cuánto cobrás según peso o volumen (tarifas).</p>
+
+      <p v-if="$route.query.nuevo && !zones.length && !loading" class="mb-4 px-4 py-3 rounded-lg border border-primary-200 bg-primary-50 text-primary-900">
+        Método creado. Agregá al menos una zona y una tarifa para que tus compradores vean el costo de envío.
+      </p>
+      <p v-if="message" class="mb-4 px-4 py-3 rounded-lg border border-secondary-200 bg-secondary-50 text-secondary-800" role="status">{{ message }}</p>
+      <p v-if="error" class="mb-4 px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-red-800" role="alert">{{ error }}</p>
+
+      <p v-if="loading" class="text-gray-600" role="status">Cargando…</p>
+      <div v-else-if="!method" class="bg-white rounded-xl border border-gray-200 p-8 text-center">
+        <p class="text-gray-800 font-semibold mb-4">No encontramos este método de envío.</p>
+        <RouterLink to="/seller-setup" class="px-5 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-600">Ir a mis métodos</RouterLink>
       </div>
 
-      <div v-if="message" class="mb-4 p-3 rounded border border-emerald-200 bg-emerald-50 text-emerald-800">{{ message }}</div>
-      <div v-if="error" class="mb-4 p-3 rounded border border-red-200 bg-red-50 text-red-800">{{ error }}</div>
-
-      <div v-if="loading" class="text-gray-600">Cargando…</div>
-      <div v-else-if="!method" class="text-gray-600">Método no encontrado</div>
-      <div v-else class="space-y-8">
-        <!-- Método -->
-        <div class="bg-white rounded-lg shadow p-6">
-          <h2 class="text-lg font-semibold text-gray-800 mb-4">Datos del método</h2>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+      <div v-else class="space-y-6">
+        <!-- Datos del método -->
+        <form class="bg-white rounded-2xl border border-gray-200 p-6" @submit.prevent="saveMethod">
+          <h2 class="text-lg font-semibold text-gray-800 mb-4">Datos generales</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label class="block text-sm text-gray-700 mb-1">Nombre del método</label>
-              <input v-model="form.name" class="w-full px-3 py-2 border rounded" placeholder="Ej: Envío estándar" />
+              <label for="m-name" class="field-label">Nombre</label>
+              <input id="m-name" v-model="form.name" class="field-input" placeholder="Ej: Envío estándar" />
             </div>
             <div>
-              <label class="block text-sm text-gray-700 mb-1">Volumen mín. (cm³)</label>
-              <input v-model="form.volume_min_cm3" type="number" step="0.01" class="w-full px-3 py-2 border rounded" />
+              <label for="m-vmin" class="field-label">Volumen mínimo (cm³)</label>
+              <input id="m-vmin" v-model="form.volume_min_cm3" type="number" min="0" step="0.01" inputmode="decimal" class="field-input" placeholder="Opcional" />
             </div>
             <div>
-              <label class="block text-sm text-gray-700 mb-1">Volumen máx. (cm³)</label>
-              <input v-model="form.volume_max_cm3" type="number" step="0.01" class="w-full px-3 py-2 border rounded" />
+              <label for="m-vmax" class="field-label">Volumen máximo (cm³)</label>
+              <input id="m-vmax" v-model="form.volume_max_cm3" type="number" min="0" step="0.01" inputmode="decimal" class="field-input" placeholder="Opcional" />
             </div>
           </div>
-          <div class="mt-3 flex items-center gap-3">
-            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-              <input v-model="form.active" type="checkbox" /> Activo
+          <div class="mt-4 flex flex-wrap items-center gap-4">
+            <label class="inline-flex items-center gap-2 text-sm text-gray-800">
+              <input v-model="form.active" type="checkbox" class="w-5 h-5 rounded border-gray-300 text-primary" />
+              Método activo
             </label>
-            <button @click="saveMethod" :disabled="savingMethod" class="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700 disabled:opacity-50">Guardar</button>
-            <button @click="saveAndBack" :disabled="savingMethod" class="px-4 py-2 border rounded">Guardar y volver</button>
+            <div class="ml-auto flex gap-2">
+              <button type="submit" :disabled="savingMethod" class="h-11 px-5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-600 disabled:opacity-60">
+                {{ savingMethod ? 'Guardando…' : 'Guardar' }}
+              </button>
+            </div>
           </div>
-        </div>
+        </form>
 
         <!-- Zonas -->
-        <div class="bg-white rounded-lg shadow p-6">
-          <h2 class="text-lg font-semibold text-gray-800 mb-4">Zonas (provincia y rango de CP)</h2>
-          <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-3">
+        <div class="bg-white rounded-2xl border border-gray-200 p-6">
+          <h2 class="text-lg font-semibold text-gray-800 mb-1">Zonas de entrega</h2>
+          <p class="text-sm text-gray-600 mb-4">Cada zona es una provincia y un rango de códigos postales.</p>
+
+          <form class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-xl bg-gray-50 mb-5" @submit.prevent="submitZone">
             <div>
-              <label class="block text-sm text-gray-700 mb-1">Nombre zona</label>
-              <input v-model="zoneForm.zone_name" class="w-full px-3 py-2 border rounded" placeholder="Ej: AMBA" />
+              <label for="z-name" class="field-label">Nombre de la zona</label>
+              <input id="z-name" v-model="zoneForm.zone_name" class="field-input" placeholder="Ej: AMBA" />
             </div>
             <div>
-              <label class="block text-sm text-gray-700 mb-1">Provincia</label>
-              <select v-model="zoneForm.province_id" class="w-full px-3 py-2 border rounded">
-                <option value="">Seleccioná…</option>
+              <label for="z-prov" class="field-label">Provincia</label>
+              <select id="z-prov" v-model="zoneForm.province_id" class="field-input">
+                <option value="">Elegí una…</option>
                 <option v-for="p in provinces" :key="p.id" :value="p.id">{{ p.name }}</option>
               </select>
             </div>
             <div>
-              <label class="block text-sm text-gray-700 mb-1">CP desde</label>
-              <input v-model="zoneForm.postal_code_min" class="w-full px-3 py-2 border rounded" placeholder="1000" />
+              <label for="z-cpmin" class="field-label">CP desde</label>
+              <input id="z-cpmin" v-model="zoneForm.postal_code_min" inputmode="numeric" class="field-input" placeholder="1000" />
             </div>
             <div>
-              <label class="block text-sm text-gray-700 mb-1">CP hasta</label>
-              <input v-model="zoneForm.postal_code_max" class="w-full px-3 py-2 border rounded" placeholder="1999" />
+              <label for="z-cpmax" class="field-label">CP hasta</label>
+              <input id="z-cpmax" v-model="zoneForm.postal_code_max" inputmode="numeric" class="field-input" placeholder="1999" />
             </div>
-            <div class="flex items-end gap-2">
-              <button @click="submitZone" class="px-4 py-2 bg-emerald-600 text-white rounded">{{ editingZoneId ? 'Actualizar' : 'Agregar' }}</button>
-              <button v-if="editingZoneId" @click="resetZoneForm" class="px-4 py-2 border rounded">Cancelar</button>
+            <div class="sm:col-span-2 lg:col-span-4 flex gap-2 justify-end">
+              <button v-if="editingZoneId" type="button" @click="resetZoneForm" class="h-11 px-4 border border-gray-300 font-semibold rounded-lg hover:bg-white">Cancelar</button>
+              <button type="submit" class="h-11 px-5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-600">{{ editingZoneId ? 'Guardar zona' : 'Agregar zona' }}</button>
             </div>
-          </div>
-          <div v-if="zones.length === 0" class="text-sm text-gray-600">No hay zonas definidas.</div>
-          <div v-else class="overflow-x-auto">
+          </form>
+
+          <p v-if="zones.length === 0" class="text-sm text-gray-600 m-0">Todavía no agregaste zonas.</p>
+          <div v-else class="overflow-x-auto -mx-2">
             <table class="min-w-full text-sm">
-              <thead class="text-left text-gray-600">
-              <tr>
-                <th class="py-2">Zona</th>
-                <th class="py-2">CP desde</th>
-                <th class="py-2">CP hasta</th>
-                <th class="py-2"></th>
-              </tr>
+              <caption class="sr-only">Zonas de entrega</caption>
+              <thead class="text-left text-gray-600 border-b border-gray-200">
+                <tr>
+                  <th scope="col" class="py-2 px-2 font-semibold">Zona</th>
+                  <th scope="col" class="py-2 px-2 font-semibold">Provincia</th>
+                  <th scope="col" class="py-2 px-2 font-semibold">Códigos postales</th>
+                  <th scope="col" class="py-2 px-2"><span class="sr-only">Acciones</span></th>
+                </tr>
               </thead>
               <tbody>
-              <tr v-for="z in zones" :key="z.id" class="border-t">
-                <td class="py-2">{{ z.zone_name }}</td>
-                <td class="py-2">{{ z.postal_code_min }}</td>
-                <td class="py-2">{{ z.postal_code_max }}</td>
-                <td class="py-2 text-right">
-                  <button @click="editZone(z)" class="text-sky-600 hover:underline mr-2">Editar</button>
-                  <button @click="removeZone(z)" class="text-red-600 hover:underline">Eliminar</button>
-                </td>
-              </tr>
+                <tr v-for="z in zones" :key="z.id" class="border-b border-gray-100">
+                  <td class="py-3 px-2 font-medium text-gray-800">{{ z.zone_name }}</td>
+                  <td class="py-3 px-2 text-gray-700">{{ provinces.find(p => p.id === z.province_id)?.name || '—' }}</td>
+                  <td class="py-3 px-2 text-gray-700 tabular-nums">{{ z.postal_code_min }} a {{ z.postal_code_max }}</td>
+                  <td class="py-3 px-2 text-right whitespace-nowrap">
+                    <button type="button" @click="editZone(z)" class="font-semibold text-primary-700 hover:underline mr-3">Editar</button>
+                    <button type="button" @click="removeZone(z)" class="font-semibold text-red-700 hover:underline">Eliminar</button>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
         </div>
 
         <!-- Tarifas -->
-        <div class="bg-white rounded-lg shadow p-6">
-          <h2 class="text-lg font-semibold text-gray-800 mb-4">Tarifas (peso y volumen)</h2>
-          <div class="grid grid-cols-1 md:grid-cols-7 gap-4 mb-3">
-            <div>
-              <label class="block text-sm text-gray-700 mb-1">Zona (opcional)</label>
-              <select v-model="rateForm.zone_id" class="w-full px-3 py-2 border rounded">
-                <option value="">Todas</option>
-                <option v-for="z in zones" :key="z.id" :value="z.id">{{ z.zone_name }}</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm text-gray-700 mb-1">Kg desde</label>
-              <input v-model="rateForm.weight_min" type="number" step="0.001" class="w-full px-3 py-2 border rounded" />
-            </div>
-            <div>
-              <label class="block text-sm text-gray-700 mb-1">Kg hasta</label>
-              <input v-model="rateForm.weight_max" type="number" step="0.001" class="w-full px-3 py-2 border rounded" />
-            </div>
-            <div>
-              <label class="block text-sm text-gray-700 mb-1">cm³ desde</label>
-              <input v-model="rateForm.volume_min_cm3" type="number" step="0.01" class="w-full px-3 py-2 border rounded" />
-            </div>
-            <div>
-              <label class="block text-sm text-gray-700 mb-1">cm³ hasta</label>
-              <input v-model="rateForm.volume_max_cm3" type="number" step="0.01" class="w-full px-3 py-2 border rounded" />
-            </div>
-            <div>
-              <label class="block text-sm text-gray-700 mb-1">Precio</label>
-              <input v-model="rateForm.price" type="number" step="0.01" class="w-full px-3 py-2 border rounded" placeholder="$" />
-            </div>
-            <div class="flex items-end gap-2">
+        <div class="bg-white rounded-2xl border border-gray-200 p-6">
+          <h2 class="text-lg font-semibold text-gray-800 mb-1">Tarifas</h2>
+          <p class="text-sm text-gray-600 mb-4">El costo de envío según el peso o volumen del paquete. Dejá en blanco los límites que no apliquen.</p>
+
+          <form class="p-4 rounded-xl bg-gray-50 mb-5 space-y-4" @submit.prevent="submitRate">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label class="block text-sm text-gray-700 mb-1">ETA (días)</label>
-                <input v-model="rateForm.eta_days" type="number" class="w-full px-3 py-2 border rounded" />
+                <label for="r-zone" class="field-label">Zona</label>
+                <select id="r-zone" v-model="rateForm.zone_id" class="field-input">
+                  <option value="">Todas las zonas</option>
+                  <option v-for="z in zones" :key="z.id" :value="z.id">{{ z.zone_name }}</option>
+                </select>
               </div>
-              <div class="flex items-center ml-2 mt-6 gap-2">
-                <input v-model="rateForm.active" type="checkbox" />
-                <span class="text-sm">Activa</span>
+              <div>
+                <label for="r-price" class="field-label">Precio del envío</label>
+                <div class="relative">
+                  <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" aria-hidden="true">$</span>
+                  <input id="r-price" v-model="rateForm.price" type="number" min="0" step="0.01" inputmode="decimal" class="field-input pl-8" placeholder="0" />
+                </div>
               </div>
-              <div class="ml-auto mt-6">
-                <button @click="submitRate" class="px-4 py-2 bg-emerald-600 text-white rounded">{{ editingRateId ? 'Actualizar' : 'Agregar' }}</button>
-                <button v-if="editingRateId" @click="resetRateForm" class="ml-2 px-4 py-2 border rounded">Cancelar</button>
+              <div>
+                <label for="r-eta" class="field-label">Demora (días)</label>
+                <input id="r-eta" v-model="rateForm.eta_days" type="number" min="0" inputmode="numeric" class="field-input" placeholder="Ej: 3" />
               </div>
             </div>
-          </div>
-          <div v-if="rates.length === 0" class="text-sm text-gray-600">No hay tarifas definidas.</div>
-          <div v-else class="overflow-x-auto">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <fieldset class="rounded-lg border border-gray-200 bg-white p-3">
+                <legend class="px-1 text-sm font-semibold text-gray-700">Peso (kg)</legend>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label for="r-wmin" class="block text-xs text-gray-600 mb-1">Desde</label>
+                    <input id="r-wmin" v-model="rateForm.weight_min" type="number" min="0" step="0.001" inputmode="decimal" class="field-input py-2" placeholder="0" />
+                  </div>
+                  <div>
+                    <label for="r-wmax" class="block text-xs text-gray-600 mb-1">Hasta</label>
+                    <input id="r-wmax" v-model="rateForm.weight_max" type="number" min="0" step="0.001" inputmode="decimal" class="field-input py-2" placeholder="Sin límite" />
+                  </div>
+                </div>
+              </fieldset>
+              <fieldset class="rounded-lg border border-gray-200 bg-white p-3">
+                <legend class="px-1 text-sm font-semibold text-gray-700">Volumen (cm³)</legend>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label for="r-vmin" class="block text-xs text-gray-600 mb-1">Desde</label>
+                    <input id="r-vmin" v-model="rateForm.volume_min_cm3" type="number" min="0" step="0.01" inputmode="decimal" class="field-input py-2" placeholder="0" />
+                  </div>
+                  <div>
+                    <label for="r-vmax" class="block text-xs text-gray-600 mb-1">Hasta</label>
+                    <input id="r-vmax" v-model="rateForm.volume_max_cm3" type="number" min="0" step="0.01" inputmode="decimal" class="field-input py-2" placeholder="Sin límite" />
+                  </div>
+                </div>
+              </fieldset>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+              <label class="inline-flex items-center gap-2 text-sm text-gray-800">
+                <input v-model="rateForm.active" type="checkbox" class="w-5 h-5 rounded border-gray-300 text-primary" />
+                Tarifa activa
+              </label>
+              <div class="ml-auto flex gap-2">
+                <button v-if="editingRateId" type="button" @click="resetRateForm" class="h-11 px-4 border border-gray-300 font-semibold rounded-lg hover:bg-white">Cancelar</button>
+                <button type="submit" class="h-11 px-5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-600">{{ editingRateId ? 'Guardar tarifa' : 'Agregar tarifa' }}</button>
+              </div>
+            </div>
+          </form>
+
+          <p v-if="rates.length === 0" class="text-sm text-gray-600 m-0">Todavía no agregaste tarifas.</p>
+          <div v-else class="overflow-x-auto -mx-2">
             <table class="min-w-full text-sm">
-              <thead class="text-left text-gray-600">
-              <tr>
-                <th class="py-2">Peso</th>
-                <th class="py-2">Volumen</th>
-                <th class="py-2">Precio</th>
-                <th class="py-2">ETA</th>
-                <th class="py-2">Estado</th>
-                <th class="py-2"></th>
-              </tr>
+              <caption class="sr-only">Tarifas de envío</caption>
+              <thead class="text-left text-gray-600 border-b border-gray-200">
+                <tr>
+                  <th scope="col" class="py-2 px-2 font-semibold">Zona</th>
+                  <th scope="col" class="py-2 px-2 font-semibold">Peso</th>
+                  <th scope="col" class="py-2 px-2 font-semibold">Volumen</th>
+                  <th scope="col" class="py-2 px-2 font-semibold text-right">Precio</th>
+                  <th scope="col" class="py-2 px-2 font-semibold">Demora</th>
+                  <th scope="col" class="py-2 px-2 font-semibold">Estado</th>
+                  <th scope="col" class="py-2 px-2"><span class="sr-only">Acciones</span></th>
+                </tr>
               </thead>
               <tbody>
-              <tr v-for="r in rates" :key="r.id" class="border-t">
-                <td class="py-2">{{ r.weight_min ?? '0' }}–{{ r.weight_max ?? '∞' }} kg</td>
-                <td class="py-2">{{ r.volume_min_cm3 ?? '0' }}–{{ r.volume_max_cm3 ?? '∞' }} cm³</td>
-                <td class="py-2">${{ r.price }}</td>
-                <td class="py-2">{{ r.eta_days ?? '-' }}</td>
-                <td class="py-2">
-                  <span class="px-2 py-0.5 rounded text-xs" :class="r.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'">{{ r.active ? 'Activa' : 'Pausada' }}</span>
-                </td>
-                <td class="py-2 text-right">
-                  <button @click="editRate(r)" class="text-sky-600 hover:underline mr-2">Editar</button>
-                  <button @click="removeRate(r)" class="text-red-600 hover:underline">Eliminar</button>
-                </td>
-              </tr>
+                <tr v-for="r in rates" :key="r.id" class="border-b border-gray-100">
+                  <td class="py-3 px-2 text-gray-800">{{ zones.find(z => z.id === r.zone_id)?.zone_name || 'Todas' }}</td>
+                  <td class="py-3 px-2 text-gray-700 tabular-nums whitespace-nowrap">{{ r.weight_min ?? 0 }} – {{ r.weight_max ?? '∞' }} kg</td>
+                  <td class="py-3 px-2 text-gray-700 tabular-nums whitespace-nowrap">{{ r.volume_min_cm3 ?? 0 }} – {{ r.volume_max_cm3 ?? '∞' }} cm³</td>
+                  <td class="py-3 px-2 text-gray-900 font-semibold tabular-nums text-right">${{ new Intl.NumberFormat('es-AR').format(r.price || 0) }}</td>
+                  <td class="py-3 px-2 text-gray-700">{{ r.eta_days != null ? `${r.eta_days} días` : '—' }}</td>
+                  <td class="py-3 px-2">
+                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold" :class="r.active ? 'bg-secondary-50 text-secondary-800' : 'bg-gray-100 text-gray-700'">{{ r.active ? 'Activa' : 'Pausada' }}</span>
+                  </td>
+                  <td class="py-3 px-2 text-right whitespace-nowrap">
+                    <button type="button" @click="editRate(r)" class="font-semibold text-primary-700 hover:underline mr-3">Editar</button>
+                    <button type="button" @click="removeRate(r)" class="font-semibold text-red-700 hover:underline">Eliminar</button>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
+        </div>
+
+        <div class="flex justify-end">
+          <button type="button" @click="saveAndBack" :disabled="savingMethod" class="h-12 px-6 bg-secondary-700 text-white font-semibold rounded-lg hover:bg-secondary-800 disabled:opacity-60">
+            Listo, volver
+          </button>
         </div>
       </div>
     </div>
   </section>
 </template>
-
-<style scoped>
-</style>
