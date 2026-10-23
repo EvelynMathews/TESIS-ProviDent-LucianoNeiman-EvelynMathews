@@ -67,7 +67,8 @@ function subscribeToSupabaseAuth() {
 async function fetchFullProfile() {
     try {
         const fullProfile = await getUserProfileById(user.id)
-        if (fullProfile) setUser(fullProfile)
+        // La vista pública puede no traer el email: se conserva el de la sesión
+        if (fullProfile) setUser({ ...fullProfile, email: fullProfile.email || user.email })
     } catch (error) {
         console.error('[auth.js] Error al cargar perfil completo:', error.message)
     }

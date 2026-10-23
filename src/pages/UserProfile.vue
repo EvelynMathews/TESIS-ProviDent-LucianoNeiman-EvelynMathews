@@ -97,12 +97,12 @@ export default {
                 <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-8">
                     <div class="h-24 sm:h-28" style="background: linear-gradient(135deg, #C7DDF1 0%, #D4F4EC 55%, #F3DDD3 100%);"></div>
                     <div class="px-6 pb-6">
-                        <div class="flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6 -mt-12">
+                        <div class="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 -mt-12">
                             <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden flex-shrink-0 border-4 border-white bg-primary-50 shadow-sm">
                                 <img v-if="user.avatar_url" :src="user.avatar_url" :alt="`Foto de ${user.username}`" class="w-full h-full object-cover" @error="user.avatar_url = ''" />
                                 <div v-else class="w-full h-full flex items-center justify-center text-3xl font-bold text-primary" aria-hidden="true">{{ initials }}</div>
                             </div>
-                            <div class="flex-1 text-center sm:text-left min-w-0">
+                            <div class="flex-1 text-center sm:text-left min-w-0 sm:pt-14">
                                 <h1 class="font-heading text-2xl sm:text-3xl font-bold text-gray-800 mb-1 break-words">{{ user.username }}</h1>
                                 <p v-if="user.location" class="text-sm text-gray-600 m-0">{{ user.location }}</p>
                             </div>

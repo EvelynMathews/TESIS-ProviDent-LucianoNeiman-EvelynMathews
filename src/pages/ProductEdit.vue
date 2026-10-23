@@ -457,7 +457,7 @@ export default {
 
             <!-- SUPPLY PRODUCT FORM -->
             <div v-else-if="productType === 'SUPPLY'" class="bg-white rounded-lg shadow-md p-6">
-                <h1 class="font-heading text-3xl font-bold text-gray-800 mb-6">Editar Producto</h1>
+                <h1 class="font-heading text-3xl font-bold text-gray-800 mb-6">Editar producto</h1>
 
                 <div v-if="errorMessage" class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4" role="alert">
                     <p class="text-red-800">{{ errorMessage }}</p>
@@ -501,7 +501,7 @@ export default {
                             type="file"
                             @change="handleImageChange"
                             accept="image/*"
-                            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-700"
+                            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-800 hover:file:bg-primary-100 file:cursor-pointer"
                         />
                     </div>
 
@@ -581,18 +581,18 @@ export default {
                     </div>
 
                     <!-- Action Buttons -->
-                    <div class="flex gap-4 pt-6">
+                    <div class="flex gap-3 pt-6">
                         <button
                             @click="saveChanges"
                             :disabled="!canSave || saving"
-                            class="px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="flex-1 sm:flex-none h-12 px-6 bg-primary text-white font-semibold rounded-lg whitespace-nowrap hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {{ saving ? 'Guardando...' : 'Guardar cambios' }}
                         </button>
                         <button
                             @click="cancel"
                             :disabled="saving"
-                            class="px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                            class="h-12 px-6 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 disabled:opacity-50"
                         >
                             Cancelar
                         </button>
@@ -602,7 +602,7 @@ export default {
 
             <!-- PROSTHESIS PRODUCT FORM -->
             <div v-else-if="productType === 'PROSTHESIS'" class="bg-white rounded-lg shadow-md p-6">
-                <h1 class="font-heading text-3xl font-bold text-gray-800 mb-6">Editar Prótesis</h1>
+                <h1 class="font-heading text-3xl font-bold text-gray-800 mb-6">Editar prótesis</h1>
 
                 <div v-if="errorMessage" class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4" role="alert">
                     <p class="text-red-800">{{ errorMessage }}</p>
@@ -657,7 +657,7 @@ export default {
                             type="file"
                             @change="handleImageChange"
                             accept="image/*"
-                            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-700"
+                            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-800 hover:file:bg-primary-100 file:cursor-pointer"
                         />
                     </div>
 
@@ -741,18 +741,18 @@ export default {
                     </div>
 
                     <!-- Action Buttons -->
-                    <div class="flex gap-4 pt-6">
+                    <div class="flex gap-3 pt-6">
                         <button
                             @click="saveChanges"
                             :disabled="!canSave || saving"
-                            class="px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="flex-1 sm:flex-none h-12 px-6 bg-primary text-white font-semibold rounded-lg whitespace-nowrap hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {{ saving ? 'Guardando...' : 'Guardar cambios' }}
                         </button>
                         <button
                             @click="cancel"
                             :disabled="saving"
-                            class="px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                            class="h-12 px-6 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 disabled:opacity-50"
                         >
                             Cancelar
                         </button>
@@ -762,7 +762,7 @@ export default {
 
             <!-- PLASTER_SERVICE PRODUCT FORM -->
             <div v-else-if="productType === 'PLASTER_SERVICE'" class="bg-white rounded-lg shadow-md p-6">
-                <h1 class="font-heading text-3xl font-bold text-gray-800 mb-6">Editar Servicio de Enyesado</h1>
+                <h1 class="font-heading text-3xl font-bold text-gray-800 mb-6">Editar modelado en yeso</h1>
 
                 <div v-if="errorMessage" class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4" role="alert">
                     <p class="text-red-800">{{ errorMessage }}</p>
@@ -806,7 +806,7 @@ export default {
                             type="file"
                             @change="handleImageChange"
                             accept="image/*"
-                            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-700"
+                            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-800 hover:file:bg-primary-100 file:cursor-pointer"
                         />
                     </div>
 
@@ -848,18 +848,18 @@ export default {
                     </div>
 
                     <!-- Action Buttons -->
-                    <div class="flex gap-4 pt-6">
+                    <div class="flex gap-3 pt-6">
                         <button
                             @click="saveChanges"
                             :disabled="!canSave || saving"
-                            class="px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="flex-1 sm:flex-none h-12 px-6 bg-primary text-white font-semibold rounded-lg whitespace-nowrap hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {{ saving ? 'Guardando...' : 'Guardar cambios' }}
                         </button>
                         <button
                             @click="cancel"
                             :disabled="saving"
-                            class="px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                            class="h-12 px-6 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 disabled:opacity-50"
                         >
                             Cancelar
                         </button>
@@ -913,7 +913,7 @@ export default {
                             type="file"
                             @change="handleImageChange"
                             accept="image/*"
-                            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary-700"
+                            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-800 hover:file:bg-primary-100 file:cursor-pointer"
                         />
                     </div>
 
@@ -981,18 +981,18 @@ export default {
                     </div>
 
                     <!-- Action Buttons -->
-                    <div class="flex gap-4 pt-6">
+                    <div class="flex gap-3 pt-6">
                         <button
                             @click="saveChanges"
                             :disabled="!canSave || saving"
-                            class="px-6 py-3 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="flex-1 sm:flex-none h-12 px-6 bg-primary text-white font-semibold rounded-lg whitespace-nowrap hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {{ saving ? 'Guardando...' : 'Guardar cambios' }}
                         </button>
                         <button
                             @click="cancel"
                             :disabled="saving"
-                            class="px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                            class="h-12 px-6 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 disabled:opacity-50"
                         >
                             Cancelar
                         </button>

@@ -216,7 +216,7 @@ export default {
                     </button>
                     <div v-if="accountMenuOpen" id="account-menu" role="menu"
                         class="absolute right-0 top-full mt-2 w-60 bg-white rounded-xl border border-gray-200 shadow-[0_12px_32px_-8px_rgba(18,45,70,0.25)] py-2 z-50">
-                        <p class="px-4 pb-2 mb-1 border-b border-gray-100 text-xs text-gray-600 truncate">{{ user.email }}</p>
+                        <p v-if="user.email" class="px-4 pb-2 mb-1 border-b border-gray-100 text-xs text-gray-600 truncate">{{ user.email }}</p>
                         <RouterLink role="menuitem" to="/mi-perfil" class="menu-item">Mi perfil</RouterLink>
                         <RouterLink role="menuitem" to="/carrito" class="menu-item">Mi carrito</RouterLink>
                         <template v-if="isSeller">
