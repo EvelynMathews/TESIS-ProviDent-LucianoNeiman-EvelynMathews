@@ -176,7 +176,10 @@ export default {
                         </button>
 
                         <p class="text-xs text-gray-600 text-center m-0">
-                            Después vas a poder agregar tu foto, domicilio y, si querés, empezar a vender.
+                            Al crear tu cuenta aceptás los
+                            <RouterLink to="/terminos" class="font-semibold text-primary-700 underline underline-offset-2">Términos y condiciones</RouterLink>
+                            y la
+                            <RouterLink to="/privacidad" class="font-semibold text-primary-700 underline underline-offset-2">Política de privacidad</RouterLink>.
                         </p>
                     </form>
                 </div>
