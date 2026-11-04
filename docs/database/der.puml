@@ -19,8 +19,7 @@ package "Usuarios & Roles" #E8F0FE {
     first_name : TEXT NOT NULL
     last_name  : TEXT NOT NULL
     email      : TEXT <<UNIQUE>>
-    photo_url  : TEXT
-    is_active  : BOOLEAN = TRUE
+    is_active  : BOOLEAN NOT NULL = TRUE   ' FALSE = dado de baja por un admin
     created_at : TIMESTAMPTZ = now()
   }
   note right of users
@@ -84,6 +83,8 @@ package "Usuarios & Roles" #E8F0FE {
     first_name : TEXT
     last_name : TEXT
     avatar_url : TEXT
+    bio : TEXT
+    location : TEXT
   }
   users ||.. public_user_profiles
   user_profiles ||.. public_user_profiles

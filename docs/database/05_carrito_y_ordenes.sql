@@ -272,3 +272,9 @@ USING (
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_rental_cart_items_dates ON public.rental_cart_items(start_date, end_date);
 CREATE INDEX IF NOT EXISTS idx_rental_order_items_dates ON public.rental_order_items(start_date, end_date);
+
+-- Deactivated users cannot add to cart or create orders
+DROP POLICY IF EXISTS "Only active users can add cart items" ON public.cart_items;
+CREATE POLICY "Only active users can add cart items" ON public.cart_items AS RESTRICTIVE FOR INSERT WITH CHECK (public.is_user_active(auth.uid()));
+DROP POLICY IF EXISTS "Only active users can create orders" ON public.orders;
+CREATE POLICY "Only active users can create orders" ON public.orders AS RESTRICTIVE FOR INSERT WITH CHECK (public.is_user_active(auth.uid()));

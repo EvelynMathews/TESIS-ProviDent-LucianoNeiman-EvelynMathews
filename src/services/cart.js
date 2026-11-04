@@ -123,7 +123,8 @@ export async function fetchCartItems(userId) {
       return
     }
 
-    cartItems.value = await toCartItems(data)
+    // RLS hides products that are no longer visible (e.g. seller deactivated)
+    cartItems.value = await toCartItems(data.filter(item => item.products))
   } catch (error) {
     console.error('Error in fetchCartItems:', error)
   }

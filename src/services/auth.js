@@ -11,20 +11,21 @@
  */
 
 import { supabase } from './supabase'
-import { getUserProfileById, updateUserProfile, updateUserData } from './user-profiles'
+import { getUserProfileById, updateUserData } from './user-profiles'
 
-// Estado local del usuario (inicialmente vacío)
-let user = {
+const EMPTY_USER = {
     id: null,
     email: null,
     username: null,
+    first_name: null,
+    last_name: null,
     bio: null,
     avatar_url: null,
-    favorite_genres: null,
-    favorite_directors: null,
     location: null,
-    verified: false,
 }
+
+// Estado local del usuario (inicialmente vacío)
+let user = { ...EMPTY_USER }
 
 let observers = []
 
@@ -46,22 +47,28 @@ function subscribeToSupabaseAuth() {
   supabase.auth.onAuthStateChange((_event, session) => {
     const sUser = session?.user
     if (!sUser) {
-      setUser({
-        id: null,
-        email: null,
-        username: null,
-        bio: null,
-        avatar_url: null,
-        favorite_genres: null,
-        favorite_directors: null,
-        location: null,
-        verified: false,
-      })
+      setUser({ ...EMPTY_USER })
       return
     }
     setUser({ id: sUser.id, email: sUser.email })
     fetchFullProfile().catch(() => {})
+    // Outside the callback: supabase-js can deadlock if it is called from inside it
+    setTimeout(() => closeSessionIfDeactivated(sUser.id), 0)
   })
+}
+
+export const DEACTIVATED_MESSAGE = 'Tu cuenta fue dada de baja. Si creés que es un error, escribinos a soporte.'
+
+async function isAccountActive(userId) {
+  const { data } = await supabase.from('users').select('is_active').eq('id', userId).maybeSingle()
+  return data?.is_active !== false
+}
+
+// Covers sessions that were already open when an admin deactivated the account
+async function closeSessionIfDeactivated(userId) {
+  if (!(await isAccountActive(userId))) {
+    await supabase.auth.signOut({ scope: 'local' })
+  }
 }
 
 async function fetchFullProfile() {
@@ -116,23 +123,17 @@ export async function register(email, password, userData = {}) {
 export async function login(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw new Error(error.message)
+    if (!(await isAccountActive(data.user.id))) {
+        await supabase.auth.signOut({ scope: 'local' })
+        throw new Error(DEACTIVATED_MESSAGE)
+    }
     setUser({ id: data.user.id, email: data.user.email })
     try { await fetchFullProfile() } catch {}
 }
 
 export async function logout() {
     await supabase.auth.signOut()
-    setUser({
-        id: null,
-        email: null,
-        username: null,
-        bio: null,
-        avatar_url: null,
-        favorite_genres: null,
-        favorite_directors: null,
-        location: null,
-        verified: false,
-    })
+    setUser({ ...EMPTY_USER })
 }
 
 export async function updateAuthUser(data) {

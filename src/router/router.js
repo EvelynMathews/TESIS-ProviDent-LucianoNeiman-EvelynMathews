@@ -36,6 +36,8 @@ import AdminProducts from "../pages/admin/Products.vue";
 import AdminProductEdit from "../pages/admin/ProductEdit.vue";
 import AdminClassifieds from "../pages/admin/Classifieds.vue";
 import AdminClassifiedEdit from "../pages/admin/ClassifiedEdit.vue";
+import AdminUsers from "../pages/admin/Users.vue";
+import AdminUserEdit from "../pages/admin/UserEdit.vue";
 import AdminProfile from "../pages/admin/Profile.vue";
 
 const routes = [
@@ -65,6 +67,8 @@ const routes = [
     { path: '/admin/classifieds',       name: 'AdminClassifieds',           component: AdminClassifieds,      beforeEnter: requireAdmin, },
     { path: '/admin/classifieds/new',   name: 'AdminClassifiedNew',         component: AdminClassifiedEdit,   beforeEnter: requireAdmin, },
     { path: '/admin/classifieds/:id/edit', name: 'AdminClassifiedEdit',     component: AdminClassifiedEdit,   beforeEnter: requireAdmin, },
+    { path: '/admin/users',             name: 'AdminUsers',                 component: AdminUsers,            beforeEnter: requireAdmin, },
+    { path: '/admin/users/:id/edit',    name: 'AdminUserEdit',              component: AdminUserEdit,         beforeEnter: requireAdmin, },
     { path: '/admin/profile',           name: 'AdminProfile',               component: AdminProfile,          beforeEnter: requireAdmin, },
 ];
 

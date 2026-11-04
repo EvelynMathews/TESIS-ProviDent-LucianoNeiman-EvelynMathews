@@ -4,7 +4,7 @@
  * Función: Autenticar al usuario enviando sus credenciales (email y contraseña) al servicio de autenticación.
  * Cómo funciona: Captura el `email` y `password` del formulario y llama a la función `login` de `auth.js`. Si el proceso es exitoso, redirige al usuario a la página de su perfil (`/mi-perfil`). Maneja y muestra un `errorMessage` en caso de fallo de autenticación o credenciales incorrectas.
  */
-import { login } from '../services/auth'
+import { login, DEACTIVATED_MESSAGE } from '../services/auth'
 import ForgotPasswordModal from '../components/ForgotPasswordModal.vue'
 
 export default {
@@ -30,7 +30,9 @@ export default {
                 await login(this.user.email, this.user.password)
                 this.$router.push(this.$route.query.redirect || '/mi-perfil')
             } catch (error) {
-                this.errorMessage = 'Credenciales incorrectas o error al iniciar sesión.'
+                this.errorMessage = error.message === DEACTIVATED_MESSAGE
+                    ? DEACTIVATED_MESSAGE
+                    : 'Credenciales incorrectas o error al iniciar sesión.'
             } finally {
                 this.loading = false
             }

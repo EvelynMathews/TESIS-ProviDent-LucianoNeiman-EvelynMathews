@@ -27,6 +27,11 @@ export default {
                     icon: 'products'
                 },
                 {
+                    name: 'Usuarios',
+                    path: '/admin/users',
+                    icon: 'users'
+                },
+                {
                     name: 'Anuncios de empleo',
                     path: '/admin/classifieds',
                     icon: 'classifieds'
