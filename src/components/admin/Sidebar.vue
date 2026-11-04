@@ -1,7 +1,7 @@
 <!-- 
  * Lógica del componente de la barra de navegación lateral (Sidebar) del panel de administración.
  * Propósito: Definir la estructura y los enlaces del menú de navegación del panel
- * para acceder a las diferentes secciones de gestión (Dashboard, Productos, Anuncios de empleo, Perfil).
+ * para acceder a las diferentes secciones de gestión (Dashboard, Productos, Usuarios, Anuncios de empleo, Perfil).
  * Funcionamiento: Almacena la lista de `menuItems` (nombre, ruta, ícono) y utiliza
  * la propiedad computada `currentPath` para determinar qué elemento del menú
  * debe estar marcado como activo (`active`).
@@ -31,6 +31,11 @@
                             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             <polyline points="3.27 6.96 12 12.01 20.73 6.96" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             <line x1="12" y1="22.08" x2="12" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <svg v-else-if="item.icon === 'users'" class="menu-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                         <svg v-else-if="item.icon === 'classifieds'" class="menu-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <rect x="2" y="7" width="20" height="14" rx="2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>

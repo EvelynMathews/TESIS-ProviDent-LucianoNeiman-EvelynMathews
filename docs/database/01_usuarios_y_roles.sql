@@ -12,8 +12,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   first_name text NOT NULL,
   last_name text NOT NULL,
   email text UNIQUE,
-  photo_url text,
-  is_active boolean DEFAULT true,
+  is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz DEFAULT now(),
   CONSTRAINT users_names_not_empty CHECK (length(trim(first_name)) > 0 AND length(trim(last_name)) > 0)
 );
@@ -307,13 +306,15 @@ USING (
   AND position(auth.uid()::text || '/' IN name) = 1
 );
 
--- Public view for lightweight profile access
+-- Public view: profile data anyone can read (no email)
 CREATE OR REPLACE VIEW public.public_user_profiles AS
 SELECT
   u.id,
   u.first_name,
   u.last_name,
-  p.avatar AS avatar_url
+  p.avatar AS avatar_url,
+  p.bio,
+  p.location
 FROM public.users u
 LEFT JOIN public.user_profiles p ON p.user_id = u.id
 WHERE COALESCE(p.is_public, true) = true;
@@ -342,3 +343,30 @@ END $$;
 
 REVOKE ALL ON FUNCTION public.delete_own_account() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.delete_own_account() TO authenticated;
+
+-- Active accounts: only admins can deactivate a user (is_active)
+CREATE OR REPLACE FUNCTION public.is_user_active(_uid uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT COALESCE((SELECT is_active FROM public.users WHERE id = _uid), false);
+$$;
+
+-- Users can edit their own row, but not their is_active flag
+CREATE OR REPLACE FUNCTION public.protect_user_is_active()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NEW.is_active IS DISTINCT FROM OLD.is_active
+     AND auth.uid() IS NOT NULL
+     AND NOT public.is_admin(auth.uid()) THEN
+    RAISE EXCEPTION 'only admins can change is_active';
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS on_user_is_active_change ON public.users;
+CREATE TRIGGER on_user_is_active_change BEFORE UPDATE OF is_active ON public.users
+FOR EACH ROW EXECUTE FUNCTION public.protect_user_is_active();
+
+-- Admins can edit profiles
+DROP POLICY IF EXISTS "Admins can update all profiles" ON public.user_profiles;
+CREATE POLICY "Admins can update all profiles" ON public.user_profiles FOR UPDATE
+USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));

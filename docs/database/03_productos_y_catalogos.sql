@@ -153,7 +153,9 @@ CREATE POLICY "Admins can manage valid combinations" ON public.work_type_tooth_g
 
 -- Policies: products
 DROP POLICY IF EXISTS "Public can read active or owner sees own products" ON public.products;
-CREATE POLICY "Public can read active or owner sees own products" ON public.products FOR SELECT USING (is_active OR owner_user_id = auth.uid());
+CREATE POLICY "Public can read active or owner sees own products" ON public.products FOR SELECT USING ((is_active AND public.is_user_active(owner_user_id)) OR owner_user_id = auth.uid());
+DROP POLICY IF EXISTS "Only active users can create products" ON public.products;
+CREATE POLICY "Only active users can create products" ON public.products AS RESTRICTIVE FOR INSERT WITH CHECK (public.is_user_active(auth.uid()));
 DROP POLICY IF EXISTS "Sellers can create own products" ON public.products;
 CREATE POLICY "Sellers can create own products" ON public.products FOR INSERT WITH CHECK (owner_user_id = auth.uid() AND EXISTS (SELECT 1 FROM public.user_sellers s WHERE s.user_id=auth.uid()));
 DROP POLICY IF EXISTS "Owners can update own products" ON public.products;

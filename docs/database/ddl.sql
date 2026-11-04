@@ -380,8 +380,7 @@ CREATE TABLE public.users (
                               first_name text NOT NULL,
                               last_name text NOT NULL,
                               email text UNIQUE,
-                              photo_url text,
-                              is_active boolean DEFAULT true,
+                              is_active boolean NOT NULL DEFAULT true,
                               created_at timestamp with time zone DEFAULT now(),
                               CONSTRAINT users_pkey PRIMARY KEY (id),
                               CONSTRAINT users_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
