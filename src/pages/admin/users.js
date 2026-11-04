@@ -6,6 +6,8 @@
  * (RLS solo se los devuelve completos a un admin). `confirmToggle` cambia `users.is_active`:
  * un usuario dado de baja no puede iniciar sesión, publicar ni comprar,
  * y sus productos dejan de verse en el catálogo (lo controla la base con RLS).
+ * Las cuentas de administrador están protegidas: se muestran deshabilitadas y solo
+ * se modifican desde la base de datos (también lo impide un trigger en `users`).
  */
 
 import { supabase } from '../../services/supabase'
@@ -56,6 +58,15 @@ export default {
         }
     },
     methods: {
+        isProtected(user) {
+            return user.roles.includes('ADMIN')
+        },
+        showProtectedNotice(user) {
+            const message = user.id === this.currentUserId
+                ? 'Tu cuenta de administrador está protegida. Tus datos personales los podés actualizar desde Mi Perfil.'
+                : 'Las cuentas de administrador están protegidas. Cualquier cambio debe realizarlo el responsable técnico directamente en la base de datos.'
+            showToast(message, 'info', 6000)
+        },
         async loadUsers() {
             this.loadError = ''
             try {

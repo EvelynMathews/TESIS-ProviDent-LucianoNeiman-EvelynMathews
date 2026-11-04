@@ -74,7 +74,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="user in filteredUsers" :key="user.id">
+                    <tr v-for="user in filteredUsers" :key="user.id" :class="{ protected: isProtected(user) }">
                         <td>
                             <div class="user-name">{{ user.first_name }} {{ user.last_name }}</div>
                             <div class="user-email">{{ user.email || '-' }}</div>
@@ -94,13 +94,28 @@
                         </td>
                         <td>{{ formatDate(user.created_at) }}</td>
                         <td>
-                            <div class="action-buttons">
+                            <div v-if="isProtected(user)" class="action-buttons">
+                                <button type="button" class="btn-icon locked" title="Cuenta protegida" aria-disabled="true"
+                                    aria-label="Editar (cuenta protegida)" @click="showProtectedNotice(user)">
+                                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" stroke="currentColor" stroke-width="2"/>
+                                    </svg>
+                                </button>
+                                <button type="button" class="btn-icon locked" title="Cuenta protegida" aria-disabled="true"
+                                    aria-label="Dar de baja (cuenta protegida)" @click="showProtectedNotice(user)">
+                                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                        <path d="M4.93 4.93l14.14 14.14" stroke="currentColor" stroke-width="2"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div v-else class="action-buttons">
                                 <RouterLink :to="`/admin/users/${user.id}/edit`" class="btn-icon edit" title="Editar" aria-label="Editar">
                                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                         <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" stroke="currentColor" stroke-width="2"/>
                                     </svg>
                                 </RouterLink>
-                                <button v-if="user.id !== currentUserId" type="button" class="btn-icon"
+                                <button type="button" class="btn-icon"
                                     :class="user.is_active ? 'deactivate' : 'activate'"
                                     :title="user.is_active ? 'Dar de baja' : 'Dar de alta'"
                                     :aria-label="user.is_active ? 'Dar de baja' : 'Dar de alta'"

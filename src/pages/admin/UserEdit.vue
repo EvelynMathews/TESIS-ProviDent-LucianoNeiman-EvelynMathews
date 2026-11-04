@@ -17,6 +17,23 @@
             {{ loadError }}
         </div>
 
+        <div v-else-if="isProtected" class="form-card protected-notice">
+            <h1 class="edit-title">Cuenta protegida</h1>
+            <p class="edit-subtitle">{{ user.first_name }} {{ user.last_name }} · {{ rolesText }}</p>
+            <p v-if="isCurrentUser" class="protected-text">
+                Tu cuenta de administrador está protegida y no se edita desde esta sección.
+                Tus datos personales los podés actualizar desde Mi Perfil.
+            </p>
+            <p v-else class="protected-text">
+                Las cuentas de administrador están protegidas. Cualquier cambio en sus datos o en su estado
+                debe realizarlo el responsable técnico directamente en la base de datos.
+            </p>
+            <div class="form-actions">
+                <RouterLink to="/admin/users" class="btn btn-secondary">Volver a usuarios</RouterLink>
+                <RouterLink v-if="isCurrentUser" to="/admin/profile" class="btn btn-primary">Ir a Mi Perfil</RouterLink>
+            </div>
+        </div>
+
         <form v-else @submit.prevent="saveUser" novalidate>
             <div class="edit-header">
                 <h1 class="edit-title">Editar usuario</h1>
@@ -67,11 +84,10 @@
                     <h2 class="form-card-title">Estado de la cuenta</h2>
                     <div class="form-group">
                         <label class="toggle">
-                            <input v-model="form.is_active" type="checkbox" :disabled="isCurrentUser" />
+                            <input v-model="form.is_active" type="checkbox" />
                             <span>Cuenta activa</span>
                         </label>
-                        <p v-if="isCurrentUser" class="form-help-text">No podés darte de baja a vos mismo</p>
-                        <p v-else class="form-help-text">
+                        <p class="form-help-text">
                             Si la desactivás, el usuario no puede iniciar sesión, publicar ni comprar, y sus productos dejan de verse
                         </p>
                     </div>
