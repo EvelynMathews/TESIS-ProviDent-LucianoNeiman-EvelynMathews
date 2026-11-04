@@ -29,7 +29,7 @@ export default {
 
 <template>
     <Teleport to="body">
-    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4" @click.self="$emit('close')">
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-[200] p-4" @click.self="$emit('close')">
         <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
             role="dialog" aria-modal="true" aria-labelledby="classified-title">
             <div class="p-6 rounded-t-2xl relative" :class="accentClass">
