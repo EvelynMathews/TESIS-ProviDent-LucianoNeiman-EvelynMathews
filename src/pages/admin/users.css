@@ -191,6 +191,29 @@
     color: #DC2626;
 }
 
+.users-table tbody tr.protected td {
+    color: #9CA3AF;
+}
+
+.users-table tbody tr.protected .user-name {
+    color: #6B7280;
+}
+
+.users-table tbody tr.protected .role-badge,
+.users-table tbody tr.protected .status-badge {
+    background: #F3F4F6;
+    color: #6B7280;
+}
+
+.btn-icon.locked {
+    color: #D1D5DB;
+    cursor: not-allowed;
+}
+
+.btn-icon.locked:hover {
+    background: transparent;
+}
+
 .role-list {
     display: flex;
     flex-wrap: wrap;

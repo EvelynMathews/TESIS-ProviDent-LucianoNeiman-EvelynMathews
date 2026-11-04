@@ -5,7 +5,7 @@
  * Funcionamiento: `loadUser` carga el usuario (tabla `users` + `user_profiles`).
  * `saveUser` valida nombre y apellido y guarda con `updateUserByAdmin`.
  * El email no se edita acá porque es el usuario de inicio de sesión de Supabase Auth.
- * Un admin no puede darse de baja a sí mismo.
+ * Las cuentas de administrador están protegidas: en vez del formulario se muestra un aviso.
  */
 
 import { supabase } from '../../services/supabase'
@@ -37,6 +37,9 @@ export default {
     computed: {
         rolesText() {
             return this.user.roles.map(role => this.roleLabels[role] || role).join(', ') || '-'
+        },
+        isProtected() {
+            return this.user.roles.includes('ADMIN')
         }
     },
     methods: {
@@ -78,7 +81,7 @@ export default {
                     last_name: this.form.last_name.trim(),
                     bio: this.form.bio.trim(),
                     location: this.form.location.trim(),
-                    is_active: this.isCurrentUser ? true : this.form.is_active
+                    is_active: this.form.is_active
                 })
                 showToast('Usuario actualizado correctamente')
                 this.$router.push('/admin/users')

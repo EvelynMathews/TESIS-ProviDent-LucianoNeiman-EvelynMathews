@@ -286,6 +286,16 @@ textarea.form-input {
     border: 1px solid #FCA5A5;
 }
 
+.protected-notice {
+    max-width: 640px;
+}
+
+.protected-text {
+    margin-top: 1rem;
+    color: #4B5563;
+    line-height: 1.6;
+}
+
 .loading-spinner {
     text-align: center;
     padding: 3rem;

@@ -21,6 +21,7 @@ export function dismissToast(id) {
 }
 
 export function showToast(message, type = 'success', duration = 3500) {
+    if (toasts.some(t => t.message === message)) return
     const id = nextId++
     toasts = [...toasts, { id, message, type }]
     notifyAll()
