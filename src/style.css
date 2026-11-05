@@ -46,6 +46,8 @@
 
   --color-surface: #F5FEFF;
   --color-surface-alt: #F9FCFE;
+
+  --color-footer: #148F75;
 }
 
 @layer base {
