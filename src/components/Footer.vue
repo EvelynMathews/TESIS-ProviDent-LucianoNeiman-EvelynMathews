@@ -40,7 +40,7 @@ export default {
 </script>
 
 <template>
-    <footer class="bg-secondary-700 text-white" aria-labelledby="footer-heading">
+    <footer class="bg-[#148F75] text-white" aria-labelledby="footer-heading">
         <h2 id="footer-heading" class="sr-only">Información de ProviDent</h2>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-10">
