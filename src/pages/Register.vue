@@ -1,91 +1,81 @@
 <script>
 /**
- * Propósito: Vista de registro de nuevos usuarios (formulario multi-paso).
- * Función: Recoger los datos básicos del usuario (acceso y personales) y registrarlo en la plataforma.
- * Cómo funciona: Implementa un formulario de dos pasos (`currentStep`) con validaciones básicas (`canGoNext`, `passwordMatch`). Llama a la función `register` del servicio `auth.js`. Si la confirmación de email está activa (por defecto en Supabase), muestra un mensaje de éxito con instrucciones para verificar la cuenta.
+ * Propósito: Vista de registro de nuevos usuarios.
+ * Función: Recoger los datos mínimos (nombre, apellido, email y contraseña) y crear la cuenta.
+ * Cómo funciona: Un único formulario corto con validación en línea. Llama a `register` de `auth.js`.
+ * Si Supabase requiere confirmar el email, muestra instrucciones claras; si no, entra directo.
+ * Los errores se traducen a mensajes en español (`translateAuthError`).
  */
-import { register } from '../services/auth'
+import { register, translateAuthError } from '../services/auth'
 
 export default {
     name: 'Register',
     data() {
         return {
-            currentStep: 1,
-            totalSteps: 2,
             user: {
+                name: '',
+                lastName: '',
                 email: '',
                 password: '',
                 confirmPassword: '',
-                name: '',
-                lastName: ''
-                // Removed: phone/address fields not required at registration
-                // Avatar se sube después de confirmar email, desde /mi-perfil/editar
             },
+            touched: {},
+            showPassword: false,
             loading: false,
             errorMessage: '',
             registrationSuccess: false,
-            requiresEmailConfirmation: false,
         }
     },
     computed: {
-        progressPercentage() {
-            return (this.currentStep / this.totalSteps) * 100
+        errors() {
+            const e = {}
+            if (!this.user.name.trim()) e.name = 'Ingresá tu nombre.'
+            if (!this.user.lastName.trim()) e.lastName = 'Ingresá tu apellido.'
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.user.email.trim())) e.email = 'Ingresá un email válido, por ejemplo nombre@consultorio.com.'
+            if (this.user.password.length < 6) e.password = 'Usá al menos 6 caracteres.'
+            if (this.user.confirmPassword !== this.user.password) e.confirmPassword = 'Las contraseñas no coinciden.'
+            return e
         },
-        canGoNext() {
-            switch (this.currentStep) {
-                case 1:
-                    return this.user.email && this.user.password && this.user.confirmPassword &&
-                        this.user.password === this.user.confirmPassword && this.user.password.length >= 6
-                case 2:
-                    return this.user.name && this.user.lastName
-                default:
-                    return false
-            }
+        isValid() {
+            return Object.keys(this.errors).length === 0
         },
-        passwordMatch() {
-            if (!this.user.password || !this.user.confirmPassword) return true
-            return this.user.password === this.user.confirmPassword
+        redirectQuery() {
+            return this.$route.query.redirect ? { redirect: this.$route.query.redirect } : {}
         }
     },
     methods: {
-        nextStep() {
-            if (this.canGoNext && this.currentStep < this.totalSteps) {
-                this.currentStep++
-                this.errorMessage = ''
-            }
+        showError(field) {
+            return this.touched[field] && this.errors[field]
         },
-        prevStep() {
-            if (this.currentStep > 1) {
-                this.currentStep--
-                this.errorMessage = ''
-            }
+        touch(field) {
+            this.touched = { ...this.touched, [field]: true }
         },
         async handleSubmit() {
+            this.touched = { name: true, lastName: true, email: true, password: true, confirmPassword: true }
+            if (!this.isValid) {
+                const first = ['name', 'lastName', 'email', 'password', 'confirmPassword'].find(f => this.errors[f])
+                document.getElementById(first)?.focus()
+                return
+            }
+
             this.loading = true
             this.errorMessage = ''
 
             try {
-                const result = await register(this.user.email, this.user.password, {
-                    name: this.user.name,
-                    lastName: this.user.lastName
+                const result = await register(this.user.email.trim(), this.user.password, {
+                    name: this.user.name.trim(),
+                    lastName: this.user.lastName.trim()
                 })
 
                 if (result.requiresEmailConfirmation) {
-                    // Mostrar mensaje de confirmación de email
                     this.registrationSuccess = true
-                    this.requiresEmailConfirmation = true
+                    window.scrollTo({ top: 0 })
                 } else {
-                    // Login automático exitoso
-                    this.$router.push('/mi-perfil')
+                    const r = this.$route.query.redirect
+                    this.$router.replace(typeof r === 'string' && r.startsWith('/') && !r.startsWith('//') ? r : '/mi-perfil')
                 }
             } catch (error) {
-                console.error('Error al registrar:', error)
-                // Mostrar mensaje de error específico
-                if (error.message) {
-                    this.errorMessage = error.message
-                } else {
-                    this.errorMessage = 'No se pudo crear la cuenta. Revisá los datos ingresados.'
-                }
+                this.errorMessage = translateAuthError(error?.message)
             } finally {
                 this.loading = false
             }
@@ -95,269 +85,112 @@ export default {
 </script>
 
 <template>
-    <section class="min-h-screen bg-gray-50 py-12 px-4 pt-24">
-        <div class="max-w-2xl mx-auto">
-            <div class="text-center mb-8">
-                <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center shadow-lg bg-linear-135 from-primary to-secondary">
-                    <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
-                        <path
-                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+    <section class="min-h-[calc(100vh-4rem)] bg-gray-50 flex items-center justify-center py-12 px-4">
+        <div class="max-w-lg w-full">
+            <!-- Cuenta creada: falta confirmar el email -->
+            <div v-if="registrationSuccess" class="bg-white rounded-2xl border border-gray-200 shadow-[0_12px_32px_-16px_rgba(18,45,70,0.25)] p-8 text-center" role="status">
+                <div class="w-16 h-16 mx-auto mb-5 rounded-full flex items-center justify-center bg-secondary-50 text-secondary-700" aria-hidden="true">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                 </div>
-                <h1 class="font-heading text-3xl font-bold text-gray-800 mb-2">Creá tu cuenta en ProviDent</h1>
-                <p class="text-gray-600">Completá los siguientes pasos para registrarte</p>
+                <h1 class="font-heading text-2xl sm:text-3xl font-bold text-gray-800 mb-2">Revisá tu email</h1>
+                <p class="text-gray-600 mb-1">Te enviamos un enlace de confirmación a</p>
+                <p class="text-lg font-semibold text-primary-700 mb-6 break-all">{{ user.email }}</p>
+                <p class="text-sm text-gray-600 mb-6 max-w-sm mx-auto">
+                    Abrí el enlace para activar tu cuenta. Si no lo ves en unos minutos, revisá la carpeta de spam.
+                </p>
+                <RouterLink :to="{ path: '/login', query: redirectQuery }"
+                    class="inline-block px-6 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-600 transition">
+                    Ir a iniciar sesión
+                </RouterLink>
             </div>
 
-            <div class="mb-8">
-                <div class="flex justify-between items-center mb-4">
-                    <div v-for="step in totalSteps" :key="step" class="flex-1 flex items-center">
-                        <div class="flex flex-col items-center flex-1">
-                            <div class="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all shadow-md"
-                                :class="step <= currentStep ? 'bg-primary text-white' : 'bg-gray-200 text-gray-400'">
-                                <svg v-if="step < currentStep" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd"
-                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                        clip-rule="evenodd"></path>
-                                </svg>
-                                <span v-else>{{ step }}</span>
-                            </div>
-                            <p class="text-xs mt-2 text-center font-semibold"
-                                :class="step <= currentStep ? 'text-primary' : 'text-gray-400'">
-                                {{ step === 1 ? 'Acceso' : step === 2 ? 'Datos' : step === 3 ? 'Dirección' : 'Confirmar'}}
-                            </p>
-                        </div>
-                        <div v-if="step < totalSteps" class="flex-1 h-1 mx-2 rounded"
-                            :class="step < currentStep ? 'bg-primary' : 'bg-gray-200'">
-                        </div>
-                    </div>
+            <template v-else>
+                <div class="text-center mb-8">
+                    <h1 class="font-heading text-3xl font-bold text-gray-800 mb-2">Creá tu cuenta</h1>
+                    <p class="text-gray-600 m-0">Es gratis y te lleva menos de un minuto.</p>
                 </div>
-            </div>
 
-            <!-- Success Message -->
-            <div v-if="registrationSuccess && requiresEmailConfirmation" class="bg-white rounded-lg shadow-md p-8">
-                <div class="text-center py-8">
-                    <div class="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center shadow-lg bg-linear-135 from-primary to-secondary">
-                        <svg class="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"></path>
-                            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"></path>
-                        </svg>
-                    </div>
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-[0_12px_32px_-16px_rgba(18,45,70,0.25)] p-6 sm:p-8">
+                    <form @submit.prevent="handleSubmit" class="space-y-5" novalidate>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label for="name" class="field-label">Nombre</label>
+                                <input type="text" id="name" v-model="user.name" @blur="touch('name')" autocomplete="given-name"
+                                    class="field-input" :aria-invalid="!!showError('name')" aria-describedby="name-error" />
+                                <p v-if="showError('name')" id="name-error" class="field-error">{{ errors.name }}</p>
+                            </div>
+                            <div>
+                                <label for="lastName" class="field-label">Apellido</label>
+                                <input type="text" id="lastName" v-model="user.lastName" @blur="touch('lastName')" autocomplete="family-name"
+                                    class="field-input" :aria-invalid="!!showError('lastName')" aria-describedby="lastName-error" />
+                                <p v-if="showError('lastName')" id="lastName-error" class="field-error">{{ errors.lastName }}</p>
+                            </div>
+                        </div>
 
-                    <h1 class="font-heading text-3xl font-bold text-gray-800 mb-3">¡Cuenta creada!</h1>
-                    <p class="text-gray-600 mb-2 max-w-md mx-auto">
-                        Te enviamos un email de confirmación a:
-                    </p>
-                    <p class="text-lg font-semibold mb-6 text-primary">{{ user.email }}</p>
+                        <div>
+                            <label for="email" class="field-label">Email</label>
+                            <input type="email" id="email" v-model="user.email" @blur="touch('email')" autocomplete="email" inputmode="email"
+                                class="field-input" placeholder="tu@email.com" :aria-invalid="!!showError('email')" aria-describedby="email-error" />
+                            <p v-if="showError('email')" id="email-error" class="field-error">{{ errors.email }}</p>
+                        </div>
 
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 max-w-md mx-auto">
-                        <p class="text-sm text-blue-800">
-                            <strong>📧 Revisá tu casilla de correo</strong><br>
-                            Hacé clic en el enlace que te enviamos para confirmar tu cuenta y poder iniciar sesión.
+                        <div>
+                            <label for="password" class="field-label">Contraseña</label>
+                            <div class="relative">
+                                <input :type="showPassword ? 'text' : 'password'" id="password" v-model="user.password" @blur="touch('password')"
+                                    autocomplete="new-password" class="field-input pr-12"
+                                    :aria-invalid="!!showError('password')" aria-describedby="password-hint password-error" />
+                                <button type="button" @click="showPassword = !showPassword"
+                                    class="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                                    :aria-label="showPassword ? 'Ocultar contraseñas' : 'Mostrar contraseñas'" :aria-pressed="showPassword">
+                                    <svg v-if="!showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                    <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <p v-if="showError('password')" id="password-error" class="field-error">{{ errors.password }}</p>
+                            <p v-else id="password-hint" class="field-hint">Mínimo 6 caracteres.</p>
+                        </div>
+
+                        <div>
+                            <label for="confirmPassword" class="field-label">Repetí la contraseña</label>
+                            <input :type="showPassword ? 'text' : 'password'" id="confirmPassword" v-model="user.confirmPassword" @blur="touch('confirmPassword')"
+                                autocomplete="new-password" class="field-input"
+                                :aria-invalid="!!showError('confirmPassword')" aria-describedby="confirmPassword-error" />
+                            <p v-if="showError('confirmPassword')" id="confirmPassword-error" class="field-error">{{ errors.confirmPassword }}</p>
+                        </div>
+
+                        <div v-if="errorMessage" class="p-4 rounded-lg bg-red-50 border border-red-200" role="alert">
+                            <p class="text-red-800 text-sm font-semibold m-0">{{ errorMessage }}</p>
+                        </div>
+
+                        <button type="submit" :disabled="loading"
+                            class="w-full h-12 px-4 bg-primary text-white font-semibold rounded-lg transition hover:bg-primary-600 disabled:opacity-60">
+                            {{ loading ? 'Creando cuenta…' : 'Crear cuenta' }}
+                        </button>
+
+                        <p class="text-xs text-gray-600 text-center m-0">
+                            Al crear tu cuenta aceptás los
+                            <RouterLink to="/terminos" class="font-semibold text-primary-700 underline underline-offset-2">Términos y condiciones</RouterLink>
+                            y la
+                            <RouterLink to="/privacidad" class="font-semibold text-primary-700 underline underline-offset-2">Política de privacidad</RouterLink>.
                         </p>
-                    </div>
-
-                    <div class="space-y-3 max-w-md mx-auto">
-                        <p class="text-sm text-gray-600">¿No recibiste el email?</p>
-                        <ul class="text-xs text-gray-500 text-left space-y-1">
-                            <li>• Revisá tu carpeta de spam o correo no deseado</li>
-                            <li>• Verificá que escribiste bien tu dirección de email</li>
-                            <li>• El email puede tardar algunos minutos en llegar</li>
-                        </ul>
-                    </div>
-
-                    <div class="mt-8">
-                        <RouterLink to="/login"
-                            class="inline-block px-6 py-3 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90 bg-primary">
-                            Ir a iniciar sesión
-                        </RouterLink>
-                    </div>
+                    </form>
                 </div>
-            </div>
 
-            <div v-else class="bg-white rounded-lg shadow-md p-8">
-                <form @submit.prevent="currentStep === totalSteps ? handleSubmit() : nextStep()">
-                    <div v-if="currentStep === 1" class="space-y-6">
-                        <div class="p-4 rounded-lg bg-primary-50">
-                            <h2 class="font-heading text-xl font-bold mb-2 text-primary">Paso 1: Datos de
-                                acceso</h2>
-                            <p class="text-sm text-gray-600">Creá tu usuario y contraseña</p>
-                        </div>
-
-                        <div>
-                            <label for="email" class="block text-sm font-semibold text-gray-700 mb-2">
-                                Correo electrónico *
-                            </label>
-                            <input type="email" id="email" v-model="user.email" required
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                placeholder="tu@email.com" />
-                        </div>
-
-                        <div>
-                            <label for="password" class="block text-sm font-semibold text-gray-700 mb-2">
-                                Contraseña *
-                            </label>
-                            <input type="password" id="password" v-model="user.password" required minlength="6"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                placeholder="Mínimo 6 caracteres" />
-                            <p class="text-xs text-gray-500 mt-1">Debe tener al menos 6 caracteres</p>
-                        </div>
-
-                        <div>
-                            <label for="confirmPassword" class="block text-sm font-semibold text-gray-700 mb-2">
-                                Confirmar contraseña *
-                            </label>
-                            <input type="password" id="confirmPassword" v-model="user.confirmPassword" required
-                                class="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition"
-                                :class="passwordMatch ? 'border-gray-300' : 'border-red-300'"
-                                placeholder="Repetí tu contraseña" />
-                            <p v-if="!passwordMatch" class="text-xs text-red-600 mt-1">Las contraseñas no coinciden</p>
-                        </div>
-                    </div>
-
-                    <div v-if="currentStep === 2" class="space-y-6">
-                        <div class="p-4 rounded-lg bg-secondary-soft">
-                            <h2 class="font-heading text-xl font-bold mb-2 text-secondary">Paso 2: Datos
-                                personales</h2>
-                            <p class="text-sm text-gray-600">Contanos sobre vos</p>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label for="name" class="block text-sm font-semibold text-gray-700 mb-2">
-                                    Nombre *
-                                </label>
-                                <input type="text" id="name" v-model="user.name" required
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                    placeholder="Juan" />
-                            </div>
-
-                            <div>
-                                <label for="lastName" class="block text-sm font-semibold text-gray-700 mb-2">
-                                    Apellido *
-                                </label>
-                                <input type="text" id="lastName" v-model="user.lastName" required
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                    placeholder="Pérez" />
-                            </div>
-                        </div>
-
-                        <div v-if="false"></div>
-                    </div>
-
-                    <div v-if="false" class="space-y-6">
-                        <div class="p-4 rounded-lg bg-accent-soft">
-                            <h2 class="font-heading text-xl font-bold mb-2 text-accent">Paso 3: Dirección
-                            </h2>
-                            <p class="text-sm text-gray-600">¿Dónde te encontrás?</p>
-                        </div>
-
-                        <div>
-                            <label for="street" class="block text-sm font-semibold text-gray-700 mb-2">
-                                Calle y número *
-                            </label>
-                            <input type="text" id="street" v-model="user.street" required
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                placeholder="Av. Corrientes 1234" />
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label for="city" class="block text-sm font-semibold text-gray-700 mb-2">
-                                    Ciudad *
-                                </label>
-                                <input type="text" id="city" v-model="user.city" required
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                    placeholder="CABA" />
-                            </div>
-
-                            <div>
-                                <label for="province" class="block text-sm font-semibold text-gray-700 mb-2">
-                                    Provincia *
-                                </label>
-                                <input type="text" id="province" v-model="user.province" required
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                    placeholder="Buenos Aires" />
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label for="postalCode" class="block text-sm font-semibold text-gray-700 mb-2">
-                                    Código postal *
-                                </label>
-                                <input type="text" id="postalCode" v-model="user.postalCode" required
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                    placeholder="C1043" />
-                            </div>
-
-                            <div>
-                                <label for="country" class="block text-sm font-semibold text-gray-700 mb-2">
-                                    País
-                                </label>
-                                <input type="text" id="country" v-model="user.country" disabled
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-600" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div v-if="currentStep === 4" class="space-y-6">
-                        <div class="p-4 rounded-lg bg-linear-135 from-primary to-secondary">
-                            <h2 class="font-heading text-xl font-bold text-white mb-2">Paso 4: Confirmación</h2>
-                            <p class="text-sm text-white opacity-90">Revisá tus datos antes de continuar</p>
-                        </div>
-
-                        <div class="space-y-4">
-                            <div class="p-4 rounded-lg bg-gray-50">
-                                <h3 class="font-semibold text-gray-800 mb-3">Datos de acceso</h3>
-                                <p class="text-sm text-gray-600"><span class="font-semibold">Email:</span> {{ user.email}}</p>
-                            </div>
-
-                            <div class="p-4 rounded-lg bg-gray-50">
-                                <h3 class="font-semibold text-gray-800 mb-3">Datos personales</h3>
-                                <p class="text-sm text-gray-600"><span class="font-semibold">Nombre:</span> {{ user.name}} {{ user.lastName }}</p>
-                                <p class="text-sm text-gray-600"><span class="font-semibold">Teléfono:</span> {{user.phone }}</p>
-                            </div>
-
-                            <div class="p-4 rounded-lg bg-gray-50">
-                                <h3 class="font-semibold text-gray-800 mb-3">Dirección</h3>
-                                <p class="text-sm text-gray-600">{{ user.street }}</p>
-                                <p class="text-sm text-gray-600">{{ user.city }}, {{ user.province }}</p>
-                                <p class="text-sm text-gray-600">CP: {{ user.postalCode }} - {{ user.country }}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div v-if="errorMessage" class="mt-6 p-4 rounded-lg bg-red-50 border border-red-200">
-                        <p class="text-red-600 text-sm font-semibold">{{ errorMessage }}</p>
-                    </div>
-
-                    <div class="flex gap-4 mt-8">
-                        <button v-if="currentStep > 1" type="button" @click="prevStep"
-                            class="flex-1 py-3 px-4 border-2 font-semibold rounded-lg transition hover:bg-gray-50 text-primary border-primary">
-                            Anterior
-                        </button>
-
-                        <button v-if="currentStep < totalSteps" type="button" @click="nextStep" :disabled="!canGoNext"
-                            class="flex-1 py-3 px-4 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed bg-primary">
-                            Siguiente
-                        </button>
-
-                        <button v-if="currentStep === totalSteps" type="submit" :disabled="loading"
-                            class="flex-1 py-3 px-4 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90 disabled:opacity-50 bg-secondary">
-                            {{ loading ? 'Creando cuenta...' : 'Crear cuenta' }}
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <div class="mt-6 text-center">
-                <p class="text-gray-600">
+                <p class="mt-6 text-center text-gray-600">
                     ¿Ya tenés cuenta?
-                    <RouterLink to="/login" class="font-semibold hover:underline text-primary">
+                    <RouterLink :to="{ path: '/login', query: redirectQuery }" class="font-semibold text-primary-700 hover:underline underline-offset-4">
                         Iniciá sesión
                     </RouterLink>
                 </p>
-            </div>
+            </template>
         </div>
     </section>
 </template>

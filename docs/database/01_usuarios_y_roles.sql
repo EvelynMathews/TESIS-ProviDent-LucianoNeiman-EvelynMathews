@@ -90,6 +90,9 @@ CREATE OR REPLACE FUNCTION public.cleanup_user(p_user uuid)
 RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
+  -- Other buyers' cart items with this seller's products (they would block the delete)
+  DELETE FROM public.cart_items WHERE product_id IN (SELECT id FROM public.products WHERE owner_user_id = p_user);
+
   -- Products owned by seller (cascades product children via product trigger)
   DELETE FROM public.products WHERE owner_user_id = p_user;
 

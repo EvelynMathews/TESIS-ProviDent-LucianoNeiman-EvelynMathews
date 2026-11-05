@@ -1,134 +1,71 @@
 <script>
 /**
  * Propósito: Vista del perfil público de otro usuario (vendedor).
- * Función: Mostrar la información pública de un usuario (`username`, `bio`, `avatar`) y listar sus publicaciones de productos activas en el marketplace.
- * Cómo funciona: `mounted` carga el `profileData` por ID de ruta usando `getUserProfileById`. `fetchProducts` consulta los productos activos del usuario, obtiene la imagen principal (incluyendo lógica de signed URLs o public URLs desde Storage) y construye la lista de productos con precios y stock para mostrar en el feed del perfil.
+ * Función: Mostrar la información pública de un usuario (nombre, bio, ubicación, avatar) y sus publicaciones activas.
+ * Cómo funciona: Carga el perfil por ID de ruta con `getUserProfileById` y filtra el catálogo activo
+ * (`listActiveProducts`) por vendedor, reutilizando `ProductCard` para que precios y tipos se vean igual
+ * que en el catálogo. Es pública: no hace falta iniciar sesión para ver a un vendedor.
  */
 import { getUserProfileById } from '../services/user-profiles'
-import { supabase } from '../services/supabase'
-import { subscribeToAuthStateChanges } from '../services/auth'
-
-function getImageUrl(path, bucket = 'avatars') {
-    if (!path) return null
-    if (path.startsWith('http')) return path
-    const { data } = supabase.storage.from(bucket).getPublicUrl(path)
-    return data?.publicUrl || null
-}
-
-function pickPrimaryImage(images) {
-    const primary = images.find(img => img.is_primary)
-    return primary?.path || images[0]?.path || null
-}
-
-async function guessImagePath(ownerId, productId) {
-    try {
-        const { data, error } = await supabase.storage.from('product-images').list(`${ownerId}`, { limit: 100 })
-        if (error || !Array.isArray(data)) return null
-        const found = data.find(obj => obj.name?.includes(productId))
-        return found ? `${ownerId}/${found.name}` : null
-    } catch {
-        return null
-    }
-}
-
-async function signedImageUrl(path) {
-    if (!path) return null
-    const { data, error } = await supabase.storage.from('product-images').createSignedUrl(path, 60 * 60)
-    if (!error && data?.signedUrl) return data.signedUrl
-    const dl = await supabase.storage.from('product-images').download(path)
-    if (!dl.error && dl.data) {
-        try { return URL.createObjectURL(dl.data) } catch {}
-    }
-    return null
-}
+import { listActiveProducts } from '../services/products'
+import ProductCard from '../components/ProductCard.vue'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 export default {
     name: 'UserProfile',
+    components: { ProductCard, LoadingSpinner },
     data() {
         return {
-            user: {},
+            user: null,
             products: [],
-            loading: false,
-            currentUser: { id: null },
+            loading: true,
+            loadError: false,
         }
     },
-    async mounted() {
-        try {
-            this.loading = true
-            const userId = this.$route.params.id
-
-            // Load user profile
-            const profileData = await getUserProfileById(userId)
-
-            if (profileData.avatar_url && !profileData.avatar_url.startsWith('http')) {
-                profileData.avatar_url = getImageUrl(profileData.avatar_url)
-            }
-
-            this.user = profileData
-            await this.fetchProducts(userId)
-
-        } catch (error) {
-            console.error('Error loading user profile:', error)
-        } finally {
-            this.loading = false
+    computed: {
+        initials() {
+            const parts = String(this.user?.username || '').trim().split(/\s+/)
+            return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '?'
         }
-
-        subscribeToAuthStateChanges(async (newUserState) => {
-            this.currentUser = newUserState
-        })
+    },
+    watch: {
+        '$route.params.id'(id) {
+            if (id) this.load()
+        }
     },
     methods: {
-        async fetchProducts(userId) {
-            const { data, error } = await supabase
-                .from('products')
-                .select(`
-                    id, name, description, product_type, created_at,
-                    supply_products(unit_price, unit_label, stock_qty),
-                    product_images(path, is_primary, position)
-                `)
-                .eq('owner_user_id', userId)
-                .eq('is_active', true)
-                .order('created_at', { ascending: false })
-
-            if (error) {
-                console.error('Error fetching products:', error)
-                this.products = []
-                return
+        async load() {
+            this.loading = true
+            this.loadError = false
+            try {
+                const userId = this.$route.params.id
+                const [profile, all] = await Promise.all([
+                    /^[0-9a-f-]{36}$/i.test(userId) ? getUserProfileById(userId) : Promise.resolve(null),
+                    listActiveProducts(),
+                ])
+                this.user = profile
+                this.products = profile ? all.filter(p => p.seller?.id === userId) : []
+                if (profile) document.title = `${profile.username} · ProviDent`
+            } catch (error) {
+                console.error('Error loading user profile:', error)
+                this.loadError = true
+            } finally {
+                this.loading = false
             }
-
-            this.products = await Promise.all((data || []).map(async p => {
-                const supply = p.supply_products || {}
-                let imgPath = pickPrimaryImage(p.product_images || [])
-
-                if (!imgPath) {
-                    imgPath = await guessImagePath(userId, p.id)
-                }
-
-                const image = await signedImageUrl(imgPath)
-
-                return {
-                    id: p.id,
-                    name: p.name,
-                    description: p.description,
-                    product_type: p.product_type,
-                    price: supply.unit_price || 0,
-                    unit: supply.unit_label || 'unidad',
-                    stock: supply.stock_qty ?? 0,
-                    image: image || 'https://placehold.co/600x400?text=Producto',
-                    created_at: p.created_at,
-                }
-            }))
         },
-
-        formatPrice(price) {
-            return new Intl.NumberFormat('es-AR').format(price)
-        },
+        goBack() {
+            if (window.history.length > 1) this.$router.back()
+            else this.$router.push('/productos')
+        }
+    },
+    mounted() {
+        this.load()
     },
 }
 </script>
 
 <template>
-    <section class="pt-20 min-h-screen pb-12 relative overflow-hidden bg-surface">
+    <section class="min-h-screen pb-16 relative overflow-hidden bg-surface">
         <div class="organic-shape organic-shape-1"></div>
         <div class="organic-shape organic-shape-2"></div>
         <div class="organic-shape organic-shape-3"></div>
@@ -136,89 +73,58 @@ export default {
         <div class="organic-shape organic-shape-5"></div>
         <div class="organic-shape organic-shape-6"></div>
 
-        <div v-if="loading" class="flex justify-center items-center h-64 relative z-10">
-            <div class="animate-spin rounded-full h-12 w-12 border-4 border-sky-600 border-t-transparent"></div>
-        </div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 relative z-10">
+            <button type="button" @click="goBack"
+                class="inline-flex items-center gap-1 mb-6 text-sm font-semibold text-primary-700 hover:underline">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Volver
+            </button>
 
-        <div v-else class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-            <div class="mb-6">
-                <button @click="$router.go(-1)"
-                    class="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition font-medium">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                    </svg>
-                    Volver
-                </button>
+            <LoadingSpinner v-if="loading" message="Cargando perfil..." />
+
+            <div v-else-if="loadError || !user" class="bg-white rounded-xl border border-gray-200 p-10 text-center" :role="loadError ? 'alert' : null">
+                <h1 class="font-heading text-2xl font-bold text-gray-800 mb-2">{{ loadError ? 'No pudimos cargar este perfil' : 'No encontramos este vendedor' }}</h1>
+                <p class="text-gray-600 mb-6">{{ loadError ? 'Revisá tu conexión e intentá de nuevo.' : 'Puede que la cuenta ya no exista o que el enlace sea incorrecto.' }}</p>
+                <div class="flex flex-wrap gap-3 justify-center">
+                    <button v-if="loadError" type="button" @click="load" class="px-5 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-600">Reintentar</button>
+                    <RouterLink to="/productos" class="px-5 py-2.5 border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary-50">Ver catálogo</RouterLink>
+                </div>
             </div>
 
-            <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-                <div class="h-32 bg-linear-135 from-primary-soft via-secondary-soft to-accent-soft"></div>
-                <div class="px-6 pb-6">
-                    <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6 -mt-16">
-                        <div class="w-32 h-32 rounded-full overflow-hidden shadow-lg flex-shrink-0 border-4 border-white bg-primary-50">
-                            <img v-if="user.avatar_url" :src="user.avatar_url" alt="Avatar" class="w-full h-full object-cover" />
-                            <div v-else class="w-full h-full flex items-center justify-center text-4xl font-bold text-primary">
-                                {{ user.username ? user.username.charAt(0).toUpperCase() : '?' }}
+            <template v-else>
+                <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-8">
+                    <div class="h-24 sm:h-28 bg-linear-135 from-primary-100 via-secondary-soft to-accent-100"></div>
+                    <div class="px-6 pb-6">
+                        <div class="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 -mt-12">
+                            <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden flex-shrink-0 border-4 border-white bg-primary-50 shadow-sm">
+                                <img v-if="user.avatar_url" :src="user.avatar_url" :alt="`Foto de ${user.username}`" class="w-full h-full object-cover" @error="user.avatar_url = ''" />
+                                <div v-else class="w-full h-full flex items-center justify-center text-3xl font-bold text-primary" aria-hidden="true">{{ initials }}</div>
+                            </div>
+                            <div class="flex-1 text-center sm:text-left min-w-0 sm:pt-14">
+                                <h1 class="font-heading text-2xl sm:text-3xl font-bold text-gray-800 mb-1 break-words">{{ user.username }}</h1>
+                                <p v-if="user.location" class="text-sm text-gray-600 m-0">{{ user.location }}</p>
                             </div>
                         </div>
-
-                        <div class="flex-1 text-center sm:text-left mt-6">
-                            <h1 class="font-heading text-3xl font-bold text-gray-800 mb-2">
-                                {{ user.username }}
-                            </h1>
-                            <div class="flex flex-wrap gap-2 justify-center sm:justify-start mb-2">
-                                <span class="px-3 py-1 text-sm font-semibold rounded-full text-white shadow-md bg-linear-135 from-primary to-secondary">
-                                    Vendedor
-                                </span>
-                            </div>
-                            <p class="text-gray-600">{{ user.bio || 'Vendedor de productos odontológicos' }}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <div class="flex items-center justify-between mb-6">
-                    <h2 class="font-heading text-2xl font-bold text-gray-800">
-                        Productos de {{ user.username }}
-                    </h2>
-                    <div class="text-sm text-gray-600">
-                        {{ products.length }} producto{{ products.length !== 1 ? 's' : '' }}
+                        <p v-if="user.bio" class="mt-5 text-gray-700 max-w-prose whitespace-pre-line">{{ user.bio }}</p>
                     </div>
                 </div>
 
-                <div v-if="products.length" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    <div v-for="product in products" :key="product.id"
-                        class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300">
-                        <RouterLink :to="`/productos/${product.id}`" class="block">
-                            <img :src="product.image || 'https://placehold.co/600x400?text=Producto'" :alt="product.name"
-                                class="w-full h-48 object-cover" />
-                            <div class="p-4">
-                                <h3 class="font-semibold text-gray-800 text-sm mb-2 line-clamp-2">{{ product.name }}</h3>
-                                <p class="text-2xl font-bold mb-1 text-secondary">${{ formatPrice(product.price) }}</p>
-                                <p class="text-xs text-gray-500">{{ product.unit || 'unidad' }}</p>
-
-                                <div v-if="product.stock > 0" class="mt-2">
-                                    <p class="text-xs text-green-600">Stock: {{ product.stock }}</p>
-                                </div>
-                                <div v-else class="mt-2">
-                                    <p class="text-xs text-red-600">Sin stock</p>
-                                </div>
-                            </div>
-                        </RouterLink>
-                    </div>
+                <div class="flex items-baseline justify-between gap-4 mb-6">
+                    <h2 class="font-heading text-2xl font-bold text-gray-800 m-0">Publicaciones</h2>
+                    <p class="text-sm text-gray-600 m-0">{{ products.length }} {{ products.length === 1 ? 'publicación activa' : 'publicaciones activas' }}</p>
                 </div>
 
-                <div v-else class="text-center py-16 space-y-4">
-                    <div class="w-16 h-16 mx-auto rounded-full flex items-center justify-center bg-primary-50">
-                        <svg class="w-8 h-8 text-primary" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"></path>
-                        </svg>
-                    </div>
-                    <h3 class="text-xl font-semibold text-gray-800">Sin productos</h3>
-                    <p class="text-gray-600">{{ user.username }} aún no tiene productos publicados.</p>
+                <div v-if="products.length" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+                    <ProductCard v-for="product in products" :key="product.id" :product="product" :heading-level="3" />
                 </div>
-            </div>
+
+                <div v-else class="bg-white rounded-xl border border-gray-200 text-center py-12 px-6">
+                    <p class="text-lg font-semibold text-gray-800 mb-1">Sin publicaciones por ahora</p>
+                    <p class="text-gray-600 m-0">{{ user.username }} todavía no tiene productos activos.</p>
+                </div>
+            </template>
         </div>
     </section>
 </template>

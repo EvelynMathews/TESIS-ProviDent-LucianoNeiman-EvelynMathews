@@ -11,6 +11,20 @@
 import { supabase } from './supabase'
 
 /**
+ * Devuelve una URL firmada (1 hora) para un avatar guardado en Storage.
+ * Si la ruta ya es una URL completa, la devuelve tal cual.
+ */
+export async function signedAvatarUrl(path) {
+    if (!path) return ''
+    if (/^https?:\/\//.test(path)) return path
+    try {
+        const { data, error } = await supabase.storage.from('avatars').createSignedUrl(path, 60 * 60)
+        if (!error && data?.signedUrl) return data.signedUrl
+    } catch { /* sin avatar: se muestran las iniciales */ }
+    return ''
+}
+
+/**
  * Obtiene el perfil de un usuario por su ID desde la vista public_user_profiles
  * (nombre, apellido, avatar, bio y ubicación).
  */
@@ -19,19 +33,22 @@ export async function getUserProfileById(id) {
         .from('public_user_profiles')
         .select('*')
         .eq('id', id)
-        .single()
+        .maybeSingle()
 
     if (profileError) {
         console.error('[user-profiles.js getUserProfileById] Error al traer datos de public_user_profiles:', id, profileError)
         throw new Error(profileError.message)
     }
 
+    // Perfil inexistente (ej. enlace viejo): lo informa quien llama, no es un error de red
+    if (!profileData) return null
+
     const username = `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || 'Usuario'
 
+    // El bucket de avatares es privado: se usa URL firmada (la URL pública devuelve 400)
     let avatarUrl = ''
     if (profileData.avatar_url) {
-        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(profileData.avatar_url)
-        avatarUrl = urlData?.publicUrl || ''
+        avatarUrl = await signedAvatarUrl(profileData.avatar_url)
     }
 
     return {
@@ -39,6 +56,7 @@ export async function getUserProfileById(id) {
         username: username,
         first_name: profileData.first_name,
         last_name: profileData.last_name,
+        avatar_path: profileData.avatar_url || null,
         avatar_url: avatarUrl,
         bio: profileData.bio || '',
         location: profileData.location || '',
@@ -80,10 +98,10 @@ export async function updateUserData(userId, data) {
 
     // Actualizar user_profiles si hay cambios
     if (Object.keys(profilesData).length > 0) {
+        // upsert: si el usuario todavía no tiene fila en user_profiles, se crea (un update la ignoraría en silencio)
         const { error: profilesError } = await supabase
             .from('user_profiles')
-            .update(profilesData)
-            .eq('user_id', userId)
+            .upsert({ user_id: userId, ...profilesData, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
 
         if (profilesError) {
             console.error('[user-profiles.js updateUserData] Error al actualizar user_profiles:', userId, profilesError)
