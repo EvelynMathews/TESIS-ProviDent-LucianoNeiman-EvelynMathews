@@ -7,7 +7,7 @@
  * Funcionamiento: Utiliza la propiedad computada `isAdminRoute` para verificar
  * si la ruta actual comienza con '/admin' y renderiza condicionalmente la estructura.
  /-->
-  
+
 <script>
 import Footer from './components/Footer.vue';
 import Navbar from './components/Navbar.vue';
@@ -30,10 +30,11 @@ export default {
     <RouterView />
   </div>
   <div v-else class="min-h-screen min-w-0 bg-gray-50 flex flex-col">
+    <a href="#main-content" class="skip-link">Saltar al contenido</a>
     <header>
       <Navbar />
     </header>
-    <main class="flex-1 pt-16">
+    <main id="main-content" tabindex="-1" class="flex-1 pt-16 outline-none">
       <RouterView />
     </main>
     <Footer />

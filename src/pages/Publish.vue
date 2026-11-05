@@ -90,6 +90,30 @@ export default {
         progressPercentage() {
             return (this.currentStep / this.totalSteps) * 100
         },
+        missingFields() {
+            if (this.currentStep !== 3) return []
+            const missing = []
+            const need = (cond, label) => { if (!cond) missing.push(label) }
+            if (this.publicationType === 'product') {
+                const d = this.productData
+                need(d.name, 'nombre'); need(d.description, 'descripción'); need(d.images.length, 'una imagen')
+                need(d.price, 'precio'); need(d.stock, 'stock')
+                need(d.unit !== 'otro' || (d.unitCustom || '').trim(), 'unidad de medida')
+                need(d.shippingMethodId || (d.newShippingMethodName || '').trim(), 'método de envío')
+            } else if (this.serviceType === 'prosthesis') {
+                const d = this.prosthesisData
+                need(d.name, 'nombre'); need(d.description, 'descripción'); need(d.material, 'material'); need(d.images.length, 'una imagen')
+                need(Object.values(d.pricingMatrix).some(w => Object.values(w).some(p => p && Number(p) > 0)), 'al menos un precio en la matriz')
+            } else if (this.serviceType === 'plaster') {
+                const d = this.plasterData
+                need(d.name, 'nombre'); need(d.description, 'descripción'); need(d.basePrice, 'precio base'); need(d.images.length, 'una imagen')
+            } else if (this.serviceType === 'rental') {
+                const d = this.rentalData
+                need(d.name, 'nombre'); need(d.description, 'descripción'); need(d.stock, 'unidades disponibles')
+                need(d.priceDay || d.priceWeek || d.priceMonth, 'al menos un precio'); need(d.images.length, 'una imagen')
+            }
+            return missing
+        },
         canProceed() {
             if (this.currentStep === 1) {
                 return this.publicationType !== null
@@ -216,10 +240,22 @@ export default {
             }
         },
 
+        onDropImage(event, dataType) {
+            this.handleImageUpload({ target: { files: event.dataTransfer?.files || [] } }, dataType)
+        },
+
         handleImageUpload(event, dataType) {
             const files = event.target.files
             if (files.length > 0) {
                 const file = files[0]
+                if (!file.type.startsWith('image/')) {
+                    this.showError('El archivo tiene que ser una imagen (JPG, PNG, WebP o GIF).')
+                    return
+                }
+                if (file.size > 5 * 1024 * 1024) {
+                    this.showError('La imagen pesa más de 5 MB. Probá con una más liviana.')
+                    return
+                }
                 const imageUrl = URL.createObjectURL(file)
                 if (dataType === 'product') {
                     this.productData.imageFile = file
@@ -427,7 +463,7 @@ export default {
 </script>
 
 <template>
-    <section class="min-h-screen bg-gray-50 pt-20 pb-12">
+    <section class="min-h-screen bg-gray-50 pb-16">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <!-- Header -->
             <div v-if="!published" class="mb-8">
@@ -436,7 +472,7 @@ export default {
             </div>
 
             <!-- Error Message -->
-            <div v-if="errorMessage" class="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg">
+            <div v-if="errorMessage" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg" role="alert">
                 <div class="flex items-start">
                     <svg class="w-5 h-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd"
@@ -479,7 +515,7 @@ export default {
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div @click="selectPublicationType('product')" @keyup.enter="selectPublicationType('product')"
+                    <div @click="selectPublicationType('product')" @keydown.enter.prevent="selectPublicationType('product')" @keydown.space.prevent="selectPublicationType('product')"
                         role="button" tabindex="0"
                         class="p-8 border-2 border-primary rounded-lg transition-all hover:shadow-lg group cursor-pointer"
                         :class="{ 'bg-blue-50': publicationType === 'product' }">
@@ -498,7 +534,7 @@ export default {
                             indumentaria</p>
                     </div>
 
-                    <div @click="selectPublicationType('service')" @keyup.enter="selectPublicationType('service')"
+                    <div @click="selectPublicationType('service')" @keydown.enter.prevent="selectPublicationType('service')" @keydown.space.prevent="selectPublicationType('service')"
                         role="button" tabindex="0"
                         class="p-8 border-2 border-secondary rounded-lg transition-all hover:shadow-lg group cursor-pointer"
                         :class="{ 'bg-teal-50': publicationType === 'service' }">
@@ -530,7 +566,7 @@ export default {
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div @click="selectServiceType('prosthesis')" @keyup.enter="selectServiceType('prosthesis')"
+                    <div @click="selectServiceType('prosthesis')" @keydown.enter.prevent="selectServiceType('prosthesis')" @keydown.space.prevent="selectServiceType('prosthesis')"
                         role="button" tabindex="0"
                         class="p-6 border-2 rounded-lg transition-all hover:shadow-lg cursor-pointer border-primary"
                         :class="{ 'bg-blue-50': serviceType === 'prosthesis' }">
@@ -545,7 +581,7 @@ export default {
                         <p class="text-xs text-gray-600">Piezas terminadas por encargo</p>
                     </div>
 
-                    <div @click="selectServiceType('plaster')" @keyup.enter="selectServiceType('plaster')"
+                    <div @click="selectServiceType('plaster')" @keydown.enter.prevent="selectServiceType('plaster')" @keydown.space.prevent="selectServiceType('plaster')"
                         role="button" tabindex="0"
                         class="p-6 border-2 rounded-lg transition-all hover:shadow-lg cursor-pointer border-secondary"
                         :class="{ 'bg-teal-50': serviceType === 'plaster' }">
@@ -560,7 +596,7 @@ export default {
                         <p class="text-xs text-gray-600">Vaciado y modelado</p>
                     </div>
 
-                    <div @click="selectServiceType('rental')" @keyup.enter="selectServiceType('rental')"
+                    <div @click="selectServiceType('rental')" @keydown.enter.prevent="selectServiceType('rental')" @keydown.space.prevent="selectServiceType('rental')"
                         role="button" tabindex="0"
                         class="p-6 border-2 rounded-lg transition-all hover:shadow-lg cursor-pointer border-accent"
                         :class="{ 'bg-accent-50': serviceType === 'rental' }">
@@ -594,28 +630,28 @@ export default {
 
                 <div class="space-y-6">
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-productData-name" class="block text-sm font-semibold text-gray-700 mb-2">
                             Nombre del producto *
                         </label>
-                        <input type="text" v-model="productData.name" required
+                        <input id="f-productData-name" type="text" v-model="productData.name" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                             placeholder="Ej: Resina compuesta Universal A2" />
                     </div>
 
                     <div v-if="false">
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-productData-brand" class="block text-sm font-semibold text-gray-700 mb-2">
                             Marca o fabricante
                         </label>
-                        <input type="text" v-model="productData.brand"
+                        <input id="f-productData-brand" type="text" v-model="productData.brand"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                             placeholder="Ej: 3M, Kerr, Ivoclar" />
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-productData-description" class="block text-sm font-semibold text-gray-700 mb-2">
                             Descripción detallada *
                         </label>
-                        <textarea v-model="productData.description" required rows="4"
+                        <textarea id="f-productData-description" v-model="productData.description" required rows="4"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                             placeholder="Describí las características, uso recomendado, contenido del paquete..."></textarea>
                     </div>
@@ -624,8 +660,8 @@ export default {
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             Imágenes (mínimo una)
                         </label>
-                        <div
-                            :class="['border-2 border-dashed rounded-lg p-6 text-center', productData.images.length ? 'border-gray-300' : 'border-red-400']">
+                        <div @dragover.prevent @drop.prevent="onDropImage($event, 'product')"
+                            :class="['border-2 border-dashed rounded-lg p-6 text-center transition-colors hover:bg-gray-50', productData.images.length ? 'border-gray-300' : 'border-red-400']">
                             <input type="file" ref="productImageInput" @change="handleImageUpload($event, 'product')"
                                 accept="image/*" class="hidden" id="product-image-upload" />
                             <label for="product-image-upload" class="cursor-pointer">
@@ -643,9 +679,9 @@ export default {
                         <div v-if="productData.images.length > 0" class="grid grid-cols-3 gap-4 mt-4">
                             <div v-for="(image, index) in productData.images" :key="index" class="relative">
                                 <img :src="image" class="w-full h-32 object-cover rounded-lg" />
-                                <button @click="removeImage(index, 'product')" type="button"
-                                    class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600">
-                                    ×
+                                <button @click="removeImage(index, 'product')" type="button" aria-label="Quitar imagen"
+                                    class="absolute top-2 right-2 bg-gray-900/80 text-white rounded-full w-9 h-9 flex items-center justify-center hover:bg-red-700">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-width="2.5" d="M6 6l12 12M18 6L6 18" /></svg>
                                 </button>
                             </div>
                         </div>
@@ -653,22 +689,22 @@ export default {
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <label for="f-productData-price" class="block text-sm font-semibold text-gray-700 mb-2">
                                 Precio unitario *
                             </label>
                             <div class="relative">
                                 <span class="absolute left-4 top-3 text-gray-500">$</span>
-                                <input type="number" v-model="productData.price" required step="0.01"
+                                <input id="f-productData-price" type="number" v-model="productData.price" required step="0.01"
                                     class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                                     placeholder="0.00" />
                             </div>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <label for="f-productData-unit" class="block text-sm font-semibold text-gray-700 mb-2">
                                 Unidad de medida
                             </label>
-                            <select v-model="productData.unit"
+                            <select id="f-productData-unit" v-model="productData.unit"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition">
                                 <option value="unidad">Unidad</option>
                                 <option value="caja">Caja</option>
@@ -686,29 +722,29 @@ export default {
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <label for="f-productData-stock" class="block text-sm font-semibold text-gray-700 mb-2">
                                 Stock disponible *
                             </label>
-                            <input type="number" v-model="productData.stock" required min="1"
+                            <input id="f-productData-stock" type="number" v-model="productData.stock" required min="1"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                                 placeholder="Cantidad disponible" />
                         </div>
 
                         <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                            <label for="f-productData-sku" class="block text-sm font-semibold text-gray-700 mb-2">
                                 SKU o código interno
                             </label>
-                            <input type="text" v-model="productData.sku"
+                            <input id="f-productData-sku" type="text" v-model="productData.sku"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                                 placeholder="Ej: PROD-001" />
                         </div>
                     </div>
 
                     <div v-if="false">
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-productData-paymentAccount" class="block text-sm font-semibold text-gray-700 mb-2">
                             Cuenta de cobro
                         </label>
-                        <select v-model="productData.paymentAccount"
+                        <select id="f-productData-paymentAccount" v-model="productData.paymentAccount"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition">
                             <option value="">Seleccionar cuenta</option>
                             <option value="bank1">Cuenta Banco Nación - ...4567</option>
@@ -718,23 +754,23 @@ export default {
                     </div>
 
                     <div v-if="false">
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-productData-location" class="block text-sm font-semibold text-gray-700 mb-2">
                             Ubicación del producto
                         </label>
-                        <input type="text" v-model="productData.location"
+                        <input id="f-productData-location" type="text" v-model="productData.location"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                             placeholder="Ej: CABA, Buenos Aires" />
                     </div>
 
                     <!-- Shipping method selection/creation -->
                     <div class="mt-6">
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-productData-shippingMethodId" class="block text-sm font-semibold text-gray-700 mb-2">
                             Método de envío para este producto
                         </label>
                         <div v-if="shippingMethods.length > 0" class="space-y-3">
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                                 <div class="md:col-span-2">
-                                    <select v-model="productData.shippingMethodId"
+                                    <select id="f-productData-shippingMethodId" v-model="productData.shippingMethodId"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition">
                                         <option :value="null">Seleccioná un método</option>
                                         <option v-for="sm in shippingMethods" :key="sm.id" :value="sm.id">{{ sm.name }}
@@ -778,8 +814,8 @@ export default {
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
                             <div class="md:col-span-2">
-                                <label class="block text-sm text-gray-700 mb-1">Crear nuevo método</label>
-                                <input v-model="productData.newShippingMethodName"
+                                <label for="f-productData-newShippingMethodName" class="block text-sm text-gray-700 mb-1">Crear nuevo método</label>
+                                <input id="f-productData-newShippingMethodName" v-model="productData.newShippingMethodName"
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                                     placeholder="Nombre del método (ej: Envío estándar)" />
                             </div>
@@ -803,19 +839,19 @@ export default {
 
                 <div class="space-y-6">
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-prosthesisData-name" class="block text-sm font-semibold text-gray-700 mb-2">
                             Nombre del servicio *
                         </label>
-                        <input type="text" v-model="prosthesisData.name" required
+                        <input id="f-prosthesisData-name" type="text" v-model="prosthesisData.name" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                             placeholder="Ej: Prótesis fijas cerámicas" />
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-prosthesisData-description" class="block text-sm font-semibold text-gray-700 mb-2">
                             Descripción *
                         </label>
-                        <textarea v-model="prosthesisData.description" required rows="3"
+                        <textarea id="f-prosthesisData-description" v-model="prosthesisData.description" required rows="3"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                             placeholder="Describí tu servicio, materiales, garantías..."></textarea>
                     </div>
@@ -824,8 +860,8 @@ export default {
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             Imágenes (mínimo una) *
                         </label>
-                        <div
-                            :class="['border-2 border-dashed rounded-lg p-6 text-center', prosthesisData.images.length ? 'border-gray-300' : 'border-red-400']">
+                        <div @dragover.prevent @drop.prevent="onDropImage($event, 'prosthesis')"
+                            :class="['border-2 border-dashed rounded-lg p-6 text-center transition-colors hover:bg-gray-50', prosthesisData.images.length ? 'border-gray-300' : 'border-red-400']">
                             <input type="file" ref="prosthesisImageInput"
                                 @change="handleImageUpload($event, 'prosthesis')" accept="image/*" class="hidden"
                                 id="prosthesis-image-upload" />
@@ -844,19 +880,19 @@ export default {
                         <div v-if="prosthesisData.images.length > 0" class="grid grid-cols-3 gap-4 mt-4">
                             <div v-for="(image, index) in prosthesisData.images" :key="index" class="relative">
                                 <img :src="image" class="w-full h-32 object-cover rounded-lg" />
-                                <button @click="removeImage(index, 'prosthesis')" type="button"
-                                    class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600">
-                                    ×
+                                <button @click="removeImage(index, 'prosthesis')" type="button" aria-label="Quitar imagen"
+                                    class="absolute top-2 right-2 bg-gray-900/80 text-white rounded-full w-9 h-9 flex items-center justify-center hover:bg-red-700">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-width="2.5" d="M6 6l12 12M18 6L6 18" /></svg>
                                 </button>
                             </div>
                         </div>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-prosthesisData-material" class="block text-sm font-semibold text-gray-700 mb-2">
                             Material principal *
                         </label>
-                        <input type="text" v-model="prosthesisData.material" required
+                        <input id="f-prosthesisData-material" type="text" v-model="prosthesisData.material" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                             placeholder="Ej: Zirconio, Porcelana, Metal-porcelana" />
                     </div>
@@ -972,10 +1008,10 @@ export default {
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-prosthesisData-deliveryTime" class="block text-sm font-semibold text-gray-700 mb-2">
                             Días de fabricación
                         </label>
-                        <input type="number" v-model="prosthesisData.deliveryTime" min="1"
+                        <input id="f-prosthesisData-deliveryTime" type="number" v-model="prosthesisData.deliveryTime" min="1"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                             placeholder="Ej: 5" />
                     </div>
@@ -994,19 +1030,19 @@ export default {
 
                 <div class="space-y-6">
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-plasterData-name" class="block text-sm font-semibold text-gray-700 mb-2">
                             Nombre del servicio *
                         </label>
-                        <input type="text" v-model="plasterData.name" required
+                        <input id="f-plasterData-name" type="text" v-model="plasterData.name" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                             placeholder="Ej: Modelado en yeso tipo III" />
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-plasterData-description" class="block text-sm font-semibold text-gray-700 mb-2">
                             Descripción *
                         </label>
-                        <textarea v-model="plasterData.description" required rows="4"
+                        <textarea id="f-plasterData-description" v-model="plasterData.description" required rows="4"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                             placeholder="Describí el tipo de modelado, uso de articulador, recorte, etc..."></textarea>
                     </div>
@@ -1015,8 +1051,8 @@ export default {
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             Imágenes (mínimo una) *
                         </label>
-                        <div
-                            :class="['border-2 border-dashed rounded-lg p-6 text-center', plasterData.images.length ? 'border-gray-300' : 'border-red-400']">
+                        <div @dragover.prevent @drop.prevent="onDropImage($event, 'plaster')"
+                            :class="['border-2 border-dashed rounded-lg p-6 text-center transition-colors hover:bg-gray-50', plasterData.images.length ? 'border-gray-300' : 'border-red-400']">
                             <input type="file" ref="plasterImageInput" @change="handleImageUpload($event, 'plaster')"
                                 accept="image/*" class="hidden" id="plaster-image-upload" />
                             <label for="plaster-image-upload" class="cursor-pointer">
@@ -1034,21 +1070,21 @@ export default {
                         <div v-if="plasterData.images.length > 0" class="grid grid-cols-3 gap-4 mt-4">
                             <div v-for="(image, index) in plasterData.images" :key="index" class="relative">
                                 <img :src="image" class="w-full h-32 object-cover rounded-lg" />
-                                <button @click="removeImage(index, 'plaster')" type="button"
-                                    class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600">
-                                    ×
+                                <button @click="removeImage(index, 'plaster')" type="button" aria-label="Quitar imagen"
+                                    class="absolute top-2 right-2 bg-gray-900/80 text-white rounded-full w-9 h-9 flex items-center justify-center hover:bg-red-700">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-width="2.5" d="M6 6l12 12M18 6L6 18" /></svg>
                                 </button>
                             </div>
                         </div>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-plasterData-basePrice" class="block text-sm font-semibold text-gray-700 mb-2">
                             Precio base *
                         </label>
                         <div class="relative">
                             <span class="absolute left-4 top-3 text-gray-500">$</span>
-                            <input type="number" v-model="plasterData.basePrice" required step="0.01"
+                            <input id="f-plasterData-basePrice" type="number" v-model="plasterData.basePrice" required step="0.01"
                                 class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                                 placeholder="0.00" />
                         </div>
@@ -1056,10 +1092,10 @@ export default {
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-plasterData-deliveryTime" class="block text-sm font-semibold text-gray-700 mb-2">
                             Días de fabricación
                         </label>
-                        <input type="number" v-model="plasterData.deliveryTime" min="1"
+                        <input id="f-plasterData-deliveryTime" type="number" v-model="plasterData.deliveryTime" min="1"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                             placeholder="Ej: 2" />
                     </div>
@@ -1078,19 +1114,19 @@ export default {
 
                 <div class="space-y-6">
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-rentalData-name" class="block text-sm font-semibold text-gray-700 mb-2">
                             Nombre del equipo *
                         </label>
-                        <input type="text" v-model="rentalData.name" required
+                        <input id="f-rentalData-name" type="text" v-model="rentalData.name" required
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                             placeholder="Ej: Compresor dental portátil" />
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-rentalData-description" class="block text-sm font-semibold text-gray-700 mb-2">
                             Descripción *
                         </label>
-                        <textarea v-model="rentalData.description" required rows="4"
+                        <textarea id="f-rentalData-description" v-model="rentalData.description" required rows="4"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                             placeholder="Describí el equipo, estado, características técnicas..."></textarea>
                     </div>
@@ -1099,8 +1135,8 @@ export default {
                         <label class="block text-sm font-semibold text-gray-700 mb-2">
                             Imágenes (mínimo una) *
                         </label>
-                        <div
-                            :class="['border-2 border-dashed rounded-lg p-6 text-center', rentalData.images.length ? 'border-gray-300' : 'border-red-400']">
+                        <div @dragover.prevent @drop.prevent="onDropImage($event, 'rental')"
+                            :class="['border-2 border-dashed rounded-lg p-6 text-center transition-colors hover:bg-gray-50', rentalData.images.length ? 'border-gray-300' : 'border-red-400']">
                             <input type="file" ref="rentalImageInput" @change="handleImageUpload($event, 'rental')"
                                 accept="image/*" class="hidden" id="rental-image-upload" />
                             <label for="rental-image-upload" class="cursor-pointer">
@@ -1118,19 +1154,19 @@ export default {
                         <div v-if="rentalData.images.length > 0" class="grid grid-cols-3 gap-4 mt-4">
                             <div v-for="(image, index) in rentalData.images" :key="index" class="relative">
                                 <img :src="image" class="w-full h-32 object-cover rounded-lg" />
-                                <button @click="removeImage(index, 'rental')" type="button"
-                                    class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600">
-                                    ×
+                                <button @click="removeImage(index, 'rental')" type="button" aria-label="Quitar imagen"
+                                    class="absolute top-2 right-2 bg-gray-900/80 text-white rounded-full w-9 h-9 flex items-center justify-center hover:bg-red-700">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-width="2.5" d="M6 6l12 12M18 6L6 18" /></svg>
                                 </button>
                             </div>
                         </div>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-rentalData-stock" class="block text-sm font-semibold text-gray-700 mb-2">
                             Unidades disponibles *
                         </label>
-                        <input type="number" v-model="rentalData.stock" required min="1"
+                        <input id="f-rentalData-stock" type="number" v-model="rentalData.stock" required min="1"
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                             placeholder="Cantidad de equipos" />
                     </div>
@@ -1153,12 +1189,12 @@ export default {
                     </div>
 
                     <div v-if="rentalData.insuranceType === 'deposit'">
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <label for="f-rentalData-depositAmount" class="block text-sm font-semibold text-gray-700 mb-2">
                             Monto del depósito
                         </label>
                         <div class="relative">
                             <span class="absolute left-4 top-3 text-gray-500">$</span>
-                            <input type="number" v-model="rentalData.depositAmount" step="0.01"
+                            <input id="f-rentalData-depositAmount" type="number" v-model="rentalData.depositAmount" step="0.01"
                                 class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                                 placeholder="0.00" />
                         </div>
@@ -1215,28 +1251,28 @@ export default {
                         <p class="text-xs text-gray-500 mb-3">Completá al menos una opción de precio</p>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label class="block text-xs text-gray-600 mb-1">Por día</label>
+                                <label for="f-rentalData-priceDay" class="block text-xs text-gray-600 mb-1">Por día</label>
                                 <div class="relative">
                                     <span class="absolute left-3 top-2 text-gray-500 text-sm">$</span>
-                                    <input type="number" v-model="rentalData.priceDay" step="0.01"
+                                    <input id="f-rentalData-priceDay" type="number" v-model="rentalData.priceDay" step="0.01"
                                         class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                                         placeholder="0.00" />
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-xs text-gray-600 mb-1">Por semana</label>
+                                <label for="f-rentalData-priceWeek" class="block text-xs text-gray-600 mb-1">Por semana</label>
                                 <div class="relative">
                                     <span class="absolute left-3 top-2 text-gray-500 text-sm">$</span>
-                                    <input type="number" v-model="rentalData.priceWeek" step="0.01"
+                                    <input id="f-rentalData-priceWeek" type="number" v-model="rentalData.priceWeek" step="0.01"
                                         class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                                         placeholder="0.00" />
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-xs text-gray-600 mb-1">Por mes</label>
+                                <label for="f-rentalData-priceMonth" class="block text-xs text-gray-600 mb-1">Por mes</label>
                                 <div class="relative">
                                     <span class="absolute left-3 top-2 text-gray-500 text-sm">$</span>
-                                    <input type="number" v-model="rentalData.priceMonth" step="0.01"
+                                    <input id="f-rentalData-priceMonth" type="number" v-model="rentalData.priceMonth" step="0.01"
                                         class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
                                         placeholder="0.00" />
                                 </div>
@@ -1251,15 +1287,20 @@ export default {
             </div>
 
             <!-- Navigation Buttons for Step 3 forms -->
-            <div v-if="currentStep === 3 && !previewMode" class="mt-6 flex gap-4">
-                <button @click="prevStep"
-                    class="flex-1 px-6 py-3 border-2 font-semibold rounded-lg transition hover:bg-gray-50 text-primary border-primary">
-                    Anterior
-                </button>
-                <button @click="nextStep" :disabled="!canProceed"
-                    class="flex-1 px-6 py-3 text-white font-semibold rounded-lg transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shadow-md bg-secondary">
-                    Ver preview
-                </button>
+            <div v-if="currentStep === 3 && !previewMode" class="mt-6">
+                <p v-if="missingFields.length" class="mb-3 text-sm text-gray-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3" role="status">
+                    Para continuar completá: <strong>{{ missingFields.join(', ') }}</strong>.
+                </p>
+                <div class="flex gap-4">
+                    <button @click="prevStep" type="button"
+                        class="flex-1 h-12 px-6 border-2 border-primary text-primary font-semibold rounded-lg transition hover:bg-primary-50">
+                        Anterior
+                    </button>
+                    <button @click="nextStep" type="button" :disabled="!canProceed"
+                        class="flex-1 h-12 px-6 bg-primary text-white font-semibold rounded-lg transition hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Revisar y publicar
+                    </button>
+                </div>
             </div>
 
             <!-- Preview Page -->
@@ -1571,8 +1612,7 @@ export default {
 
                 <h1 class="font-heading text-3xl font-bold text-gray-800 mb-3">Publicación creada con éxito</h1>
                 <p class="text-gray-600 mb-8 max-w-md mx-auto">
-                    Tu {{ publicationType === 'product' ? 'producto' : 'servicio' }} ya está visible en ProviDent.
-                    Los compradores podrán encontrarlo y contactarte.
+                    Tu {{ publicationType === 'product' ? 'producto' : 'servicio' }} ya está visible en el catálogo de ProviDent.
                 </p>
 
                 <div class="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
@@ -1580,49 +1620,16 @@ export default {
                         class="px-6 py-3 border-2 font-semibold rounded-lg transition hover:bg-gray-50 text-center text-primary border-primary">
                         Ver mis publicaciones
                     </RouterLink>
-                    <button @click="goBackToStart"
-                        class="px-6 py-3 text-white font-semibold rounded-lg shadow-md transition hover:opacity-90 bg-secondary">
+                    <button @click="goBackToStart" type="button"
+                        class="px-6 py-3 text-white font-semibold rounded-lg transition bg-secondary-700 hover:bg-secondary-800">
                         Crear otra publicación
                     </button>
                 </div>
 
-                <div class="mt-12 bg-white rounded-lg shadow-md p-6 max-w-2xl mx-auto">
-                    <h3 class="font-heading text-lg font-bold text-gray-800 mb-4">Próximos pasos</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
-                        <div class="p-4 rounded-lg bg-primary-50">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center mb-3 bg-primary">
-                                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z">
-                                    </path>
-                                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"></path>
-                                </svg>
-                            </div>
-                            <h4 class="font-semibold text-gray-800 mb-1">Revisá mensajes</h4>
-                            <p class="text-xs text-gray-600">Respondé consultas rápidamente</p>
-                        </div>
-                        <div class="p-4 rounded-lg bg-secondary-soft">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center mb-3 bg-secondary">
-                                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                                        clip-rule="evenodd"></path>
-                                </svg>
-                            </div>
-                            <h4 class="font-semibold text-gray-800 mb-1">Completá tu perfil</h4>
-                            <p class="text-xs text-gray-600">Aumentá la confianza de compradores</p>
-                        </div>
-                        <div class="p-4 rounded-lg bg-accent-soft">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center mb-3 bg-accent">
-                                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path
-                                        d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z">
-                                    </path>
-                                </svg>
-                            </div>
-                            <h4 class="font-semibold text-gray-800 mb-1">Compartí tu publicación</h4>
-                            <p class="text-xs text-gray-600">Promocioná en redes sociales</p>
-                        </div>
-                    </div>
-                </div>
+                <p class="mt-8 text-sm text-gray-600">
+                    Tip: los compradores confían más en perfiles completos.
+                    <RouterLink to="/mi-perfil/editar" class="font-semibold text-primary-700 underline">Completá tu perfil</RouterLink>
+                </p>
             </div>
         </div>
     </section>

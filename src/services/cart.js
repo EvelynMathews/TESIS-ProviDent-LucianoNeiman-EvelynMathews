@@ -315,10 +315,10 @@ export async function addToCart(productData, typeSpecificData = {}) {
     await insertCartItem(cartId, item)
     await fetchCartItems(user.id)
 
-    return { success: true, message: 'Producto agregado al carrito' }
+    return { success: true, message: 'Agregado al carrito' }
   } catch (error) {
     console.error('Error adding to cart:', error)
-    return { success: false, message: error.message }
+    return { success: false, message: 'No pudimos agregarlo al carrito. Intentá de nuevo.' }
   }
 }
 
