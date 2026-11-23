@@ -157,6 +157,17 @@
   .field-error {
     @apply mt-1 text-sm text-red-700;
   }
+
+  .matrix-input {
+    @apply w-full min-w-0 px-1 sm:px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed;
+    appearance: textfield;
+  }
+
+  .matrix-input::-webkit-inner-spin-button,
+  .matrix-input::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+  }
 }
 
 /* Respeta la preferencia de movimiento reducido: detiene las formas decorativas animadas */
