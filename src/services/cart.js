@@ -44,40 +44,61 @@ function writeGuestCart(items) {
  * Inicializa el carrito para un usuario específico
  * Crea un carrito si no existe, o retorna el existente
  */
-async function initializeCart(userId) {
-  if (!userId) return null
+// Promesas en curso por usuario: si varios componentes piden el carrito a la vez,
+// comparten la misma consulta en lugar de crear un carrito cada uno.
+const cartRequests = new Map()
+
+function initializeCart(userId) {
+  if (!userId) return Promise.resolve(null)
 
   currentUserId = userId
 
-  // usar maybeSingle() en lugar de single() para evitar errores 406
-  const { data: existingCart, error: fetchError } = await supabase
+  if (!cartRequests.has(userId)) {
+    const request = findOrCreateCart(userId).then(cartId => {
+      // Solo se recuerda si salió bien, así un error no queda guardado
+      if (!cartId) cartRequests.delete(userId)
+      return cartId
+    })
+    cartRequests.set(userId, request)
+  }
+  return cartRequests.get(userId)
+}
+
+// El carrito más antiguo del usuario (si quedaron duplicados de versiones anteriores, se usa siempre el mismo)
+async function findCart(userId) {
+  const { data, error } = await supabase
     .from('carts')
     .select('id')
     .eq('buyer_user_id', userId)
+    .order('created_at', { ascending: true })
+    .limit(1)
     .maybeSingle()
 
-  if (fetchError) {
-    console.error('Error fetching cart:', fetchError)
+  if (error) throw error
+  return data?.id || null
+}
+
+async function findOrCreateCart(userId) {
+  try {
+    const existingId = await findCart(userId)
+    if (existingId) return existingId
+
+    const { data: newCart, error: createError } = await supabase
+      .from('carts')
+      .insert({ buyer_user_id: userId })
+      .select('id')
+      .single()
+
+    if (createError) {
+      // 23505: otra pestaña lo creó al mismo tiempo (índice único por usuario)
+      if (createError.code === '23505') return await findCart(userId)
+      throw createError
+    }
+    return newCart.id
+  } catch (error) {
+    console.error('Error obteniendo el carrito:', error)
     return null
   }
-
-  if (existingCart) {
-    return existingCart.id
-  }
-
-  // no existe carrito, crear uno nuevo
-  const { data: newCart, error: createError } = await supabase
-    .from('carts')
-    .insert({ buyer_user_id: userId })
-    .select('id')
-    .single()
-
-  if (createError) {
-    console.error('Error creating cart:', createError)
-    return null
-  }
-
-  return newCart.id
 }
 
 /**

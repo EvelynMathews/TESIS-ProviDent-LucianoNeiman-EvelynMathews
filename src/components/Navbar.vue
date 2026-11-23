@@ -5,11 +5,12 @@
  * acceso a la cuenta (login/registro vs. menú de usuario) según el estado de autenticación.
  * Funcionamiento: Se suscribe a los cambios de estado de autenticación (`subscribeToAuthStateChanges`)
  * para actualizar dinámicamente los enlaces. Muestra el conteo del carrito (`cartCount`)
- * y enlaces específicos para vendedores (`isSeller`). Los menús desplegables se cierran al
+ * y enlaces específicos para vendedores (`isSeller`) y para administradores (`isAdmin`, acceso al panel). Los menús desplegables se cierran al
  * navegar, al hacer clic afuera o con la tecla Escape.
  */
 import { logout, subscribeToAuthStateChanges } from '../services/auth';
 import { isCurrentUserSeller } from '../services/sellers';
+import { isAdmin } from '../services/admin';
 import { getCartCount, syncCartWithSupabase } from '../services/cart';
 import { signedAvatarUrl } from '../services/user-profiles';
 import { supabase } from '../services/supabase';
@@ -34,6 +35,7 @@ export default {
             mobileMenuOpen: false,
             accountMenuOpen: false,
             isSeller: false,
+            isAdmin: false,
             showMiniCart: false,
             searchQuery: '',
             lastUserId: undefined,
@@ -71,6 +73,9 @@ export default {
         },
         async refreshSeller() {
             this.isSeller = this.user?.id ? await isCurrentUserSeller() : false;
+        },
+        async refreshAdmin() {
+            this.isAdmin = this.user?.id ? await isAdmin(this.user.id).catch(() => false) : false;
         },
         toggleMobileMenu() {
             this.mobileMenuOpen = !this.mobileMenuOpen;
@@ -126,7 +131,7 @@ export default {
             // Evita recargar todo cada vez que cambia un dato menor del perfil
             if (this.lastUserId === newUserState.id) return
             this.lastUserId = newUserState.id
-            await Promise.all([this.refreshSeller(), this.loadAvatar(), syncCartWithSupabase()])
+            await Promise.all([this.refreshSeller(), this.refreshAdmin(), this.loadAvatar(), syncCartWithSupabase()])
         });
         window.addEventListener('seller:changed', this.refreshSeller);
         document.addEventListener('click', this.handleClickOutside);
@@ -215,9 +220,18 @@ export default {
                     <div v-if="accountMenuOpen" id="account-menu" role="menu"
                         class="absolute right-0 top-full mt-2 w-60 bg-white rounded-xl border border-gray-200 shadow-[0_12px_32px_-8px_rgba(18,45,70,0.25)] py-2 z-50">
                         <p v-if="user.email" class="px-4 pb-2 mb-1 border-b border-gray-100 text-xs text-gray-600 truncate">{{ user.email }}</p>
+                        <RouterLink v-if="isAdmin" role="menuitem" to="/admin/dashboard"
+                            class="menu-item admin-entry">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5h6v6H4zM14 5h6v4h-6zM14 13h6v6h-6zM4 15h6v4H4z" />
+                            </svg>
+                            Panel de administración
+                        </RouterLink>
                         <RouterLink role="menuitem" to="/mi-perfil" class="menu-item">Mi perfil</RouterLink>
+                        <RouterLink role="menuitem" to="/mis-compras" class="menu-item">Mis compras</RouterLink>
                         <RouterLink role="menuitem" to="/carrito" class="menu-item">Mi carrito</RouterLink>
                         <template v-if="isSeller">
+                            <RouterLink role="menuitem" to="/mis-ventas" class="menu-item">Mis ventas</RouterLink>
                             <RouterLink role="menuitem" to="/mis-productos" class="menu-item">Mis publicaciones</RouterLink>
                             <RouterLink role="menuitem" to="/seller-setup" class="menu-item">Métodos de envío</RouterLink>
                         </template>
@@ -264,9 +278,12 @@ export default {
                     <li><RouterLink to="/productos" class="mobile-link" active-class="mobile-link-active">Catálogo</RouterLink></li>
                     <li><RouterLink to="/carrito" class="mobile-link" active-class="mobile-link-active">Carrito<span v-if="cartCount" class="ml-auto text-sm text-gray-600">{{ cartCount }}</span></RouterLink></li>
                     <template v-if="user.id">
+                        <li v-if="isAdmin"><RouterLink to="/admin/dashboard" class="mobile-link font-semibold text-primary-700">Panel de administración</RouterLink></li>
                         <li><RouterLink to="/mi-perfil" class="mobile-link" active-class="mobile-link-active">Mi perfil</RouterLink></li>
+                        <li><RouterLink to="/mis-compras" class="mobile-link" active-class="mobile-link-active">Mis compras</RouterLink></li>
                         <template v-if="isSeller">
                             <li><RouterLink to="/publicar" class="mobile-link" active-class="mobile-link-active">Publicar</RouterLink></li>
+                            <li><RouterLink to="/mis-ventas" class="mobile-link" active-class="mobile-link-active">Mis ventas</RouterLink></li>
                             <li><RouterLink to="/mis-productos" class="mobile-link" active-class="mobile-link-active">Mis publicaciones</RouterLink></li>
                             <li><RouterLink to="/seller-setup" class="mobile-link" active-class="mobile-link-active">Métodos de envío</RouterLink></li>
                         </template>
@@ -347,6 +364,13 @@ export default {
     transition: background-color 0.15s;
 }
 .menu-item:hover, .menu-item:focus-visible { background-color: #E3EEF8; }
+.admin-entry {
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+    border-bottom: 1px solid #F3F4F6;
+    font-weight: 600;
+    color: #1F5A8F;
+}
 
 .mobile-link {
     display: flex;

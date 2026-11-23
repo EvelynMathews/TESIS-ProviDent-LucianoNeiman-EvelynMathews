@@ -53,3 +53,48 @@ export async function connectDummyPaymentAccount(provider = 'MERCADOPAGO') {
   if (error) throw error
   return true
 }
+
+/**
+ * Datos bancarios del vendedor para recibir sus cobros (CBU/CVU o alias).
+ * Se guardan en payment_accounts.config_json.account. El admin los usa para transferirle.
+ */
+export async function getPayoutInfo() {
+  const { data: session } = await supabase.auth.getSession()
+  const uid = session?.session?.user?.id
+  if (!uid) return null
+  const { data, error } = await supabase
+    .from('payment_accounts')
+    .select('config_json')
+    .eq('user_id', uid)
+  if (error) return null
+  return (data || []).map(r => r.config_json?.account).find(Boolean) || null
+}
+
+export async function savePayoutInfo(account) {
+  const { data: session } = await supabase.auth.getSession()
+  const uid = session?.session?.user?.id
+  if (!uid) throw new Error('Tu sesión expiró. Volvé a iniciar sesión.')
+
+  const clean = {
+    holder_name: (account.holder_name || '').trim(),
+    cuit: (account.cuit || '').replace(/\D/g, '') || null,
+    cbu_cvu: (account.cbu_cvu || '').replace(/\D/g, '') || null,
+    alias: (account.alias || '').trim().toUpperCase() || null,
+    updated_at: new Date().toISOString(),
+  }
+
+  const { data: rows } = await supabase.from('payment_accounts').select('id').eq('user_id', uid)
+  if (rows && rows.length) {
+    const { error } = await supabase
+      .from('payment_accounts')
+      .update({ config_json: { account: clean }, updated_at: clean.updated_at })
+      .eq('user_id', uid)
+    if (error) throw error
+  } else {
+    const { error } = await supabase
+      .from('payment_accounts')
+      .insert({ user_id: uid, provider: 'MERCADOPAGO', config_json: { account: clean }, is_primary: true })
+    if (error) throw error
+  }
+  return clean
+}

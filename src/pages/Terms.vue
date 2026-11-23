@@ -70,7 +70,7 @@ export default {
                     <p>Los productos médicos y odontológicos deben cumplir la normativa vigente, incluidas las disposiciones de la ANMAT cuando correspondan. Su uso clínico es responsabilidad del profesional que los adquiere.</p>
 
                     <h2 id="pagos">6. Pagos y envíos</h2>
-                    <p>El pago online todavía no está habilitado. Cuando lo esté, los cobros se procesarán a través de proveedores de pago externos. Los envíos se calculan según los métodos, zonas y tarifas configurados por cada vendedor.</p>
+                    <p>Los pagos se procesan con Mercado Pago: ProviDent no recibe ni guarda los datos de tu tarjeta. ProviDent cobra el total del pedido y transfiere a cada vendedor su parte, descontando una comisión del 5% por venta. El costo y la fecha del envío se coordinan con cada vendedor después del pago.</p>
 
                     <h2 id="responsabilidad">7. Responsabilidad</h2>
                     <p>ProviDent actúa como intermediario. No somos responsables por la calidad, seguridad o legalidad de los productos publicados ni por el cumplimiento entre comprador y vendedor, sin perjuicio de los derechos que la ley reconoce a los consumidores.</p>

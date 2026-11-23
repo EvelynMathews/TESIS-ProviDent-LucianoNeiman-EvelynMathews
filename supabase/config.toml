@@ -1,0 +1,10 @@
+# Configuración de las Edge Functions de ProviDent (Supabase CLI).
+# El webhook de Mercado Pago no envía el JWT de Supabase: se despliega sin verificarlo.
+[functions.mp-webhook]
+verify_jwt = false
+
+[functions.create-checkout]
+verify_jwt = true
+
+[functions.verify-payment]
+verify_jwt = true

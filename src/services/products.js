@@ -957,3 +957,23 @@ export async function listActiveServices() {
   setCached(cacheKey, results)
   return results
 }
+
+/**
+ * Miniaturas firmadas para varios productos a la vez: { [productId]: url }.
+ * Se usa en el detalle de compra y en Mis ventas.
+ */
+export async function getProductThumbnails(productIds = []) {
+  const ids = [...new Set(productIds.filter(Boolean))]
+  if (!ids.length) return {}
+  const { data, error } = await supabase
+    .from('product_images')
+    .select('product_id, path, is_primary, position')
+    .in('product_id', ids)
+  if (error) return {}
+  const byProduct = {}
+  for (const img of data || []) {
+    (byProduct[img.product_id] = byProduct[img.product_id] || []).push(img)
+  }
+  const entries = await Promise.all(ids.map(async id => [id, await signedImageUrl(pickPrimaryImage(byProduct[id] || []))]))
+  return Object.fromEntries(entries.filter(([, url]) => url))
+}

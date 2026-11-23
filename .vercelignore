@@ -1,0 +1,18 @@
+# Lo que NO se sube a Vercel al desplegar con la CLI.
+# Vercel instala dependencias y compila por su cuenta: solo necesita el código fuente.
+node_modules
+dist
+.git
+
+# Variables locales y credenciales: nunca se suben (en Vercel se cargan como Environment Variables)
+.env
+.env.*
+!.env.example
+datos-alumnos.txt
+datos-users-ejemplo.txt
+
+# Backend de Supabase (se despliega aparte con la CLI de Supabase) y material de trabajo
+supabase
+.playwright-mcp
+DWT4AV-MATHEWS-PARCIAL_2_referencia
+restore.html

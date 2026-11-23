@@ -5,13 +5,14 @@
  * cantidades (solo insumos), quitar artículos y ver el total del pedido.
  * Funcionamiento: Usa el servicio `cart.js` (sincronizado con Supabase) para leer los ítems
  * (`cartItems`) y modificarlos. Sin sesión el carrito se guarda en el navegador; para pagar
- * se pide iniciar sesión. El pago todavía no está disponible: el botón "Ir al pago"
- * abre un aviso honesto en lugar de simular una compra.
+ * se pide iniciar sesión. "Ir al pago" lleva al checkout, donde se elige el domicilio y se
+ * paga con Mercado Pago. Si quedó un pago sin terminar, se muestra un aviso para retomarlo.
  */
 
 import { getCartItems, updateQuantity, removeFromCart, getCartTotal, syncCartWithSupabase } from '../services/cart'
 import { subscribeToAuthStateChanges } from '../services/auth'
 import { showToast } from '../services/toast'
+import { getPendingOrder } from '../services/checkout'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
 
@@ -32,7 +33,7 @@ export default {
         return {
             loading: true,
             busyId: null,
-            showCheckoutModal: false,
+            pendingOrderId: null,
             itemToRemove: null,
             userId: null,
         }
@@ -88,23 +89,15 @@ export default {
         openCheckout() {
             if (!this.userId) {
                 showToast('Iniciá sesión para finalizar tu compra. Tu carrito queda guardado.', 'info', 5000)
-                this.$router.push({ path: '/login', query: { redirect: '/carrito' } })
+                this.$router.push({ path: '/login', query: { redirect: '/checkout' } })
                 return
             }
-            this.showCheckoutModal = true
-            this.$nextTick(() => this.$refs.modalButton?.focus())
+            this.$router.push('/checkout')
         },
-        closeCheckoutModal() {
-            this.showCheckoutModal = false
-            this.$nextTick(() => this.$refs.checkoutButton?.focus())
-        },
-        onKeydown(e) {
-            if (e.key === 'Escape' && this.showCheckoutModal) this.closeCheckoutModal()
-        }
     },
     async mounted() {
         this.unsubscribeAuth = subscribeToAuthStateChanges(user => { this.userId = user.id })
-        document.addEventListener('keydown', this.onKeydown)
+        this.pendingOrderId = getPendingOrder()?.orderId || null
         try {
             await syncCartWithSupabase()
         } finally {
@@ -113,7 +106,6 @@ export default {
     },
     beforeUnmount() {
         this.unsubscribeAuth?.()
-        document.removeEventListener('keydown', this.onKeydown)
     }
 }
 </script>
@@ -124,6 +116,11 @@ export default {
             <div class="flex flex-wrap items-baseline justify-between gap-2 mb-6">
                 <h1 class="font-heading text-3xl font-bold text-gray-800 m-0">Mi carrito</h1>
                 <p v-if="!loading && !isEmpty" class="text-gray-600 m-0">{{ itemCount }} {{ itemCount === 1 ? 'artículo' : 'artículos' }}</p>
+            </div>
+
+            <div v-if="pendingOrderId && userId" class="mb-6 flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3" role="status">
+                <p class="m-0 text-sm text-primary-900 flex-1">Tenés un pago iniciado que todavía no se confirmó.</p>
+                <RouterLink :to="{ path: '/pago/resultado', query: { orden: pendingOrderId } }" class="text-sm font-semibold text-primary-800 underline underline-offset-4">Ver estado del pago</RouterLink>
             </div>
 
             <LoadingSpinner v-if="loading" message="Cargando carrito..." />
@@ -220,7 +217,7 @@ export default {
                         </div>
                         <div class="flex justify-between">
                             <dt>Envío</dt>
-                            <dd class="text-sm text-gray-600 m-0">Se calcula al pagar</dd>
+                            <dd class="text-sm text-gray-600 m-0 text-right">A coordinar con el vendedor</dd>
                         </div>
                     </dl>
 
@@ -239,27 +236,6 @@ export default {
                         Seguir comprando
                     </RouterLink>
                 </aside>
-            </div>
-        </div>
-
-        <!-- Aviso de pago no disponible -->
-        <div v-if="showCheckoutModal" @click.self="closeCheckoutModal"
-            class="fixed inset-0 bg-gray-900/50 flex items-center justify-center z-50 px-4">
-            <div role="dialog" aria-modal="true" aria-labelledby="checkout-title" aria-describedby="checkout-desc"
-                class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
-                <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center bg-primary-50 text-primary" aria-hidden="true">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
-                <h2 id="checkout-title" class="text-2xl font-bold text-gray-800 mb-3">El pago online llega pronto</h2>
-                <p id="checkout-desc" class="text-gray-600 mb-6">
-                    Todavía no se pueden finalizar compras desde ProviDent. Tu carrito queda guardado para cuando esté disponible.
-                </p>
-                <button ref="modalButton" @click="closeCheckoutModal" type="button"
-                    class="w-full h-12 bg-primary text-white font-semibold rounded-lg hover:bg-primary-600 transition">
-                    Entendido
-                </button>
             </div>
         </div>
 

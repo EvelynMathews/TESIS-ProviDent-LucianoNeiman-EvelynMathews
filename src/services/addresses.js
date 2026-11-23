@@ -83,12 +83,17 @@ export async function listMyOrders(limit = 5) {
     const uid = await currentUserId()
     const { data, error } = await supabase
       .from('orders')
-      .select('id, status, total_amount, created_at, order_items(id)')
+      .select('id, status, total_amount, created_at, order_items(id), payments(status)')
       .eq('buyer_user_id', uid)
       .order('created_at', { ascending: false })
-      .limit(limit)
+      .limit(limit * 3)
     if (error) return []
-    return (data || []).map(o => ({ ...o, items_count: o.order_items?.length || 0 }))
+    // Los pedidos cancelados que nunca se pagaron (checkout abandonado) no le sirven al comprador
+    const wasPaid = o => (o.payments || []).some(p => ['APPROVED', 'REFUNDED', 'CHARGED_BACK'].includes(p.status))
+    return (data || [])
+      .filter(o => o.status !== 'CANCELED' || wasPaid(o))
+      .slice(0, limit)
+      .map(o => ({ ...o, items_count: o.order_items?.length || 0 }))
   } catch {
     return []
   }

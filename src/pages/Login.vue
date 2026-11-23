@@ -3,11 +3,13 @@
  * Propósito: Vista para que los usuarios inicien sesión en la aplicación.
  * Función: Autenticar al usuario enviando sus credenciales (email y contraseña) al servicio de autenticación.
  * Cómo funciona: Captura el `email` y `password` del formulario y llama a la función `login` de `auth.js`.
- * Si el proceso es exitoso, vuelve a la página que el usuario quería visitar (`?redirect=`) o a su perfil.
+ * Si el proceso es exitoso, vuelve a la página que el usuario quería visitar (`?redirect=`) o a su perfil
+ * (los administradores van al panel de administración).
  * Los errores de Supabase se traducen a mensajes claros (`translateAuthError`).
  * "¿La olvidaste?" abre un modal que indica cómo pedir una contraseña nueva a soporte.
  */
 import { login, translateAuthError } from '../services/auth'
+import { isAdmin } from '../services/admin'
 import ForgotPasswordModal from '../components/ForgotPasswordModal.vue'
 
 export default {
@@ -41,7 +43,11 @@ export default {
             this.errorMessage = ''
 
             try {
-                await login(this.user.email.trim(), this.user.password)
+                const user = await login(this.user.email.trim(), this.user.password)
+                if (!this.cameFromProtectedPage && await isAdmin(user.id).catch(() => false)) {
+                    this.$router.replace('/admin/dashboard')
+                    return
+                }
                 this.$router.replace(this.redirectTo)
             } catch (error) {
                 this.errorMessage = translateAuthError(error?.message)

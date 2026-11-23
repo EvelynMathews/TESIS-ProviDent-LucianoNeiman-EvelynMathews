@@ -9,7 +9,9 @@ export default {
         title: { type: String, required: true },
         message: { type: String, required: true },
         confirmText: { type: String, default: 'Confirmar' },
-        loading: { type: Boolean, default: false }
+        loading: { type: Boolean, default: false },
+        // false = acción normal (botón azul); true = acción destructiva (botón rojo)
+        danger: { type: Boolean, default: true }
     },
     emits: ['confirm', 'cancel']
 }
@@ -26,7 +28,8 @@ export default {
                     Cancelar
                 </button>
                 <button type="button" :disabled="loading" @click="$emit('confirm')"
-                    class="px-5 py-2.5 rounded-lg font-semibold text-white bg-red-600 hover:bg-red-700 transition disabled:opacity-50">
+                    class="px-5 py-2.5 rounded-lg font-semibold text-white transition disabled:opacity-50"
+                    :class="danger ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary-600'">
                     {{ loading ? 'Procesando...' : confirmText }}
                 </button>
             </div>
