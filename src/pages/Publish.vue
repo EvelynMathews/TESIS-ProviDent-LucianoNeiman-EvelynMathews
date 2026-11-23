@@ -5,11 +5,15 @@
  * Cómo funciona: Gestiona el estado de los pasos (`currentStep`, `nextStep`, `prevStep`). `validateCurrentForm` asegura que los campos obligatorios de cada formulario (incluyendo la lógica de precios y la subida de imágenes) estén correctos. `publishListing` invoca la función `create...Product` apropiada del servicio de productos para guardar los datos y la imagen en el backend.
  */
 import { subscribeToAuthStateChanges } from '../services/auth'
-import { createSupplyProduct, createProsthesisProduct, createPlasterServiceProduct, createRentalProduct, listShippingMethods, createShippingMethod, loadWorkTypes, loadToothGroups, loadValidWorkGroupCombinations } from '../services/products'
+import { createSupplyProduct, createProsthesisProduct, createPlasterServiceProduct, createRentalProduct, loadWorkTypes, loadToothGroups, loadValidWorkGroupCombinations } from '../services/products'
+import { listMyShippingMethods, shippingSummary } from '../services/shipping'
+import ShippingMethodModal from '../components/ShippingMethodModal.vue'
+import ShippingIcon from '../components/ShippingIcon.vue'
 import { isCurrentUserSeller } from '../services/sellers'
 
 export default {
     name: 'Publish',
+    components: { ShippingMethodModal, ShippingIcon },
     data() {
         return {
             user: {
@@ -32,10 +36,10 @@ export default {
                 unitCustom: '',
                 stock: '',
                 sku: '',
-                shippingMethodId: null,
-                newShippingMethodName: ''
+                shippingMethodId: null
             },
             shippingMethods: [],
+            shippingModal: null,
 
             // Service data - Prosthesis
             prosthesisData: {
@@ -78,7 +82,6 @@ export default {
             previewMode: false,
             published: false,
             errorMessage: null,
-            showShippingConfig: false,
 
             // Catalogs for validation
             workTypes: [],
@@ -87,6 +90,9 @@ export default {
         }
     },
     computed: {
+        selectedShippingMethod() {
+            return this.shippingMethods.find(m => m.id === this.productData.shippingMethodId) || null
+        },
         progressPercentage() {
             return (this.currentStep / this.totalSteps) * 100
         },
@@ -99,7 +105,7 @@ export default {
                 need(d.name, 'nombre'); need(d.description, 'descripción'); need(d.images.length, 'una imagen')
                 need(d.price, 'precio'); need(d.stock, 'stock')
                 need(d.unit !== 'otro' || (d.unitCustom || '').trim(), 'unidad de medida')
-                need(d.shippingMethodId || (d.newShippingMethodName || '').trim(), 'método de envío')
+                need(this.selectedShippingMethod?.configured, 'método de envío con precio y cobertura')
             } else if (this.serviceType === 'prosthesis') {
                 const d = this.prosthesisData
                 need(d.name, 'nombre'); need(d.description, 'descripción'); need(d.material, 'material'); need(d.images.length, 'una imagen')
@@ -155,7 +161,7 @@ export default {
                 return this.productData.name && this.productData.description &&
                     this.productData.price && this.productData.stock &&
                     this.productData.images.length > 0 && unitOk &&
-                    (this.productData.shippingMethodId || (this.productData.newShippingMethodName && this.productData.newShippingMethodName.trim().length > 0))
+                    !!this.selectedShippingMethod?.configured
             }
 
             if (this.serviceType === 'prosthesis') {
@@ -218,7 +224,7 @@ export default {
             this.productData = {
                 name: '', description: '', images: [], imageFile: null,
                 price: '', unit: 'unidad', unitCustom: '', stock: '', sku: '',
-                shippingMethodId: null, newShippingMethodName: ''
+                shippingMethodId: null
             }
             this.prosthesisData = {
                 name: '', description: '', material: '', images: [], imageFile: null,
@@ -300,12 +306,9 @@ export default {
                         return
                     }
                     const unit_label = this.productData.unit === 'otro' ? (this.productData.unitCustom || '').trim() : this.productData.unit
-                    let methodId = this.productData.shippingMethodId
-                    if (!methodId && this.productData.newShippingMethodName) {
-                        methodId = await createShippingMethod(this.productData.newShippingMethodName.trim(), true)
-                    }
-                    if (!methodId) {
-                        this.showError('Seleccioná o creá un método de envío')
+                    const methodId = this.productData.shippingMethodId
+                    if (!this.selectedShippingMethod?.configured) {
+                        this.showError('Elegí un método de envío con precio y cobertura')
                         return
                     }
                     await createSupplyProduct({
@@ -370,40 +373,25 @@ export default {
                 console.error(e)
             }
         },
-        async loadShippingMethods() {
+        async loadShippingMethods(selectId = null) {
             try {
-                const list = await listShippingMethods()
-                this.shippingMethods = list
-                if (list.length && !this.productData.shippingMethodId) {
-                    this.productData.shippingMethodId = list[0].id
+                // Only active methods can be chosen for a new publication
+                this.shippingMethods = (await listMyShippingMethods()).filter(m => m.active)
+                if (selectId) {
+                    this.productData.shippingMethodId = selectId
+                } else if (!this.shippingMethods.some(m => m.id === this.productData.shippingMethodId)) {
+                    this.productData.shippingMethodId = this.shippingMethods.find(m => m.configured)?.id || null
                 }
-            } catch { this.shippingMethods = [] }
-        },
-
-        async quickCreateShippingMethod() {
-            const name = (this.productData.newShippingMethodName || '').trim()
-            if (!name) {
-                this.showError('Ingresá un nombre para el método de envío')
-                return
-            }
-            try {
-                const id = await createShippingMethod(name, true)
-                await this.loadShippingMethods()
-                this.productData.shippingMethodId = id
-                this.productData.newShippingMethodName = ''
-                this.showShippingConfig = true
-            } catch (e) {
-                this.showError('No se pudo crear el método de envío')
+            } catch {
+                this.shippingMethods = []
             }
         },
-
-        toggleShippingConfig() {
-            const id = this.productData.shippingMethodId
-            if (!id) {
-                this.showError('Seleccioná un método de envío primero')
-                return
-            }
-            this.showShippingConfig = !this.showShippingConfig
+        shippingOptionLabel(method) {
+            return `${method.name} — ${shippingSummary(method)}`
+        },
+        async onShippingSaved(id) {
+            await this.loadShippingMethods(id)
+            this.shippingModal = null
         },
 
         formatPrice(price) {
@@ -762,69 +750,35 @@ export default {
                             placeholder="Ej: CABA, Buenos Aires" />
                     </div>
 
-                    <!-- Shipping method selection/creation -->
+                    <!-- Shipping method -->
                     <div class="mt-6">
-                        <label for="f-productData-shippingMethodId" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Método de envío para este producto
+                        <label for="f-productData-shippingMethodId" class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-2">
+                            <ShippingIcon icon="truck" class="w-4 h-4 text-primary" />
+                            Método de envío para este producto *
                         </label>
-                        <div v-if="shippingMethods.length > 0" class="space-y-3">
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-                                <div class="md:col-span-2">
-                                    <select id="f-productData-shippingMethodId" v-model="productData.shippingMethodId"
-                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition">
-                                        <option :value="null">Seleccioná un método</option>
-                                        <option v-for="sm in shippingMethods" :key="sm.id" :value="sm.id">{{ sm.name }}
-                                            {{ sm.active ? '' : '(pausado)' }}</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <button type="button" @click="toggleShippingConfig"
-                                        class="w-full px-4 py-3 border rounded-lg text-sky-700 border-sky-600 hover:bg-sky-50">
-                                        {{ showShippingConfig ? 'Ocultar config' : 'Configurar' }}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Collapsible shipping config -->
-                            <div v-if="showShippingConfig" class="p-4 border-2 border-sky-200 rounded-lg bg-sky-50">
-                                <p class="text-sm text-sky-900 mb-3">
-                                    <strong>Nota:</strong> Configurá zonas y tarifas en una nueva pestaña para no perder
-                                    tu progreso.
-                                </p>
-                                <div class="flex gap-2">
-                                    <a :href="`/metodos-envio/${productData.shippingMethodId}`" target="_blank"
-                                        rel="noopener noreferrer"
-                                        class="px-4 py-2 text-sm bg-sky-600 text-white rounded hover:bg-sky-700 flex items-center gap-1">
-                                        Abrir configuración
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14">
-                                            </path>
-                                        </svg>
-                                    </a>
-                                    <button @click="showShippingConfig = false"
-                                        class="px-3 py-2 text-sm border border-sky-600 text-sky-700 rounded hover:bg-sky-100">
-                                        Cerrar
-                                    </button>
-                                </div>
-                            </div>
+                        <div class="flex flex-col sm:flex-row gap-3">
+                            <select v-if="shippingMethods.length" id="f-productData-shippingMethodId" v-model="productData.shippingMethodId"
+                                class="field-input flex-1">
+                                <option :value="null" disabled>Elegí cómo lo vas a enviar</option>
+                                <option v-for="sm in shippingMethods" :key="sm.id" :value="sm.id">{{ shippingOptionLabel(sm) }}</option>
+                            </select>
+                            <p v-else class="flex-1 flex items-center gap-2 m-0 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm">
+                                <ShippingIcon icon="package" class="w-5 h-5" />
+                                Todavía no tenés métodos de envío activos. Creá uno para poder publicar.
+                            </p>
+                            <button type="button" @click="shippingModal = { method: null }"
+                                class="h-12 px-5 whitespace-nowrap font-semibold rounded-lg border-2 border-primary text-primary hover:bg-primary-50 transition">
+                                + Nuevo método
+                            </button>
                         </div>
-                        <div v-else class="p-4 border rounded bg-yellow-50 text-yellow-800">
-                            Aún no tenés métodos de envío. Creá uno para poder publicar.
+                        <div v-if="selectedShippingMethod && !selectedShippingMethod.configured"
+                            class="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm flex flex-wrap items-center justify-between gap-2" role="status">
+                            <span>Este método todavía no tiene precio ni provincias.</span>
+                            <button type="button" class="font-semibold underline" @click="shippingModal = { method: selectedShippingMethod }">Completarlo ahora</button>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-                            <div class="md:col-span-2">
-                                <label for="f-productData-newShippingMethodName" class="block text-sm text-gray-700 mb-1">Crear nuevo método</label>
-                                <input id="f-productData-newShippingMethodName" v-model="productData.newShippingMethodName"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                    placeholder="Nombre del método (ej: Envío estándar)" />
-                            </div>
-                            <div class="flex items-end">
-                                <button type="button" @click="quickCreateShippingMethod"
-                                    class="w-full px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Crear
-                                    y configurar</button>
-                            </div>
-                        </div>
+                        <p v-else-if="selectedShippingMethod" class="field-hint">
+                            Podés editar o pausar tus métodos desde <RouterLink to="/seller-setup" class="font-semibold text-primary-700 hover:underline">Configurar ventas</RouterLink>.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -1631,6 +1585,9 @@ export default {
                     <RouterLink to="/mi-perfil/editar" class="font-semibold text-primary-700 underline">Completá tu perfil</RouterLink>
                 </p>
             </div>
-        </div>
+        
+        <ShippingMethodModal v-if="shippingModal" :method="shippingModal.method"
+            @saved="onShippingSaved" @close="shippingModal = null" />
+</div>
     </section>
 </template>

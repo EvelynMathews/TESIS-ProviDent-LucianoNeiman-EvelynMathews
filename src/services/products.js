@@ -2,7 +2,7 @@
  * Servicio de gestión integral de productos, catálogos y logística.
  * Propósito: Contiene la lógica para listar, crear, editar y obtener
  * detalles de todos los tipos de productos (Insumo, Prótesis, Servicio de Yeso, Alquiler),
- * así como la gestión de los métodos de envío, zonas y tarifas del vendedor.
+ * Los métodos de envío del vendedor se gestionan en `shipping.js`.
  * Funcionamiento: Utiliza múltiples funciones que consultan distintas tablas de Supabase
  * (`products`, `supply_products`, `prosthesis_products`, `shipping_methods`, etc.).
  * Maneja la lógica de las imágenes (URLs firmadas, rutas de Storage) y la
@@ -301,67 +301,12 @@ export async function getProductById(id) {
   return result
 }
 
-export async function listShippingMethods() {
-  const { data: me } = await supabase.auth.getUser()
-  const uid = me?.user?.id
-  if (!uid) return []
-  const { data, error } = await supabase
-    .from('shipping_methods')
-    .select('id, name, active')
-    .eq('seller_user_id', uid)
-    .order('name', { ascending: true })
-  if (error) return []
-  return data || []
-}
-
-export async function getShippingMethodById(id) {
-  const { data, error } = await supabase
-    .from('shipping_methods')
-    .select('id, name, active, volume_min_cm3, volume_max_cm3')
-    .eq('id', id)
-    .single()
-  if (error) throw error
-  return data
-}
-
-export async function createShippingMethod(name, active = true, extraFields = {}) {
-  const { data: me } = await supabase.auth.getUser()
-  const uid = me?.user?.id
-  if (!uid) throw new Error('No auth user')
-  const insert = { seller_user_id: uid, name, active, ...extraFields }
-  const { data, error } = await supabase
-    .from('shipping_methods')
-    .insert(insert)
-    .select('id')
-    .single()
-  if (error) throw error
-  return data.id
-}
-
 export async function linkProductShippingMethod(productId, methodId) {
   const { error } = await supabase
     .from('product_shipping_methods')
     .insert({ product_id: productId, method_id: methodId })
   if (error) throw error
   return true
-}
-
-export async function updateShippingMethod(id, fields) {
-  const { error } = await supabase
-    .from('shipping_methods')
-    .update(fields)
-    .eq('id', id)
-  if (error) throw error
-  return true
-}
-
-export async function countShippingMethodUsage(methodId) {
-  const { count, error } = await supabase
-    .from('product_shipping_methods')
-    .select('product_id', { count: 'exact', head: true })
-    .eq('method_id', methodId)
-  if (error) throw error
-  return count || 0
 }
 
 // RLS doesn't return an error when it blocks a write, it just affects 0 rows
@@ -391,22 +336,6 @@ export async function deleteProductById(id) {
   return true
 }
 
-export async function pauseProductsByShippingMethod(methodId) {
-  const idsRes = await supabase
-    .from('product_shipping_methods')
-    .select('product_id')
-    .eq('method_id', methodId)
-  if (idsRes.error) throw idsRes.error
-  const ids = (idsRes.data || []).map(r => r.product_id)
-  if (!ids.length) return 0
-  const upd = await supabase
-    .from('products')
-    .update({ is_active: false })
-    .in('id', ids)
-  if (upd.error) throw upd.error
-  return upd.count || ids.length
-}
-
 export async function listProvinces() {
   const { data, error } = await supabase
     .from('provinces')
@@ -414,64 +343,6 @@ export async function listProvinces() {
     .order('name', { ascending: true })
   if (error) return []
   return data || []
-}
-
-export async function listShippingZones(methodId) {
-  const { data, error } = await supabase
-    .from('shipping_zones')
-    .select('id, zone_name, province_id, postal_code_min, postal_code_max')
-    .eq('method_id', methodId)
-    .order('zone_name', { ascending: true })
-  if (error) throw error
-  return data || []
-}
-
-export async function createShippingZone(methodId, zone) {
-  const payload = { ...zone, method_id: methodId }
-  const { error } = await supabase.from('shipping_zones').insert(payload)
-  if (error) throw error
-  return true
-}
-
-export async function updateShippingZone(id, fields) {
-  const { error } = await supabase.from('shipping_zones').update(fields).eq('id', id)
-  if (error) throw error
-  return true
-}
-
-export async function deleteShippingZone(id) {
-  const { error } = await supabase.from('shipping_zones').delete().eq('id', id)
-  if (error) throw error
-  return true
-}
-
-export async function listShippingRates(methodId) {
-  const { data, error} = await supabase
-    .from('shipping_rates')
-    .select('id, zone_id, price, weight_min, weight_max, volume_min_cm3, volume_max_cm3, eta_days, active')
-    .eq('method_id', methodId)
-    .order('price', { ascending: true })
-  if (error) throw error
-  return data || []
-}
-
-export async function createShippingRate(methodId, rate) {
-  const payload = { ...rate, method_id: methodId }
-  const { error } = await supabase.from('shipping_rates').insert(payload)
-  if (error) throw error
-  return true
-}
-
-export async function updateShippingRate(id, fields) {
-  const { error } = await supabase.from('shipping_rates').update(fields).eq('id', id)
-  if (error) throw error
-  return true
-}
-
-export async function deleteShippingRate(id) {
-  const { error } = await supabase.from('shipping_rates').delete().eq('id', id)
-  if (error) throw error
-  return true
 }
 
 export async function createSupplyProduct({ name, description, unit_price, unit_label, stock_qty, sku, imageFile, shipping_method_id }) {

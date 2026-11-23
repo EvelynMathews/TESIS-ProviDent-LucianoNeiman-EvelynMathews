@@ -4,14 +4,18 @@
  * Función: Guía al usuario por tres pasos obligatorios: activar el rol de vendedor, conectar una cuenta de cobro
  * y crear al menos un método de envío. Después puede publicar.
  * Cómo funciona: `refreshStatus` verifica el rol (`isSeller`) y la cuenta de cobro (`hasPayment`). `activateSeller` y
- * `connectPayment` invocan los servicios correspondientes. Los métodos de envío se crean, renombran, pausan y configuran
- * desde acá, con aviso si se pausa un método usado por publicaciones (`warnDisableId`).
+ * `connectPayment` invocan los servicios correspondientes. Los métodos de envío se crean y editan en un modal
+ * (`ShippingMethodModal`), se pausan (con aviso si los usan publicaciones) y se eliminan con confirmación.
  */
-import { listShippingMethods, createShippingMethod, updateShippingMethod, countShippingMethodUsage } from '../services/products'
+import { listMyShippingMethods, setShippingMethodActive, deleteShippingMethod, shippingSummary } from '../services/shipping'
 import { isCurrentUserSeller, grantSellerSelf, hasPaymentAccount, connectDummyPaymentAccount } from '../services/sellers'
+import ShippingMethodModal from '../components/ShippingMethodModal.vue'
+import ShippingIcon from '../components/ShippingIcon.vue'
+import ConfirmModal from '../components/ConfirmModal.vue'
 
 export default {
   name: 'SellerSetup',
+  components: { ShippingMethodModal, ShippingIcon, ConfirmModal },
   data() {
     return {
       loading: false,
@@ -19,19 +23,19 @@ export default {
       isSeller: false,
       hasPayment: false,
       methods: [],
-      newName: '',
       message: '',
       messageType: 'success',
       busy: false,
-      editingId: null,
-      editingName: '',
       warnDisableId: null,
       warnDisableCount: 0,
+      shippingModal: null,
+      methodToDelete: null,
+      deleting: false,
     }
   },
   computed: {
     hasShipping() {
-      return this.methods.some(m => m.active)
+      return this.methods.some(m => m.active && m.configured)
     },
     steps() {
       return [
@@ -63,7 +67,7 @@ export default {
     async load() {
       try {
         this.loading = true
-        this.methods = await listShippingMethods()
+        this.methods = await listMyShippingMethods()
       } catch {
         this.notify('No pudimos cargar tus métodos de envío.', 'error')
       } finally { this.loading = false }
@@ -90,56 +94,55 @@ export default {
         this.notify('No pudimos conectar la cuenta de cobro. Intentá de nuevo.', 'error')
       } finally { this.busy = false }
     },
-    async createMethod() {
-      if (!this.newName.trim()) { this.notify('Escribí un nombre para el método, por ejemplo "Envío estándar".', 'error'); return }
-      this.busy = true
-      try {
-        const newId = await createShippingMethod(this.newName.trim(), true)
-        this.newName = ''
-        this.$router.push({ path: `/metodos-envio/${newId}`, query: { nuevo: '1' } })
-      } catch (e) {
-        this.notify('No pudimos crear el método. Intentá de nuevo.', 'error')
-      } finally { this.busy = false }
+    summary(m) {
+      return shippingSummary(m)
     },
-    startEdit(m) {
-      this.editingId = m.id
-      this.editingName = m.name
+    async onShippingSaved() {
+      const isNew = !this.shippingModal?.method
+      await this.load()
+      this.shippingModal = null
+      this.notify(isNew ? 'Método de envío creado.' : 'Método de envío actualizado.')
     },
-    async saveEdit(m) {
-      if (!this.editingName.trim()) { this.notify('El nombre no puede quedar vacío.', 'error'); return }
-      try {
-        await updateShippingMethod(m.id, { name: this.editingName.trim() })
-        this.editingId = null
-        this.editingName = ''
-        await this.load()
-        this.notify('Nombre actualizado.')
-      } catch { this.notify('No pudimos actualizar el nombre.', 'error') }
-    },
-    cancelEdit() { this.editingId = null; this.editingName = '' },
     async toggleActive(m) {
       try {
-        if (m.active) {
-          const used = await countShippingMethodUsage(m.id)
-          if (used > 0) {
-            this.warnDisableId = m.id
-            this.warnDisableCount = used
-            return
-          }
-          await updateShippingMethod(m.id, { active: false })
-        } else {
-          await updateShippingMethod(m.id, { active: true })
+        if (m.active && m.products_count > 0) {
+          this.warnDisableId = m.id
+          this.warnDisableCount = m.products_count
+          return
         }
+        await setShippingMethodActive(m.id, !m.active)
         await this.load()
       } catch { this.notify('No pudimos cambiar el estado del método.', 'error') }
     },
     async confirmDisable() {
       if (!this.warnDisableId) return
-      await updateShippingMethod(this.warnDisableId, { active: false })
-      this.warnDisableId = null
-      this.warnDisableCount = 0
-      await this.load()
+      try {
+        await setShippingMethodActive(this.warnDisableId, false)
+        await this.load()
+      } catch { this.notify('No pudimos pausar el método.', 'error') }
+      this.cancelDisable()
     },
     cancelDisable() { this.warnDisableId = null; this.warnDisableCount = 0 },
+    deleteMessage(m) {
+      const base = `¿Eliminar "${m.name}"? Esta acción no se puede deshacer.`
+      if (!m.products_count) return base
+      const pubs = m.products_count === 1 ? '1 publicación lo usa y va' : `${m.products_count} publicaciones lo usan y van`
+      return `${base} ${pubs} a quedar sin este método de envío.`
+    },
+    async confirmDelete() {
+      const m = this.methodToDelete
+      this.deleting = true
+      try {
+        await deleteShippingMethod(m.id)
+        this.notify(`"${m.name}" se eliminó.`)
+        await this.load()
+      } catch {
+        this.notify('No pudimos eliminar el método. Intentá de nuevo.', 'error')
+      } finally {
+        this.deleting = false
+        this.methodToDelete = null
+      }
+    },
   },
   async mounted() {
     await this.refreshStatus()
@@ -210,7 +213,7 @@ export default {
           <div class="flex items-start justify-between gap-4 mb-4">
             <div>
               <h2 class="text-lg font-semibold text-gray-800 mb-1">3. Métodos de envío</h2>
-              <p class="text-sm text-gray-600 m-0">Definí cómo llegan tus productos: zonas que cubrís y cuánto cuesta.</p>
+              <p class="text-sm text-gray-600 m-0">Definí cuánto cuesta, cuánto tarda y a qué provincias llega cada envío.</p>
             </div>
             <span v-if="hasShipping" class="text-sm font-semibold text-secondary-800 whitespace-nowrap inline-flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>Listo</span>
           </div>
@@ -222,29 +225,34 @@ export default {
 
             <ul v-else-if="methods.length" class="space-y-3 mb-5">
               <li v-for="m in methods" :key="m.id" class="p-4 border border-gray-200 rounded-xl">
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                  <div class="flex items-center gap-3 min-w-0">
-                    <span :class="m.active ? 'bg-secondary-50 text-secondary-800' : 'bg-gray-100 text-gray-700'" class="text-xs font-semibold px-2 py-1 rounded-full">{{ m.active ? 'Activo' : 'Pausado' }}</span>
-                    <span v-if="editingId !== m.id" class="font-semibold text-gray-800 truncate">{{ m.name }}</span>
-                    <template v-else>
-                      <label :for="`rename-${m.id}`" class="sr-only">Nuevo nombre</label>
-                      <input :id="`rename-${m.id}`" v-model="editingName" class="h-9 px-3 border border-gray-300 rounded-lg focus:outline-none focus:border-primary" @keyup.enter="saveEdit(m)" @keyup.esc="cancelEdit" />
-                    </template>
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div class="flex items-start gap-3 min-w-0">
+                    <span class="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                      :class="m.active ? 'bg-primary-50 text-primary' : 'bg-gray-100 text-gray-500'">
+                      <ShippingIcon icon="truck" class="w-5 h-5" />
+                    </span>
+                    <div class="min-w-0">
+                      <div class="flex flex-wrap items-center gap-2 mb-1">
+                        <span class="font-semibold text-gray-800 break-words">{{ m.name }}</span>
+                        <span :class="m.active ? 'bg-secondary-50 text-secondary-800' : 'bg-gray-100 text-gray-700'" class="text-xs font-semibold px-2 py-0.5 rounded-full">{{ m.active ? 'Activo' : 'Pausado' }}</span>
+                      </div>
+                      <p class="text-sm m-0" :class="m.configured ? 'text-gray-600' : 'text-amber-800 font-semibold'">{{ summary(m) }}</p>
+                      <p v-if="m.products_count" class="flex items-center gap-1 text-xs text-gray-500 m-0 mt-1">
+                        <ShippingIcon icon="package" class="w-3.5 h-3.5" />
+                        Lo {{ m.products_count === 1 ? 'usa 1 publicación' : `usan ${m.products_count} publicaciones` }}
+                      </p>
+                    </div>
                   </div>
                   <div class="flex flex-wrap items-center gap-1 text-sm font-semibold">
-                    <template v-if="editingId === m.id">
-                      <button type="button" @click="saveEdit(m)" class="h-9 px-3 rounded-lg text-primary-700 hover:bg-primary-50">Guardar</button>
-                      <button type="button" @click="cancelEdit" class="h-9 px-3 rounded-lg text-gray-700 hover:bg-gray-100">Cancelar</button>
-                    </template>
-                    <template v-else>
-                      <RouterLink :to="`/metodos-envio/${m.id}`" class="h-9 px-3 inline-flex items-center rounded-lg bg-primary text-white hover:bg-primary-600">Zonas y tarifas</RouterLink>
-                      <button type="button" @click="startEdit(m)" class="h-9 px-3 rounded-lg text-primary-700 hover:bg-primary-50">Renombrar</button>
-                      <button type="button" @click="toggleActive(m)" class="h-9 px-3 rounded-lg text-gray-800 hover:bg-gray-100">{{ m.active ? 'Pausar' : 'Activar' }}</button>
-                    </template>
+                    <button type="button" @click="shippingModal = { method: m }" class="h-9 px-3 rounded-lg text-primary-700 hover:bg-primary-50">
+                      {{ m.configured ? 'Editar' : 'Completar' }}
+                    </button>
+                    <button type="button" @click="toggleActive(m)" class="h-9 px-3 rounded-lg text-gray-800 hover:bg-gray-100">{{ m.active ? 'Pausar' : 'Activar' }}</button>
+                    <button type="button" @click="methodToDelete = m" class="h-9 px-3 rounded-lg text-red-700 hover:bg-red-50">Eliminar</button>
                   </div>
                 </div>
                 <div v-if="warnDisableId === m.id" class="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm flex flex-wrap items-center justify-between gap-2" role="alert">
-                  <span>Lo usan {{ warnDisableCount }} {{ warnDisableCount === 1 ? 'publicación' : 'publicaciones' }}. Si lo pausás, no se podrán enviar.</span>
+                  <span>Lo usan {{ warnDisableCount }} {{ warnDisableCount === 1 ? 'publicación' : 'publicaciones' }}. Si lo pausás, no se podrá elegir para publicar.</span>
                   <div class="flex gap-2">
                     <button type="button" @click="confirmDisable" class="h-9 px-3 bg-amber-700 text-white font-semibold rounded-lg hover:bg-amber-800">Pausar igual</button>
                     <button type="button" @click="cancelDisable" class="h-9 px-3 border border-amber-300 font-semibold rounded-lg hover:bg-amber-100">Cancelar</button>
@@ -252,17 +260,16 @@ export default {
                 </div>
               </li>
             </ul>
+            <div v-else class="flex items-center gap-3 p-4 mb-5 rounded-xl border border-dashed border-gray-300 text-gray-600">
+              <ShippingIcon icon="package" class="w-6 h-6 text-gray-400" />
+              <p class="text-sm m-0">Todavía no creaste métodos de envío.</p>
+            </div>
 
-            <form class="flex flex-col sm:flex-row gap-2" @submit.prevent="createMethod">
-              <label for="new-method" class="sr-only">Nombre del nuevo método de envío</label>
-              <input id="new-method" v-model="newName" type="text" placeholder="Ej: Envío estándar, Retiro en local"
-                class="field-input flex-1" />
-              <button type="submit" :disabled="busy"
-                class="h-12 px-5 whitespace-nowrap font-semibold rounded-lg transition disabled:opacity-60"
-                :class="methods.length ? 'border-2 border-primary text-primary hover:bg-primary-50' : 'bg-primary text-white hover:bg-primary-600'">
-                {{ methods.length ? 'Agregar otro' : 'Crear método' }}
-              </button>
-            </form>
+            <button type="button" @click="shippingModal = { method: null }"
+              class="h-12 px-5 font-semibold rounded-lg transition"
+              :class="methods.length ? 'border-2 border-primary text-primary hover:bg-primary-50' : 'bg-primary text-white hover:bg-primary-600'">
+              + {{ methods.length ? 'Agregar otro método' : 'Crear método de envío' }}
+            </button>
           </template>
         </div>
 
@@ -276,5 +283,16 @@ export default {
         </div>
       </template>
     </div>
+
+    <ShippingMethodModal v-if="shippingModal" :method="shippingModal.method"
+      @saved="onShippingSaved" @close="shippingModal = null" />
+
+    <ConfirmModal v-if="methodToDelete"
+      title="Eliminar método de envío"
+      :message="deleteMessage(methodToDelete)"
+      confirm-text="Eliminar"
+      :loading="deleting"
+      @confirm="confirmDelete"
+      @cancel="methodToDelete = null" />
   </section>
 </template>

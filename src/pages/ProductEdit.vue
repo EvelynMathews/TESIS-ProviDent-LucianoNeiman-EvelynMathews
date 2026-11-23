@@ -11,7 +11,6 @@ import {
     updateProsthesisProduct,
     updatePlasterServiceProduct,
     updateRentalProduct,
-    listShippingMethods,
     loadMaterials,
     loadWorkTypes,
     loadToothGroups,
