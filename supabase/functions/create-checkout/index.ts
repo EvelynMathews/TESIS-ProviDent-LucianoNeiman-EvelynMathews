@@ -51,7 +51,8 @@ Deno.serve(async (req) => {
     if (!address) return fail('ADDRESS_INVALID', 'El domicilio elegido no es válido. Elegí otro o cargá uno nuevo.')
 
     // --- Carrito (releído desde la base) ---
-    const { data: cart } = await admin.from('carts').select('id').eq('buyer_user_id', user.id).maybeSingle()
+    const { data: cart } = await admin.from('carts').select('id').eq('buyer_user_id', user.id)
+    .order('created_at', { ascending: true }).limit(1).maybeSingle()
     if (!cart) return fail('EMPTY_CART', 'Tu carrito está vacío.')
 
     const { data: rows, error: cartError } = await admin

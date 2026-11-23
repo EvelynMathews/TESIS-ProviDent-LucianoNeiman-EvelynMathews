@@ -124,7 +124,8 @@ async function fulfillApprovedOrder(admin: SupabaseClient, orderId: string, buye
     }
   }
 
-  const { data: cart } = await admin.from('carts').select('id').eq('buyer_user_id', buyerId).maybeSingle()
+  const { data: cart } = await admin.from('carts').select('id').eq('buyer_user_id', buyerId)
+    .order('created_at', { ascending: true }).limit(1).maybeSingle()
   const productIds = (items || []).map(i => i.product_id)
   if (cart && productIds.length) {
     await admin.from('cart_items').delete().eq('cart_id', cart.id).in('product_id', productIds)
