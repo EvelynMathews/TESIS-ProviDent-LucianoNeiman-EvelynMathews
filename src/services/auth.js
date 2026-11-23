@@ -149,6 +149,7 @@ export async function login(email, password) {
     }
     setUser({ id: data.user.id, email: data.user.email })
     try { await fetchFullProfile() } catch {}
+    return data.user
 }
 
 export async function updatePassword(newPassword) {
