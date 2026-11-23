@@ -195,7 +195,7 @@ export default {
           <div class="flex items-start justify-between gap-4">
             <div>
               <h2 class="text-lg font-semibold text-gray-800 mb-1">2. Conectar cuenta de cobro</h2>
-              <p class="text-sm text-gray-600 m-0">Por ahora es una conexión de demostración con Mercado Pago: no se mueve dinero real.</p>
+              <p class="text-sm text-gray-600 m-0">Los compradores pagan con Mercado Pago a ProviDent y te transferimos lo de tus ventas, menos una comisión del 5%.</p>
             </div>
             <span v-if="hasPayment" class="text-sm font-semibold text-secondary-800 whitespace-nowrap inline-flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>Conectada</span>
           </div>

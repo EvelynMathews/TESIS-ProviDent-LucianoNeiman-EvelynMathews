@@ -133,7 +133,7 @@ export default {
                     </a>.
                 </p>
                 <p class="m-0 sm:ml-auto text-secondary-100">
-                    El pago online todavía no está habilitado.
+                    Pagos procesados por Mercado Pago.
                 </p>
             </div>
         </div>

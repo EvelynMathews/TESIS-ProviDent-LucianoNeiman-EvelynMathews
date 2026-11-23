@@ -373,13 +373,19 @@ export default {
                                     <p class="font-semibold text-gray-800 m-0">Pedido del {{ formatDate(order.created_at) }}</p>
                                     <p class="text-sm text-gray-600 m-0">{{ order.items_count }} {{ order.items_count === 1 ? 'artículo' : 'artículos' }} · <span class="tabular-nums">${{ formatPrice(order.total_amount) }}</span></p>
                                 </div>
-                                <span class="px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap" :class="orderStatus(order.status).cls">
-                                    {{ orderStatus(order.status).label }}
-                                </span>
+                                <div class="flex flex-col items-end gap-2">
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap" :class="orderStatus(order.status).cls">
+                                        {{ orderStatus(order.status).label }}
+                                    </span>
+                                    <RouterLink v-if="order.status === 'CREATED'" :to="{ path: '/pago/resultado', query: { orden: order.id } }"
+                                        class="text-sm font-semibold text-primary-700 hover:underline whitespace-nowrap">
+                                        Ver estado del pago
+                                    </RouterLink>
+                                </div>
                             </li>
                         </ul>
                         <div v-else class="text-center py-6">
-                            <p class="text-gray-600 mb-4">Todavía no hiciste compras. Cuando el pago online esté disponible, tus pedidos van a aparecer acá.</p>
+                            <p class="text-gray-600 mb-4">Todavía no hiciste compras. Cuando pagues un pedido lo vas a ver acá.</p>
                             <RouterLink to="/productos" class="inline-flex h-11 items-center px-5 border-2 border-primary text-primary font-semibold rounded-lg hover:bg-primary-50 transition">
                                 Ver catálogo
                             </RouterLink>

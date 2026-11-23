@@ -30,3 +30,12 @@ dist-ssr
 DWT4AV-MATHEWS-PARCIAL_2_referencia 
 
 restore.html
+
+# Vercel CLI (proyecto vinculado localmente)
+.vercel
+
+.env*
+!.env.example
+
+# Supabase CLI (datos locales del proyecto vinculado)
+supabase/.temp
