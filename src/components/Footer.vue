@@ -26,11 +26,13 @@ export default {
                 { label: 'Empezar a vender', to: '/seller-setup' },
                 { label: 'Publicar un producto', to: '/publicar' },
                 { label: 'Mis publicaciones', to: '/mis-productos' },
+                { label: 'Mis ventas', to: '/mis-ventas' },
                 { label: 'Métodos de envío', to: '/seller-setup' },
             ],
             helpLinks: [
                 { label: 'Centro de soporte', to: '/soporte' },
                 { label: 'Mi cuenta', to: '/mi-perfil' },
+                { label: 'Mis compras', to: '/mis-compras' },
                 { label: 'Mi carrito', to: '/carrito' },
                 { label: 'Crear una cuenta', to: '/register' },
             ],

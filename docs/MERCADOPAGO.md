@@ -135,3 +135,22 @@ El **nombre del titular** define el resultado (documento DNI `12345678`):
 2. `npx supabase secrets set MP_ACCESS_TOKEN=APP_USR-…` (producción) y `SITE_URL` con el dominio real.
 3. Configurá el webhook en modo **Productivo** y actualizá `MP_WEBHOOK_SECRET`.
 4. Volvé a desplegar las tres funciones.
+
+## Después del pago: envíos y liquidaciones
+
+1. **Comprador → Mis compras** (`/mis-compras`): ve cada pedido y su detalle (`/mis-compras/:id`): productos por
+   vendedor, estado del envío (Pagado → Enviado → Entregado), cómo pagó, domicilio de entrega y un botón para
+   escribirle a cada vendedor.
+2. **Vendedor → Mis ventas** (`/mis-ventas`): ve lo vendido con los datos del comprador para coordinar el envío.
+   Marca cada producto como **Enviado** y después como **Entregado**. Ve cuánto le queda de cada venta
+   (venta − 5 % de comisión).
+3. Al marcar **Entregado**, su parte pasa de *retenida* a *lista para transferir* (`payment_splits.escrow_status`:
+   `HELD` → `RELEASED`).
+4. **Admin → Liquidaciones** (`/admin/liquidaciones`): ve cuánto se le debe a cada vendedor y sus datos bancarios
+   (CBU/CVU o alias, que el vendedor carga en *Configurar ventas* o en *Mis ventas*). Transfiere desde el banco o
+   Mercado Pago y registra la transferencia; queda guardada en la tabla `payouts` y el vendedor la ve como
+   "Transferido".
+
+Base de datos: requiere la migración `docs/database/patches/20261123120000_sales_fulfillment_payouts.sql`
+(columna `order_items.fulfillment_status` y las funciones `get_seller_sales`, `seller_update_fulfillment`,
+`get_my_order`, `admin_get_settlements`, `admin_mark_payouts`).

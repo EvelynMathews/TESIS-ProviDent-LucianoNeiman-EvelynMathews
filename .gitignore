@@ -39,3 +39,5 @@ restore.html
 
 # Supabase CLI (datos locales del proyecto vinculado)
 supabase/.temp
+
+.playwright-mcp

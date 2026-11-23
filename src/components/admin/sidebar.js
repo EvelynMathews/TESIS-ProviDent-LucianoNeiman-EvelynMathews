@@ -32,6 +32,11 @@ export default {
                     icon: 'users'
                 },
                 {
+                    name: 'Liquidaciones',
+                    path: '/admin/liquidaciones',
+                    icon: 'settlements'
+                },
+                {
                     name: 'Anuncios de empleo',
                     path: '/admin/classifieds',
                     icon: 'classifieds'

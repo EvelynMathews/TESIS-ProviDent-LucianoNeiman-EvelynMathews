@@ -34,6 +34,9 @@ const routes = [
     { path: '/carrito',                 name: 'Cart',                       component: () => import('../pages/Cart.vue'),               meta: { title: 'Mi carrito' } },
     { path: '/checkout',                name: 'Checkout',                   component: () => import('../pages/Checkout.vue'),           meta: { requiresAuth: true, title: 'Finalizar compra' } },
     { path: '/pago/resultado',          name: 'PaymentResult',              component: () => import('../pages/PaymentResult.vue'),      meta: { requiresAuth: true, title: 'Resultado del pago' } },
+    { path: '/mis-compras',             name: 'MyOrders',                   component: () => import('../pages/MyOrders.vue'),           meta: { requiresAuth: true, title: 'Mis compras' } },
+    { path: '/mis-compras/:id',         name: 'OrderDetail',                component: () => import('../pages/OrderDetail.vue'),        meta: { requiresAuth: true, title: 'Detalle de compra' } },
+    { path: '/mis-ventas',              name: 'MySales',                    component: () => import('../pages/MySales.vue'),            meta: { requiresAuth: true, title: 'Mis ventas' } },
     { path: '/publicar',                name: 'Publish',                    component: () => import('../pages/Publish.vue'),            meta: { requiresAuth: true, title: 'Publicar' } },
     { path: '/mis-productos',           name: 'MyProducts',                 component: () => import('../pages/MyProducts.vue'),         meta: { requiresAuth: true, title: 'Mis publicaciones' } },
     { path: '/seller-setup',            name: 'SellerSetup',                component: () => import('../pages/SellerSetup.vue'),        meta: { requiresAuth: true, title: 'Configurar ventas' } },
@@ -50,6 +53,7 @@ const routes = [
     { path: '/admin/classifieds',       name: 'AdminClassifieds',           component: () => import('../pages/admin/Classifieds.vue'),  beforeEnter: requireAdmin, meta: { title: 'Anuncios de empleo · Admin' } },
     { path: '/admin/classifieds/new',   name: 'AdminClassifiedNew',         component: () => import('../pages/admin/ClassifiedEdit.vue'), beforeEnter: requireAdmin, meta: { title: 'Nuevo anuncio · Admin' } },
     { path: '/admin/classifieds/:id/edit', name: 'AdminClassifiedEdit',     component: () => import('../pages/admin/ClassifiedEdit.vue'), beforeEnter: requireAdmin, meta: { title: 'Editar anuncio · Admin' } },
+    { path: '/admin/liquidaciones',     name: 'AdminSettlements',           component: () => import('../pages/admin/Settlements.vue'),  beforeEnter: requireAdmin, meta: { title: 'Liquidaciones · Admin' } },
     { path: '/admin/profile',           name: 'AdminProfile',               component: () => import('../pages/admin/Profile.vue'),      beforeEnter: requireAdmin, meta: { title: 'Perfil · Admin' } },
     { path: '/:pathMatch(.*)*',         name: 'NotFound',                   component: () => import('../pages/NotFound.vue'),           meta: { title: 'Página no encontrada' } },
 ];

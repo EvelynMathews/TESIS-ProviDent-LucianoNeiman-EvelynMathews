@@ -8,16 +8,20 @@
  * desde acá, con aviso si se pausa un método usado por publicaciones (`warnDisableId`).
  */
 import { listShippingMethods, createShippingMethod, updateShippingMethod, countShippingMethodUsage } from '../services/products'
-import { isCurrentUserSeller, grantSellerSelf, hasPaymentAccount, connectDummyPaymentAccount } from '../services/sellers'
+import { isCurrentUserSeller, grantSellerSelf, hasPaymentAccount, getPayoutInfo } from '../services/sellers'
+import PayoutInfoForm from '../components/PayoutInfoForm.vue'
 
 export default {
   name: 'SellerSetup',
+  components: { PayoutInfoForm },
   data() {
     return {
       loading: false,
       checking: true,
       isSeller: false,
       hasPayment: false,
+      payoutInfo: null,
+      editingPayout: false,
       methods: [],
       newName: '',
       message: '',
@@ -36,7 +40,7 @@ export default {
     steps() {
       return [
         { n: 1, title: 'Activar cuenta de vendedor', done: this.isSeller },
-        { n: 2, title: 'Conectar cuenta de cobro', done: this.hasPayment },
+        { n: 2, title: 'Cargar tus datos de cobro', done: this.hasPayment && !!this.payoutInfo },
         { n: 3, title: 'Crear un método de envío', done: this.hasShipping },
       ]
     },
@@ -58,6 +62,7 @@ export default {
       try {
         this.isSeller = await isCurrentUserSeller()
         this.hasPayment = await hasPaymentAccount()
+        this.payoutInfo = this.isSeller ? await getPayoutInfo() : null
       } finally { this.checking = false }
     },
     async load() {
@@ -74,21 +79,20 @@ export default {
         await grantSellerSelf()
         await this.refreshStatus()
         window.dispatchEvent(new Event('seller:changed'))
-        this.notify('Listo, tu cuenta de vendedor está activa. Ahora conectá tu cuenta de cobro.')
+        this.notify('Listo, tu cuenta de vendedor está activa. Ahora cargá tus datos de cobro.')
       } catch {
         this.notify('No pudimos activar tu cuenta de vendedor. Intentá de nuevo.', 'error')
       } finally { this.busy = false }
     },
-    async connectPayment() {
-      this.busy = true
-      try {
-        await connectDummyPaymentAccount('MERCADOPAGO')
-        await this.refreshStatus()
-        await this.load()
-        this.notify('Cuenta de cobro conectada. Último paso: creá un método de envío.')
-      } catch {
-        this.notify('No pudimos conectar la cuenta de cobro. Intentá de nuevo.', 'error')
-      } finally { this.busy = false }
+    async onPayoutSaved() {
+      const wasReady = this.ready
+      this.editingPayout = false
+      await this.refreshStatus()
+      if (!wasReady) await this.load()
+      this.notify(this.hasShipping ? 'Datos de cobro guardados.' : 'Datos de cobro guardados. Último paso: creá un método de envío.')
+    },
+    maskCbu(cbu) {
+      return cbu ? '•••• ' + String(cbu).slice(-4) : ''
     },
     async createMethod() {
       if (!this.newName.trim()) { this.notify('Escribí un nombre para el método, por ejemplo "Envío estándar".', 'error'); return }
@@ -194,15 +198,27 @@ export default {
         <div class="bg-white rounded-2xl border p-6 mb-4" :class="[currentStep === 2 ? 'border-primary-300 shadow-[0_8px_24px_-12px_rgba(18,45,70,0.25)]' : 'border-gray-200', { 'opacity-60': !isSeller }]">
           <div class="flex items-start justify-between gap-4">
             <div>
-              <h2 class="text-lg font-semibold text-gray-800 mb-1">2. Conectar cuenta de cobro</h2>
-              <p class="text-sm text-gray-600 m-0">Los compradores pagan con Mercado Pago a ProviDent y te transferimos lo de tus ventas, menos una comisión del 5%.</p>
+              <h2 class="text-lg font-semibold text-gray-800 mb-1">2. Tus datos de cobro</h2>
+              <p class="text-sm text-gray-600 m-0">Los compradores pagan con Mercado Pago a ProviDent. Cuando marcás una venta como entregada, te transferimos tu parte (menos una comisión del 5%) a esta cuenta.</p>
             </div>
-            <span v-if="hasPayment" class="text-sm font-semibold text-secondary-800 whitespace-nowrap inline-flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>Conectada</span>
+            <span v-if="hasPayment && payoutInfo" class="text-sm font-semibold text-secondary-800 whitespace-nowrap inline-flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>Listo</span>
           </div>
-          <button v-if="isSeller && !hasPayment" type="button" @click="connectPayment" :disabled="busy"
-            class="mt-4 h-11 px-5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-600 transition disabled:opacity-60">
-            {{ busy ? 'Conectando…' : 'Conectar Mercado Pago' }}
-          </button>
+          <template v-if="isSeller">
+            <div v-if="payoutInfo && !editingPayout" class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-gray-50 px-4 py-3">
+              <div class="text-sm text-gray-700">
+                <p class="m-0 font-semibold text-gray-800">{{ payoutInfo.holder_name }}</p>
+                <p class="m-0">
+                  <span v-if="payoutInfo.cbu_cvu">CBU/CVU {{ maskCbu(payoutInfo.cbu_cvu) }}</span>
+                  <span v-if="payoutInfo.cbu_cvu && payoutInfo.alias"> · </span>
+                  <span v-if="payoutInfo.alias">Alias {{ payoutInfo.alias }}</span>
+                </p>
+              </div>
+              <button type="button" @click="editingPayout = true" class="h-10 px-4 text-sm font-semibold border-2 border-primary text-primary rounded-lg hover:bg-primary-50">Modificar</button>
+            </div>
+            <div v-else class="mt-4">
+              <PayoutInfoForm id-prefix="setup-payout" :initial="payoutInfo" @saved="onPayoutSaved" @cancel="editingPayout = false" />
+            </div>
+          </template>
         </div>
 
         <!-- Paso 3 -->

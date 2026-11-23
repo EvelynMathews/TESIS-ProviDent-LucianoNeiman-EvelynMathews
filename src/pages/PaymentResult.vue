@@ -191,7 +191,7 @@ export default {
                         <div class="flex justify-between gap-3"><dt class="text-gray-600">Envío</dt><dd class="m-0 text-gray-800">A coordinar con el vendedor</dd></div>
                     </dl>
                     <div class="flex flex-col sm:flex-row gap-3 justify-center">
-                        <RouterLink to="/mi-perfil" class="btn-primary">Ver mis compras</RouterLink>
+                        <RouterLink :to="`/mis-compras/${orderId}`" class="btn-primary">Ver detalle de la compra</RouterLink>
                         <RouterLink to="/productos" class="btn-secondary">Seguir comprando</RouterLink>
                     </div>
                 </template>
@@ -199,7 +199,7 @@ export default {
                 <!-- Pendiente (Mercado Pago está procesando) -->
                 <template v-else-if="state === 'pending'">
                     <p class="text-gray-600 mb-2">{{ pendingReason }}</p>
-                    <p class="text-sm text-gray-600 mb-6">Pedido #{{ shortOrder }} · {{ totalLabel }}. Podés cerrar esta página: el estado se actualiza solo en <RouterLink to="/mi-perfil" class="font-semibold text-primary-700 underline">Mis compras</RouterLink>.</p>
+                    <p class="text-sm text-gray-600 mb-6">Pedido #{{ shortOrder }} · {{ totalLabel }}. Podés cerrar esta página: el estado se actualiza solo en <RouterLink to="/mis-compras" class="font-semibold text-primary-700 underline">Mis compras</RouterLink>.</p>
                     <div class="flex flex-col sm:flex-row gap-3 justify-center">
                         <button type="button" @click="retryCheck" class="btn-primary">Volver a consultar</button>
                         <RouterLink to="/productos" class="btn-secondary">Seguir comprando</RouterLink>
@@ -239,7 +239,7 @@ export default {
                 <template v-else-if="state === 'not-found'">
                     <p class="text-gray-600 mb-6">Si acabás de pagar, revisá el estado en Mis compras. Si no, podés empezar desde tu carrito.</p>
                     <div class="flex flex-col sm:flex-row gap-3 justify-center">
-                        <RouterLink to="/mi-perfil" class="btn-primary">Ver mis compras</RouterLink>
+                        <RouterLink to="/mis-compras" class="btn-primary">Ver mis compras</RouterLink>
                         <RouterLink to="/carrito" class="btn-secondary">Ir al carrito</RouterLink>
                     </div>
                 </template>
@@ -249,7 +249,7 @@ export default {
                     <p class="text-gray-600 mb-6">{{ errorMessage || 'Hubo un problema de conexión.' }} Si pagaste, no te preocupes: el pago queda registrado y lo vas a ver en Mis compras.</p>
                     <div class="flex flex-col sm:flex-row gap-3 justify-center">
                         <button type="button" @click="retryCheck" class="btn-primary">Reintentar</button>
-                        <RouterLink to="/mi-perfil" class="btn-secondary">Ver mis compras</RouterLink>
+                        <RouterLink to="/mis-compras" class="btn-secondary">Ver mis compras</RouterLink>
                     </div>
                 </template>
             </div>

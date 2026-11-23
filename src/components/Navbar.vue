@@ -216,8 +216,10 @@ export default {
                         class="absolute right-0 top-full mt-2 w-60 bg-white rounded-xl border border-gray-200 shadow-[0_12px_32px_-8px_rgba(18,45,70,0.25)] py-2 z-50">
                         <p v-if="user.email" class="px-4 pb-2 mb-1 border-b border-gray-100 text-xs text-gray-600 truncate">{{ user.email }}</p>
                         <RouterLink role="menuitem" to="/mi-perfil" class="menu-item">Mi perfil</RouterLink>
+                        <RouterLink role="menuitem" to="/mis-compras" class="menu-item">Mis compras</RouterLink>
                         <RouterLink role="menuitem" to="/carrito" class="menu-item">Mi carrito</RouterLink>
                         <template v-if="isSeller">
+                            <RouterLink role="menuitem" to="/mis-ventas" class="menu-item">Mis ventas</RouterLink>
                             <RouterLink role="menuitem" to="/mis-productos" class="menu-item">Mis publicaciones</RouterLink>
                             <RouterLink role="menuitem" to="/seller-setup" class="menu-item">Métodos de envío</RouterLink>
                         </template>
@@ -265,8 +267,10 @@ export default {
                     <li><RouterLink to="/carrito" class="mobile-link" active-class="mobile-link-active">Carrito<span v-if="cartCount" class="ml-auto text-sm text-gray-600">{{ cartCount }}</span></RouterLink></li>
                     <template v-if="user.id">
                         <li><RouterLink to="/mi-perfil" class="mobile-link" active-class="mobile-link-active">Mi perfil</RouterLink></li>
+                        <li><RouterLink to="/mis-compras" class="mobile-link" active-class="mobile-link-active">Mis compras</RouterLink></li>
                         <template v-if="isSeller">
                             <li><RouterLink to="/publicar" class="mobile-link" active-class="mobile-link-active">Publicar</RouterLink></li>
+                            <li><RouterLink to="/mis-ventas" class="mobile-link" active-class="mobile-link-active">Mis ventas</RouterLink></li>
                             <li><RouterLink to="/mis-productos" class="mobile-link" active-class="mobile-link-active">Mis publicaciones</RouterLink></li>
                             <li><RouterLink to="/seller-setup" class="mobile-link" active-class="mobile-link-active">Métodos de envío</RouterLink></li>
                         </template>
