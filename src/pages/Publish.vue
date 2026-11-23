@@ -1,122 +1,86 @@
 <script>
 /**
  * Propósito: Flujo de formulario multi-paso para que un vendedor cree una nueva publicación (producto o servicio).
- * Función: Guiar al usuario a través de la selección de tipo de publicación, la recolección de datos específicos (precios, stock, matriz de precios, imágenes) y la publicación final.
- * Cómo funciona: Gestiona el estado de los pasos (`currentStep`, `nextStep`, `prevStep`). `validateCurrentForm` asegura que los campos obligatorios de cada formulario (incluyendo la lógica de precios y la subida de imágenes) estén correctos. `publishListing` invoca la función `create...Product` apropiada del servicio de productos para guardar los datos y la imagen en el backend.
+ * Función: Guiar al usuario a través de la selección de tipo de publicación, la carga de datos y la publicación final.
+ * Cómo funciona: Gestiona los pasos (`currentStep`, `nextStep`, `prevStep`). Los campos de cada tipo están en
+ * componentes de `components/product-forms` (los mismos que usa Editar producto) y `missingFields` dice qué falta.
+ * `publishListing` llama a la función `create...Product` que corresponde al tipo elegido.
  */
-import { subscribeToAuthStateChanges } from '../services/auth'
-import { createSupplyProduct, createProsthesisProduct, createPlasterServiceProduct, createRentalProduct, loadWorkTypes, loadToothGroups, loadValidWorkGroupCombinations } from '../services/products'
+import { createSupplyProduct, createProsthesisProduct, createPlasterServiceProduct, createRentalProduct } from '../services/products'
 import { listMyShippingMethods, shippingSummary } from '../services/shipping'
+import { isCurrentUserSeller } from '../services/sellers'
+import { emptyForms, missingFields, supplyUnitLabel } from '../components/product-forms/listing-form'
+import SupplyForm from '../components/product-forms/SupplyForm.vue'
+import ProsthesisForm from '../components/product-forms/ProsthesisForm.vue'
+import PlasterForm from '../components/product-forms/PlasterForm.vue'
+import RentalForm from '../components/product-forms/RentalForm.vue'
+import ListingPreview from '../components/product-forms/ListingPreview.vue'
 import ShippingMethodModal from '../components/ShippingMethodModal.vue'
 import ShippingIcon from '../components/ShippingIcon.vue'
-import { isCurrentUserSeller } from '../services/sellers'
+
+const FORM_HEADERS = {
+    supply: { title: 'Datos del Producto', subtitle: 'Completá la información de tu producto', box: 'bg-primary-50', text: 'text-primary' },
+    prosthesis: { title: 'Servicio de Prótesis', subtitle: 'Configurá tu servicio y matriz de precios', box: 'bg-primary-50', text: 'text-primary' },
+    plaster: { title: 'Modelado en Yeso', subtitle: 'Configurá tu servicio de vaciado y modelado', box: 'bg-secondary-soft', text: 'text-secondary' },
+    rental: { title: 'Alquiler de Equipos', subtitle: 'Configurá tu servicio de alquiler', box: 'bg-accent-soft', text: 'text-accent' }
+}
+
+// Full class names so Tailwind includes them in the build
+const PROGRESS_WIDTHS = {
+    4: ['w-1/4', 'w-2/4', 'w-3/4', 'w-full'],
+    5: ['w-1/5', 'w-2/5', 'w-3/5', 'w-4/5', 'w-full']
+}
+
+function newForms() {
+    return {
+        supply: emptyForms.supply(),
+        prosthesis: emptyForms.prosthesis(),
+        plaster: emptyForms.plaster(),
+        rental: emptyForms.rental()
+    }
+}
 
 export default {
     name: 'Publish',
-    components: { ShippingMethodModal, ShippingIcon },
+    components: { SupplyForm, ProsthesisForm, PlasterForm, RentalForm, ListingPreview, ShippingMethodModal, ShippingIcon },
     data() {
         return {
-            user: {
-                id: null,
-                email: null,
-            },
             currentStep: 1,
             totalSteps: 4,
             publicationType: null, // 'product' or 'service'
             serviceType: null, // 'prosthesis', 'plaster', 'rental'
-
-            // Product data
-            productData: {
-                name: '',
-                description: '',
-                images: [],
-                imageFile: null,
-                price: '',
-                unit: 'unidad',
-                unitCustom: '',
-                stock: '',
-                sku: '',
-                shippingMethodId: null
-            },
+            forms: newForms(),
             shippingMethods: [],
             shippingModal: null,
-
-            // Service data - Prosthesis
-            prosthesisData: {
-                name: '',
-                description: '',
-                material: '',
-                images: [],
-                imageFile: null,
-                pricingMatrix: {
-                    corona_total: { anterior: '', premolar: '', molar: '' },
-                    carilla: { anterior: '', premolar: '', molar: '' },
-                    incrustacion: { anterior: '', premolar: '', molar: '' },
-                    puente: { anterior: '', premolar: '', molar: '' }
-                },
-                deliveryTime: ''
-            },
-
-            // Service data - Plaster
-            plasterData: {
-                name: '',
-                description: '',
-                images: [],
-                imageFile: null,
-                basePrice: '',
-                deliveryTime: ''
-            },
-
-            // Service data - Rental
-            rentalData: {
-                name: '',
-                description: '',
-                images: [],
-                imageFile: null,
-                stock: '',
-                priceDay: '',
-                priceWeek: '',
-                priceMonth: ''
-            },
-
             previewMode: false,
             published: false,
-            errorMessage: null,
-
-            // Catalogs for validation
-            workTypes: [],
-            toothGroups: [],
-            validCombinations: []
+            errorMessage: null
         }
     },
     computed: {
+        formType() {
+            return this.publicationType === 'product' ? 'supply' : this.serviceType
+        },
+        currentForm() {
+            return this.forms[this.formType]
+        },
+        formHeader() {
+            return FORM_HEADERS[this.formType]
+        },
         selectedShippingMethod() {
-            return this.shippingMethods.find(m => m.id === this.productData.shippingMethodId) || null
+            return this.shippingMethods.find(m => m.id === this.forms.supply.shippingMethodId) || null
         },
         progressPercentage() {
             return (this.currentStep / this.totalSteps) * 100
         },
+        progressWidth() {
+            return PROGRESS_WIDTHS[this.totalSteps][this.currentStep - 1]
+        },
         missingFields() {
-            if (this.currentStep !== 3) return []
-            const missing = []
-            const need = (cond, label) => { if (!cond) missing.push(label) }
-            if (this.publicationType === 'product') {
-                const d = this.productData
-                need(d.name, 'nombre'); need(d.description, 'descripción'); need(d.images.length, 'una imagen')
-                need(d.price, 'precio'); need(d.stock, 'stock')
-                need(d.unit !== 'otro' || (d.unitCustom || '').trim(), 'unidad de medida')
-                need(this.selectedShippingMethod?.configured, 'método de envío con precio y cobertura')
-            } else if (this.serviceType === 'prosthesis') {
-                const d = this.prosthesisData
-                need(d.name, 'nombre'); need(d.description, 'descripción'); need(d.material, 'material'); need(d.images.length, 'una imagen')
-                need(Object.values(d.pricingMatrix).some(w => Object.values(w).some(p => p && Number(p) > 0)), 'al menos un precio en la matriz')
-            } else if (this.serviceType === 'plaster') {
-                const d = this.plasterData
-                need(d.name, 'nombre'); need(d.description, 'descripción'); need(d.basePrice, 'precio base'); need(d.images.length, 'una imagen')
-            } else if (this.serviceType === 'rental') {
-                const d = this.rentalData
-                need(d.name, 'nombre'); need(d.description, 'descripción'); need(d.stock, 'unidades disponibles')
-                need(d.priceDay || d.priceWeek || d.priceMonth, 'al menos un precio'); need(d.images.length, 'una imagen')
+            if (this.currentStep !== 3 || !this.formType) return []
+            const missing = missingFields(this.formType, this.currentForm, { requireImage: true })
+            if (this.formType === 'supply' && !this.selectedShippingMethod?.configured) {
+                missing.push('método de envío con precio y cobertura')
             }
             return missing
         },
@@ -128,7 +92,7 @@ export default {
                 return this.serviceType !== null
             }
             if (this.currentStep === 3) {
-                return this.validateCurrentForm()
+                return this.missingFields.length === 0
             }
             return true
         }
@@ -153,41 +117,6 @@ export default {
         selectServiceType(type) {
             this.serviceType = type
             this.currentStep = 3
-        },
-
-        validateCurrentForm() {
-            if (this.publicationType === 'product') {
-                const unitOk = this.productData.unit !== 'otro' || (this.productData.unit === 'otro' && this.productData.unitCustom && this.productData.unitCustom.trim().length > 0)
-                return this.productData.name && this.productData.description &&
-                    this.productData.price && this.productData.stock &&
-                    this.productData.images.length > 0 && unitOk &&
-                    !!this.selectedShippingMethod?.configured
-            }
-
-            if (this.serviceType === 'prosthesis') {
-                // Verificar que haya al menos un precio en la matriz
-                const hasPrice = Object.values(this.prosthesisData.pricingMatrix).some(workType =>
-                    Object.values(workType).some(price => price && Number(price) > 0)
-                )
-                return this.prosthesisData.name && this.prosthesisData.description &&
-                    this.prosthesisData.material && this.prosthesisData.images.length > 0 && hasPrice
-            }
-
-            if (this.serviceType === 'plaster') {
-                return this.plasterData.name && this.plasterData.description &&
-                    this.plasterData.basePrice && this.plasterData.images.length > 0
-            }
-
-            if (this.serviceType === 'rental') {
-                // Al menos un precio debe estar completado
-                const hasAtLeastOnePrice = this.rentalData.priceDay ||
-                    this.rentalData.priceWeek ||
-                    this.rentalData.priceMonth
-                return this.rentalData.name && this.rentalData.description &&
-                    this.rentalData.stock && hasAtLeastOnePrice && this.rentalData.images.length > 0
-            }
-
-            return false
         },
 
         nextStep() {
@@ -220,152 +149,60 @@ export default {
             this.serviceType = null
             this.previewMode = false
             this.published = false
-            // Limpiar formularios
-            this.productData = {
-                name: '', description: '', images: [], imageFile: null,
-                price: '', unit: 'unidad', unitCustom: '', stock: '', sku: '',
-                shippingMethodId: null
-            }
-            this.prosthesisData = {
-                name: '', description: '', material: '', images: [], imageFile: null,
-                pricingMatrix: {
-                    corona_total: { anterior: '', premolar: '', molar: '' },
-                    carilla: { anterior: '', premolar: '', molar: '' },
-                    incrustacion: { anterior: '', premolar: '', molar: '' },
-                    puente: { anterior: '', premolar: '', molar: '' }
-                },
-                deliveryTime: ''
-            }
-            this.plasterData = {
-                name: '', description: '', images: [], imageFile: null, basePrice: '',
-                deliveryTime: ''
-            }
-            this.rentalData = {
-                name: '', description: '', images: [], imageFile: null, stock: '',
-                priceDay: '', priceWeek: '', priceMonth: ''
-            }
+            this.forms = newForms()
+            this.loadShippingMethods()
         },
 
-        onDropImage(event, dataType) {
-            this.handleImageUpload({ target: { files: event.dataTransfer?.files || [] } }, dataType)
-        },
-
-        handleImageUpload(event, dataType) {
-            const files = event.target.files
-            if (files.length > 0) {
-                const file = files[0]
-                if (!file.type.startsWith('image/')) {
-                    this.showError('El archivo tiene que ser una imagen (JPG, PNG, WebP o GIF).')
-                    return
-                }
-                if (file.size > 5 * 1024 * 1024) {
-                    this.showError('La imagen pesa más de 5 MB. Probá con una más liviana.')
-                    return
-                }
-                const imageUrl = URL.createObjectURL(file)
-                if (dataType === 'product') {
-                    this.productData.imageFile = file
-                    if (this.productData.images.length === 0) this.productData.images.push(imageUrl)
-                    else this.productData.images.splice(0, 1, imageUrl)
-                } else if (dataType === 'prosthesis') {
-                    this.prosthesisData.imageFile = file
-                    if (this.prosthesisData.images.length === 0) this.prosthesisData.images.push(imageUrl)
-                    else this.prosthesisData.images.splice(0, 1, imageUrl)
-                } else if (dataType === 'plaster') {
-                    this.plasterData.imageFile = file
-                    if (this.plasterData.images.length === 0) this.plasterData.images.push(imageUrl)
-                    else this.plasterData.images.splice(0, 1, imageUrl)
-                } else if (dataType === 'rental') {
-                    this.rentalData.imageFile = file
-                    if (this.rentalData.images.length === 0) this.rentalData.images.push(imageUrl)
-                    else this.rentalData.images.splice(0, 1, imageUrl)
-                }
+        createListing(type, f) {
+            if (type === 'supply') {
+                return createSupplyProduct({
+                    name: f.name,
+                    description: f.description,
+                    unit_price: Number(f.price) || 0,
+                    unit_label: supplyUnitLabel(f) || 'unidad',
+                    stock_qty: Number(f.stock) || null,
+                    sku: f.sku || null,
+                    imageFile: f.imageFile,
+                    shipping_method_id: f.shippingMethodId,
+                })
             }
-        },
-
-        removeImage(index, dataType) {
-            if (dataType === 'product') {
-                this.productData.images.splice(index, 1)
-            } else if (dataType === 'prosthesis') {
-                this.prosthesisData.images.splice(index, 1)
-            } else if (dataType === 'plaster') {
-                this.plasterData.images.splice(index, 1)
-            } else if (dataType === 'rental') {
-                this.rentalData.images.splice(index, 1)
+            if (type === 'prosthesis') {
+                return createProsthesisProduct({
+                    name: f.name,
+                    description: f.description,
+                    imageFile: f.imageFile,
+                    pricingMatrix: f.pricingMatrix,
+                    materialId: f.material || null,
+                    deliveryTime: f.deliveryTime || null,
+                })
             }
+            if (type === 'plaster') {
+                return createPlasterServiceProduct({
+                    name: f.name,
+                    description: f.description,
+                    base_price: Number(f.basePrice) || 0,
+                    deliveryTime: f.deliveryTime || null,
+                    imageFile: f.imageFile,
+                })
+            }
+            return createRentalProduct({
+                name: f.name,
+                description: f.description,
+                stock_qty: Number(f.stock) || 0,
+                priceDay: Number(f.priceDay) || null,
+                priceWeek: Number(f.priceWeek) || null,
+                priceMonth: Number(f.priceMonth) || null,
+                imageFile: f.imageFile,
+            })
         },
-
-
 
         async publishListing() {
+            if (this.missingFields.length) {
+                this.showError(`Para publicar completá: ${this.missingFields.join(', ')}.`)
+                return
+            }
             try {
-                if (this.publicationType === 'product') {
-                    const imageFile = this.productData.imageFile || null
-                    if (!imageFile) {
-                        this.showError('Debés agregar al menos una imagen')
-                        return
-                    }
-                    const unit_label = this.productData.unit === 'otro' ? (this.productData.unitCustom || '').trim() : this.productData.unit
-                    const methodId = this.productData.shippingMethodId
-                    if (!this.selectedShippingMethod?.configured) {
-                        this.showError('Elegí un método de envío con precio y cobertura')
-                        return
-                    }
-                    await createSupplyProduct({
-                        name: this.productData.name,
-                        description: this.productData.description,
-                        unit_price: Number(this.productData.price) || 0,
-                        unit_label: unit_label || 'unidad',
-                        stock_qty: Number(this.productData.stock) || null,
-                        sku: this.productData.sku || null,
-                        imageFile,
-                        shipping_method_id: methodId,
-                    })
-                } else if (this.publicationType === 'service') {
-                    if (this.serviceType === 'prosthesis') {
-                        const imageFile = this.prosthesisData.imageFile || null
-                        if (!imageFile) {
-                            this.showError('Subí al menos una imagen')
-                            return
-                        }
-                        await createProsthesisProduct({
-                            name: this.prosthesisData.name,
-                            description: this.prosthesisData.description,
-                            imageFile,
-                            pricingMatrix: this.prosthesisData.pricingMatrix,
-                            materialId: this.prosthesisData.material || null,
-                            deliveryTime: this.prosthesisData.deliveryTime || null,
-                        })
-                    } else if (this.serviceType === 'plaster') {
-                        const imageFile = this.plasterData.imageFile || null
-                        if (!imageFile) {
-                            this.showError('Subí al menos una imagen')
-                            return
-                        }
-                        await createPlasterServiceProduct({
-                            name: this.plasterData.name,
-                            description: this.plasterData.description,
-                            base_price: Number(this.plasterData.basePrice) || 0,
-                            deliveryTime: this.plasterData.deliveryTime || null,
-                            imageFile,
-                        })
-                    } else if (this.serviceType === 'rental') {
-                        const imageFile = this.rentalData.imageFile || null
-                        if (!imageFile) {
-                            this.showError('Subí al menos una imagen')
-                            return
-                        }
-                        await createRentalProduct({
-                            name: this.rentalData.name,
-                            description: this.rentalData.description,
-                            stock_qty: Number(this.rentalData.stock) || 0,
-                            priceDay: Number(this.rentalData.priceDay) || null,
-                            priceWeek: Number(this.rentalData.priceWeek) || null,
-                            priceMonth: Number(this.rentalData.priceMonth) || null,
-                            imageFile,
-                        })
-                    }
-                }
+                await this.createListing(this.formType, this.currentForm)
                 this.published = true
                 this.currentStep = 4
             } catch (e) {
@@ -373,14 +210,16 @@ export default {
                 console.error(e)
             }
         },
+
         async loadShippingMethods(selectId = null) {
             try {
                 // Only active methods can be chosen for a new publication
                 this.shippingMethods = (await listMyShippingMethods()).filter(m => m.active)
+                const supply = this.forms.supply
                 if (selectId) {
-                    this.productData.shippingMethodId = selectId
-                } else if (!this.shippingMethods.some(m => m.id === this.productData.shippingMethodId)) {
-                    this.productData.shippingMethodId = this.shippingMethods.find(m => m.configured)?.id || null
+                    supply.shippingMethodId = selectId
+                } else if (!this.shippingMethods.some(m => m.id === supply.shippingMethodId)) {
+                    supply.shippingMethodId = this.shippingMethods.find(m => m.configured)?.id || null
                 }
             } catch {
                 this.shippingMethods = []
@@ -392,60 +231,15 @@ export default {
         async onShippingSaved(id) {
             await this.loadShippingMethods(id)
             this.shippingModal = null
-        },
-
-        formatPrice(price) {
-            return new Intl.NumberFormat('es-AR').format(price)
-        },
-
-        isValidCombination(workTypeKey, toothGroupKey) {
-            if (this.validCombinations.length === 0) return true
-
-            const workType = this.workTypes.find(wt => {
-                const name = wt.name.toLowerCase()
-                if (workTypeKey === 'corona_total' && name.includes('corona')) return true
-                if (workTypeKey === 'carilla' && name.includes('carilla')) return true
-                if (workTypeKey === 'incrustacion' && name.includes('incrusta')) return true
-                if (workTypeKey === 'puente' && name.includes('puente')) return true
-                return false
-            })
-
-            const toothGroup = this.toothGroups.find(tg => {
-                const name = tg.name.toLowerCase()
-                if (toothGroupKey === 'anterior' && name.includes('anterior')) return true
-                if (toothGroupKey === 'premolar' && name.includes('premolar')) return true
-                if (toothGroupKey === 'molar' && name.includes('molar') && !name.includes('premolar')) return true
-                return false
-            })
-
-            if (!workType || !toothGroup) return true
-
-            return this.validCombinations.some(
-                c => c.work_type_id === workType.id && c.tooth_group_id === toothGroup.id
-            )
-        },
-
-        async loadCatalogs() {
-            try {
-                this.workTypes = await loadWorkTypes()
-                this.toothGroups = await loadToothGroups()
-                this.validCombinations = await loadValidWorkGroupCombinations()
-            } catch (error) {
-                console.error('Error loading catalogs:', error)
-            }
         }
     },
     async mounted() {
-        subscribeToAuthStateChanges(newUserState => {
-            this.user = newUserState
-        })
         const isSeller = await isCurrentUserSeller()
         if (!isSeller) {
             this.$router.push('/seller-setup')
             return
         }
         this.loadShippingMethods()
-        this.loadCatalogs()
     }
 }
 </script>
@@ -483,7 +277,7 @@ export default {
                 </div>
                 <div class="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
                     <div class="h-full transition-all duration-300 rounded-full bg-linear-90 from-primary to-secondary"
-                        :style="{ width: progressPercentage + '%' }">
+                        :class="progressWidth">
                     </div>
                 </div>
             </div>
@@ -608,635 +402,47 @@ export default {
                 </div>
             </div>
 
-            <!-- Step 3: Product Form -->
-            <div v-if="currentStep === 3 && publicationType === 'product' && !previewMode"
-                class="bg-white rounded-lg shadow-md p-8">
-                <div class="p-4 rounded-lg mb-6 bg-primary-50">
-                    <h2 class="font-heading text-xl font-bold mb-2 text-primary">Datos del Producto</h2>
-                    <p class="text-sm text-gray-600">Completá la información de tu producto</p>
+            <!-- Step 3: form of the chosen type -->
+            <div v-if="currentStep === 3 && !previewMode && formType" class="bg-white rounded-lg shadow-md p-5 sm:p-8">
+                <div class="p-4 rounded-lg mb-6" :class="formHeader.box">
+                    <h2 class="font-heading text-xl font-bold mb-2" :class="formHeader.text">{{ formHeader.title }}</h2>
+                    <p class="text-sm text-gray-600">{{ formHeader.subtitle }}</p>
                 </div>
 
-                <div class="space-y-6">
-                    <div>
-                        <label for="f-productData-name" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Nombre del producto *
-                        </label>
-                        <input id="f-productData-name" type="text" v-model="productData.name" required
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            placeholder="Ej: Resina compuesta Universal A2" />
-                    </div>
+                <SupplyForm v-if="formType === 'supply'" :form="forms.supply" is-new @invalid="showError" />
+                <ProsthesisForm v-else-if="formType === 'prosthesis'" :form="forms.prosthesis" is-new @invalid="showError" />
+                <PlasterForm v-else-if="formType === 'plaster'" :form="forms.plaster" is-new @invalid="showError" />
+                <RentalForm v-else-if="formType === 'rental'" :form="forms.rental" is-new @invalid="showError" />
 
-                    <div v-if="false">
-                        <label for="f-productData-brand" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Marca o fabricante
-                        </label>
-                        <input id="f-productData-brand" type="text" v-model="productData.brand"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            placeholder="Ej: 3M, Kerr, Ivoclar" />
-                    </div>
-
-                    <div>
-                        <label for="f-productData-description" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Descripción detallada *
-                        </label>
-                        <textarea id="f-productData-description" v-model="productData.description" required rows="4"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            placeholder="Describí las características, uso recomendado, contenido del paquete..."></textarea>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            Imágenes (mínimo una)
-                        </label>
-                        <div @dragover.prevent @drop.prevent="onDropImage($event, 'product')"
-                            :class="['border-2 border-dashed rounded-lg p-6 text-center transition-colors hover:bg-gray-50', productData.images.length ? 'border-gray-300' : 'border-red-400']">
-                            <input type="file" ref="productImageInput" @change="handleImageUpload($event, 'product')"
-                                accept="image/*" class="hidden" id="product-image-upload" />
-                            <label for="product-image-upload" class="cursor-pointer">
-                                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 4v16m8-8H4"></path>
-                                </svg>
-                                <span class="block text-sm text-gray-600">Hacé clic para subir o arrastrá la imagen aquí</span>
-                                <span class="block text-xs text-gray-500 mt-1">JPG, PNG o GIF (máx. 5MB)</span>
-                                <span v-if="!productData.images.length" class="block text-xs text-red-600 mt-2">Subí al menos una
-                                    imagen</span>
-                            </label>
-                        </div>
-                        <div v-if="productData.images.length > 0" class="grid grid-cols-3 gap-4 mt-4">
-                            <div v-for="(image, index) in productData.images" :key="index" class="relative">
-                                <img :src="image" class="w-full h-32 object-cover rounded-lg" />
-                                <button @click="removeImage(index, 'product')" type="button" aria-label="Quitar imagen"
-                                    class="absolute top-2 right-2 bg-gray-900/80 text-white rounded-full w-9 h-9 flex items-center justify-center hover:bg-red-700">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-width="2.5" d="M6 6l12 12M18 6L6 18" /></svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label for="f-productData-price" class="block text-sm font-semibold text-gray-700 mb-2">
-                                Precio unitario *
-                            </label>
-                            <div class="relative">
-                                <span class="absolute left-4 top-3 text-gray-500">$</span>
-                                <input id="f-productData-price" type="number" v-model="productData.price" required step="0.01"
-                                    class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                    placeholder="0.00" />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label for="f-productData-unit" class="block text-sm font-semibold text-gray-700 mb-2">
-                                Unidad de medida
-                            </label>
-                            <select id="f-productData-unit" v-model="productData.unit"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition">
-                                <option value="unidad">Unidad</option>
-                                <option value="caja">Caja</option>
-                                <option value="kilo">Kilo</option>
-                                <option value="litro">Litro</option>
-                                <option value="metro">Metro</option>
-                                <option value="pack">Pack</option>
-                                <option value="otro">Otro...</option>
-                            </select>
-                            <input v-if="productData.unit === 'otro'" type="text" v-model="productData.unitCustom"
-                                class="mt-2 w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                placeholder="Especificá la unidad (ej: frasco, bolsa, kit)" />
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label for="f-productData-stock" class="block text-sm font-semibold text-gray-700 mb-2">
-                                Stock disponible *
-                            </label>
-                            <input id="f-productData-stock" type="number" v-model="productData.stock" required min="1"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                placeholder="Cantidad disponible" />
-                        </div>
-
-                        <div>
-                            <label for="f-productData-sku" class="block text-sm font-semibold text-gray-700 mb-2">
-                                SKU o código interno
-                            </label>
-                            <input id="f-productData-sku" type="text" v-model="productData.sku"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                placeholder="Ej: PROD-001" />
-                        </div>
-                    </div>
-
-                    <div v-if="false">
-                        <label for="f-productData-paymentAccount" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Cuenta de cobro
-                        </label>
-                        <select id="f-productData-paymentAccount" v-model="productData.paymentAccount"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition">
-                            <option value="">Seleccionar cuenta</option>
-                            <option value="bank1">Cuenta Banco Nación - ...4567</option>
-                            <option value="bank2">Cuenta Galicia - ...8901</option>
-                            <option value="mp">Mercado Pago</option>
+                <!-- Shipping method (only for supplies) -->
+                <div v-if="formType === 'supply'" class="mt-6">
+                    <label for="supply-shipping" class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-2">
+                        <ShippingIcon icon="truck" class="w-4 h-4 text-primary" />
+                        Método de envío para este producto *
+                    </label>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <select v-if="shippingMethods.length" id="supply-shipping" v-model="forms.supply.shippingMethodId"
+                            class="field-input flex-1">
+                            <option :value="null" disabled>Elegí cómo lo vas a enviar</option>
+                            <option v-for="sm in shippingMethods" :key="sm.id" :value="sm.id">{{ shippingOptionLabel(sm) }}</option>
                         </select>
-                    </div>
-
-                    <div v-if="false">
-                        <label for="f-productData-location" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Ubicación del producto
-                        </label>
-                        <input id="f-productData-location" type="text" v-model="productData.location"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            placeholder="Ej: CABA, Buenos Aires" />
-                    </div>
-
-                    <!-- Shipping method -->
-                    <div class="mt-6">
-                        <label for="f-productData-shippingMethodId" class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-2">
-                            <ShippingIcon icon="truck" class="w-4 h-4 text-primary" />
-                            Método de envío para este producto *
-                        </label>
-                        <div class="flex flex-col sm:flex-row gap-3">
-                            <select v-if="shippingMethods.length" id="f-productData-shippingMethodId" v-model="productData.shippingMethodId"
-                                class="field-input flex-1">
-                                <option :value="null" disabled>Elegí cómo lo vas a enviar</option>
-                                <option v-for="sm in shippingMethods" :key="sm.id" :value="sm.id">{{ shippingOptionLabel(sm) }}</option>
-                            </select>
-                            <p v-else class="flex-1 flex items-center gap-2 m-0 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm">
-                                <ShippingIcon icon="package" class="w-5 h-5" />
-                                Todavía no tenés métodos de envío activos. Creá uno para poder publicar.
-                            </p>
-                            <button type="button" @click="shippingModal = { method: null }"
-                                class="h-12 px-5 whitespace-nowrap font-semibold rounded-lg border-2 border-primary text-primary hover:bg-primary-50 transition">
-                                + Nuevo método
-                            </button>
-                        </div>
-                        <div v-if="selectedShippingMethod && !selectedShippingMethod.configured"
-                            class="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm flex flex-wrap items-center justify-between gap-2" role="status">
-                            <span>Este método todavía no tiene precio ni provincias.</span>
-                            <button type="button" class="font-semibold underline" @click="shippingModal = { method: selectedShippingMethod }">Completarlo ahora</button>
-                        </div>
-                        <p v-else-if="selectedShippingMethod" class="field-hint">
-                            Podés editar o pausar tus métodos desde <RouterLink to="/seller-setup" class="font-semibold text-primary-700 hover:underline">Configurar ventas</RouterLink>.
+                        <p v-else class="flex-1 flex items-center gap-2 m-0 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm">
+                            <ShippingIcon icon="package" class="w-5 h-5" />
+                            Todavía no tenés métodos de envío activos. Creá uno para poder publicar.
                         </p>
+                        <button type="button" @click="shippingModal = { method: null }"
+                            class="h-12 px-5 whitespace-nowrap font-semibold rounded-lg border-2 border-primary text-primary hover:bg-primary-50 transition">
+                            + Nuevo método
+                        </button>
                     </div>
-                </div>
-            </div>
-
-            <!-- Step 3: Prosthesis Form -->
-            <div v-if="currentStep === 3 && serviceType === 'prosthesis' && !previewMode"
-                class="bg-white rounded-lg shadow-md p-8">
-                <div class="p-4 rounded-lg mb-6 bg-primary-50">
-                    <h2 class="font-heading text-xl font-bold mb-2 text-primary">Servicio de Prótesis</h2>
-                    <p class="text-sm text-gray-600">Configurá tu servicio y matriz de precios</p>
-                </div>
-
-                <div class="space-y-6">
-                    <div>
-                        <label for="f-prosthesisData-name" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Nombre del servicio *
-                        </label>
-                        <input id="f-prosthesisData-name" type="text" v-model="prosthesisData.name" required
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            placeholder="Ej: Prótesis fijas cerámicas" />
+                    <div v-if="selectedShippingMethod && !selectedShippingMethod.configured"
+                        class="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm flex flex-wrap items-center justify-between gap-2" role="status">
+                        <span>Este método todavía no tiene precio ni provincias.</span>
+                        <button type="button" class="font-semibold underline" @click="shippingModal = { method: selectedShippingMethod }">Completarlo ahora</button>
                     </div>
-
-                    <div>
-                        <label for="f-prosthesisData-description" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Descripción *
-                        </label>
-                        <textarea id="f-prosthesisData-description" v-model="prosthesisData.description" required rows="3"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            placeholder="Describí tu servicio, materiales, garantías..."></textarea>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            Imágenes (mínimo una) *
-                        </label>
-                        <div @dragover.prevent @drop.prevent="onDropImage($event, 'prosthesis')"
-                            :class="['border-2 border-dashed rounded-lg p-6 text-center transition-colors hover:bg-gray-50', prosthesisData.images.length ? 'border-gray-300' : 'border-red-400']">
-                            <input type="file" ref="prosthesisImageInput"
-                                @change="handleImageUpload($event, 'prosthesis')" accept="image/*" class="hidden"
-                                id="prosthesis-image-upload" />
-                            <label for="prosthesis-image-upload" class="cursor-pointer">
-                                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 4v16m8-8H4"></path>
-                                </svg>
-                                <span class="block text-sm text-gray-600">Hacé clic para subir o arrastrá la imagen aquí</span>
-                                <span class="block text-xs text-gray-500 mt-1">JPG, PNG o GIF (máx. 5MB)</span>
-                                <span v-if="!prosthesisData.images.length" class="block text-xs text-red-600 mt-2">Subí al menos
-                                    una imagen</span>
-                            </label>
-                        </div>
-                        <div v-if="prosthesisData.images.length > 0" class="grid grid-cols-3 gap-4 mt-4">
-                            <div v-for="(image, index) in prosthesisData.images" :key="index" class="relative">
-                                <img :src="image" class="w-full h-32 object-cover rounded-lg" />
-                                <button @click="removeImage(index, 'prosthesis')" type="button" aria-label="Quitar imagen"
-                                    class="absolute top-2 right-2 bg-gray-900/80 text-white rounded-full w-9 h-9 flex items-center justify-center hover:bg-red-700">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-width="2.5" d="M6 6l12 12M18 6L6 18" /></svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="f-prosthesisData-material" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Material principal *
-                        </label>
-                        <input id="f-prosthesisData-material" type="text" v-model="prosthesisData.material" required
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            placeholder="Ej: Zirconio, Porcelana, Metal-porcelana" />
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-3">
-                            Matriz de Precios (por tipo de trabajo y grupo dentario)
-                        </label>
-                        <div class="overflow-x-auto">
-                            <table class="w-full border-collapse border border-gray-300">
-                                <thead>
-                                    <tr class="bg-primary-50">
-                                        <th class="border border-gray-300 px-4 py-2 text-left font-semibold text-primary">Tipo de trabajo</th>
-                                        <th class="border border-gray-300 px-4 py-2 text-center font-semibold text-primary">Anterior</th>
-                                        <th class="border border-gray-300 px-4 py-2 text-center font-semibold text-primary">Premolar</th>
-                                        <th class="border border-gray-300 px-4 py-2 text-center font-semibold text-primary">Molar</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td class="border border-gray-300 px-4 py-2 font-semibold">Corona total</td>
-                                        <td class="border border-gray-300 px-2 py-2">
-                                            <input type="number"
-                                                v-model="prosthesisData.pricingMatrix.corona_total.anterior" step="0.01"
-                                                :disabled="!isValidCombination('corona_total', 'anterior')"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
-                                                placeholder="$" />
-                                        </td>
-                                        <td class="border border-gray-300 px-2 py-2">
-                                            <input type="number"
-                                                v-model="prosthesisData.pricingMatrix.corona_total.premolar" step="0.01"
-                                                :disabled="!isValidCombination('corona_total', 'premolar')"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
-                                                placeholder="$" />
-                                        </td>
-                                        <td class="border border-gray-300 px-2 py-2">
-                                            <input type="number"
-                                                v-model="prosthesisData.pricingMatrix.corona_total.molar" step="0.01"
-                                                :disabled="!isValidCombination('corona_total', 'molar')"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
-                                                placeholder="$" />
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="border border-gray-300 px-4 py-2 font-semibold">Carilla</td>
-                                        <td class="border border-gray-300 px-2 py-2">
-                                            <input type="number" v-model="prosthesisData.pricingMatrix.carilla.anterior"
-                                                step="0.01" :disabled="!isValidCombination('carilla', 'anterior')"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
-                                                placeholder="$" />
-                                        </td>
-                                        <td class="border border-gray-300 px-2 py-2">
-                                            <input type="number" v-model="prosthesisData.pricingMatrix.carilla.premolar"
-                                                step="0.01" :disabled="!isValidCombination('carilla', 'premolar')"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
-                                                placeholder="$" />
-                                        </td>
-                                        <td class="border border-gray-300 px-2 py-2">
-                                            <input type="number" v-model="prosthesisData.pricingMatrix.carilla.molar"
-                                                step="0.01" :disabled="!isValidCombination('carilla', 'molar')"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
-                                                placeholder="$" />
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="border border-gray-300 px-4 py-2 font-semibold">Incrustación</td>
-                                        <td class="border border-gray-300 px-2 py-2">
-                                            <input type="number"
-                                                v-model="prosthesisData.pricingMatrix.incrustacion.anterior" step="0.01"
-                                                :disabled="!isValidCombination('incrustacion', 'anterior')"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
-                                                placeholder="$" />
-                                        </td>
-                                        <td class="border border-gray-300 px-2 py-2">
-                                            <input type="number"
-                                                v-model="prosthesisData.pricingMatrix.incrustacion.premolar" step="0.01"
-                                                :disabled="!isValidCombination('incrustacion', 'premolar')"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
-                                                placeholder="$" />
-                                        </td>
-                                        <td class="border border-gray-300 px-2 py-2">
-                                            <input type="number"
-                                                v-model="prosthesisData.pricingMatrix.incrustacion.molar" step="0.01"
-                                                :disabled="!isValidCombination('incrustacion', 'molar')"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
-                                                placeholder="$" />
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="border border-gray-300 px-4 py-2 font-semibold">Puente</td>
-                                        <td class="border border-gray-300 px-2 py-2">
-                                            <input type="number" v-model="prosthesisData.pricingMatrix.puente.anterior"
-                                                step="0.01" :disabled="!isValidCombination('puente', 'anterior')"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
-                                                placeholder="$" />
-                                        </td>
-                                        <td class="border border-gray-300 px-2 py-2">
-                                            <input type="number" v-model="prosthesisData.pricingMatrix.puente.premolar"
-                                                step="0.01" :disabled="!isValidCombination('puente', 'premolar')"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
-                                                placeholder="$" />
-                                        </td>
-                                        <td class="border border-gray-300 px-2 py-2">
-                                            <input type="number" v-model="prosthesisData.pricingMatrix.puente.molar"
-                                                step="0.01" :disabled="!isValidCombination('puente', 'molar')"
-                                                class="w-full px-2 py-1 border border-gray-300 rounded text-center disabled:bg-gray-200 disabled:cursor-not-allowed"
-                                                placeholder="$" />
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="f-prosthesisData-deliveryTime" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Días de fabricación
-                        </label>
-                        <input id="f-prosthesisData-deliveryTime" type="number" v-model="prosthesisData.deliveryTime" min="1"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            placeholder="Ej: 5" />
-                    </div>
-
-
-                </div>
-            </div>
-
-            <!-- Step 3: Plaster Form -->
-            <div v-if="currentStep === 3 && serviceType === 'plaster' && !previewMode"
-                class="bg-white rounded-lg shadow-md p-8">
-                <div class="p-4 rounded-lg mb-6 bg-secondary-soft">
-                    <h2 class="font-heading text-xl font-bold mb-2 text-secondary">Modelado en Yeso</h2>
-                    <p class="text-sm text-gray-600">Configurá tu servicio de vaciado y modelado</p>
-                </div>
-
-                <div class="space-y-6">
-                    <div>
-                        <label for="f-plasterData-name" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Nombre del servicio *
-                        </label>
-                        <input id="f-plasterData-name" type="text" v-model="plasterData.name" required
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            placeholder="Ej: Modelado en yeso tipo III" />
-                    </div>
-
-                    <div>
-                        <label for="f-plasterData-description" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Descripción *
-                        </label>
-                        <textarea id="f-plasterData-description" v-model="plasterData.description" required rows="4"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            placeholder="Describí el tipo de modelado, uso de articulador, recorte, etc..."></textarea>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            Imágenes (mínimo una) *
-                        </label>
-                        <div @dragover.prevent @drop.prevent="onDropImage($event, 'plaster')"
-                            :class="['border-2 border-dashed rounded-lg p-6 text-center transition-colors hover:bg-gray-50', plasterData.images.length ? 'border-gray-300' : 'border-red-400']">
-                            <input type="file" ref="plasterImageInput" @change="handleImageUpload($event, 'plaster')"
-                                accept="image/*" class="hidden" id="plaster-image-upload" />
-                            <label for="plaster-image-upload" class="cursor-pointer">
-                                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 4v16m8-8H4"></path>
-                                </svg>
-                                <span class="block text-sm text-gray-600">Hacé clic para subir o arrastrá la imagen aquí</span>
-                                <span class="block text-xs text-gray-500 mt-1">JPG, PNG o GIF (máx. 5MB)</span>
-                                <span v-if="!plasterData.images.length" class="block text-xs text-red-600 mt-2">Subí al menos una
-                                    imagen</span>
-                            </label>
-                        </div>
-                        <div v-if="plasterData.images.length > 0" class="grid grid-cols-3 gap-4 mt-4">
-                            <div v-for="(image, index) in plasterData.images" :key="index" class="relative">
-                                <img :src="image" class="w-full h-32 object-cover rounded-lg" />
-                                <button @click="removeImage(index, 'plaster')" type="button" aria-label="Quitar imagen"
-                                    class="absolute top-2 right-2 bg-gray-900/80 text-white rounded-full w-9 h-9 flex items-center justify-center hover:bg-red-700">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-width="2.5" d="M6 6l12 12M18 6L6 18" /></svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="f-plasterData-basePrice" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Precio base *
-                        </label>
-                        <div class="relative">
-                            <span class="absolute left-4 top-3 text-gray-500">$</span>
-                            <input id="f-plasterData-basePrice" type="number" v-model="plasterData.basePrice" required step="0.01"
-                                class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                placeholder="0.00" />
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">Precio por modelo completo (superior e inferior)</p>
-                    </div>
-
-                    <div>
-                        <label for="f-plasterData-deliveryTime" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Días de fabricación
-                        </label>
-                        <input id="f-plasterData-deliveryTime" type="number" v-model="plasterData.deliveryTime" min="1"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            placeholder="Ej: 2" />
-                    </div>
-
-
-                </div>
-            </div>
-
-            <!-- Step 3: Rental Form -->
-            <div v-if="currentStep === 3 && serviceType === 'rental' && !previewMode"
-                class="bg-white rounded-lg shadow-md p-8">
-                <div class="p-4 rounded-lg mb-6 bg-accent-soft">
-                    <h2 class="font-heading text-xl font-bold mb-2 text-accent">Alquiler de Equipos</h2>
-                    <p class="text-sm text-gray-600">Configurá tu servicio de alquiler</p>
-                </div>
-
-                <div class="space-y-6">
-                    <div>
-                        <label for="f-rentalData-name" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Nombre del equipo *
-                        </label>
-                        <input id="f-rentalData-name" type="text" v-model="rentalData.name" required
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            placeholder="Ej: Compresor dental portátil" />
-                    </div>
-
-                    <div>
-                        <label for="f-rentalData-description" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Descripción *
-                        </label>
-                        <textarea id="f-rentalData-description" v-model="rentalData.description" required rows="4"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            placeholder="Describí el equipo, estado, características técnicas..."></textarea>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            Imágenes (mínimo una) *
-                        </label>
-                        <div @dragover.prevent @drop.prevent="onDropImage($event, 'rental')"
-                            :class="['border-2 border-dashed rounded-lg p-6 text-center transition-colors hover:bg-gray-50', rentalData.images.length ? 'border-gray-300' : 'border-red-400']">
-                            <input type="file" ref="rentalImageInput" @change="handleImageUpload($event, 'rental')"
-                                accept="image/*" class="hidden" id="rental-image-upload" />
-                            <label for="rental-image-upload" class="cursor-pointer">
-                                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 4v16m8-8H4"></path>
-                                </svg>
-                                <span class="block text-sm text-gray-600">Hacé clic para subir o arrastrá la imagen aquí</span>
-                                <span class="block text-xs text-gray-500 mt-1">JPG, PNG o GIF (máx. 5MB)</span>
-                                <span v-if="!rentalData.images.length" class="block text-xs text-red-600 mt-2">Subí al menos una
-                                    imagen</span>
-                            </label>
-                        </div>
-                        <div v-if="rentalData.images.length > 0" class="grid grid-cols-3 gap-4 mt-4">
-                            <div v-for="(image, index) in rentalData.images" :key="index" class="relative">
-                                <img :src="image" class="w-full h-32 object-cover rounded-lg" />
-                                <button @click="removeImage(index, 'rental')" type="button" aria-label="Quitar imagen"
-                                    class="absolute top-2 right-2 bg-gray-900/80 text-white rounded-full w-9 h-9 flex items-center justify-center hover:bg-red-700">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-width="2.5" d="M6 6l12 12M18 6L6 18" /></svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="f-rentalData-stock" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Unidades disponibles *
-                        </label>
-                        <input id="f-rentalData-stock" type="number" v-model="rentalData.stock" required min="1"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                            placeholder="Cantidad de equipos" />
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-3">
-                            Garantía del equipo
-                        </label>
-                        <div class="space-y-3">
-                            <label class="flex items-center">
-                                <input type="radio" v-model="rentalData.insuranceType" value="deposit" class="mr-3" />
-                                <span class="text-sm text-gray-700">Depósito en garantía (se devuelve al
-                                    finalizar)</span>
-                            </label>
-                            <label class="flex items-center">
-                                <input type="radio" v-model="rentalData.insuranceType" value="insurance" class="mr-3" />
-                                <span class="text-sm text-gray-700">Seguro contra daños (requiere póliza)</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div v-if="rentalData.insuranceType === 'deposit'">
-                        <label for="f-rentalData-depositAmount" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Monto del depósito
-                        </label>
-                        <div class="relative">
-                            <span class="absolute left-4 top-3 text-gray-500">$</span>
-                            <input id="f-rentalData-depositAmount" type="number" v-model="rentalData.depositAmount" step="0.01"
-                                class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                placeholder="0.00" />
-                        </div>
-                    </div>
-
-                    <div v-if="rentalData.insuranceType === 'insurance'">
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            Archivo de póliza de seguro
-                        </label>
-                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6">
-                            <input type="file" @change="handleInsuranceFileUpload" accept=".pdf,.doc,.docx"
-                                class="hidden" id="insurance-file-upload" />
-                            <label for="insurance-file-upload" class="cursor-pointer block text-center">
-                                <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-                                    </path>
-                                </svg>
-                                <p class="text-sm text-gray-600">Hacé clic para subir la póliza</p>
-                                <p class="text-xs text-gray-500 mt-1">PDF, DOC o DOCX (máx. 10MB)</p>
-                            </label>
-                        </div>
-                        <div v-if="rentalData.insuranceFile"
-                            class="mt-4 p-4 bg-gray-50 rounded-lg flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <svg class="w-8 h-8 text-accent" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd"
-                                        d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
-                                        clip-rule="evenodd"></path>
-                                </svg>
-                                <div>
-                                    <p class="text-sm font-semibold text-gray-800">{{ rentalData.insuranceFile.name }}
-                                    </p>
-                                    <p class="text-xs text-gray-500">{{ (rentalData.insuranceFile.size /
-                                        1024).toFixed(2) }} KB</p>
-                                </div>
-                            </div>
-                            <button @click="removeInsuranceFile" type="button"
-                                class="text-red-500 hover:text-red-700 transition">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd"
-                                        d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                                        clip-rule="evenodd"></path>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">
-                            Precios de alquiler *
-                        </label>
-                        <p class="text-xs text-gray-500 mb-3">Completá al menos una opción de precio</p>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label for="f-rentalData-priceDay" class="block text-xs text-gray-600 mb-1">Por día</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-2 text-gray-500 text-sm">$</span>
-                                    <input id="f-rentalData-priceDay" type="number" v-model="rentalData.priceDay" step="0.01"
-                                        class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                        placeholder="0.00" />
-                                </div>
-                            </div>
-                            <div>
-                                <label for="f-rentalData-priceWeek" class="block text-xs text-gray-600 mb-1">Por semana</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-2 text-gray-500 text-sm">$</span>
-                                    <input id="f-rentalData-priceWeek" type="number" v-model="rentalData.priceWeek" step="0.01"
-                                        class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                        placeholder="0.00" />
-                                </div>
-                            </div>
-                            <div>
-                                <label for="f-rentalData-priceMonth" class="block text-xs text-gray-600 mb-1">Por mes</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-2 text-gray-500 text-sm">$</span>
-                                    <input id="f-rentalData-priceMonth" type="number" v-model="rentalData.priceMonth" step="0.01"
-                                        class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition"
-                                        placeholder="0.00" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-
-
-
+                    <p v-else-if="selectedShippingMethod" class="field-hint">
+                        Podés editar o pausar tus métodos desde <RouterLink to="/seller-setup" class="font-semibold text-primary-700 hover:underline">Configurar ventas</RouterLink>.
+                    </p>
                 </div>
             </div>
 
@@ -1265,280 +471,7 @@ export default {
                 </div>
 
                 <div class="p-8">
-                    <!-- Product Preview -->
-                    <div v-if="publicationType === 'product'" class="space-y-6">
-                        <div>
-                            <h3 class="font-semibold text-gray-700 mb-2">Tipo de publicación</h3>
-                            <span class="inline-block px-4 py-2 rounded-full text-sm font-semibold text-white bg-primary">
-                                Producto
-                            </span>
-                        </div>
-
-                        <div v-if="productData.images.length > 0">
-                            <h3 class="font-semibold text-gray-700 mb-2">Imágenes</h3>
-                            <div class="grid grid-cols-4 gap-4">
-                                <img v-for="(image, index) in productData.images" :key="index" :src="image"
-                                    class="w-full h-24 object-cover rounded-lg" />
-                            </div>
-                        </div>
-
-                        <div>
-                            <h3 class="font-semibold text-gray-700 mb-2">Información básica</h3>
-                            <div class="bg-gray-50 rounded-lg p-4 space-y-2">
-                                <p><span class="font-semibold">Nombre:</span> {{ productData.name }}</p>
-                                <p v-if="productData.brand"><span class="font-semibold">Marca:</span> {{
-                                    productData.brand }}</p>
-                                <p><span class="font-semibold">Descripción:</span> {{ productData.description }}</p>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h3 class="font-semibold text-gray-700 mb-2">Precio y stock</h3>
-                            <div class="bg-gray-50 rounded-lg p-4 space-y-2">
-                                <p><span class="font-semibold">Precio:</span> ${{ formatPrice(productData.price) }} por
-                                    {{ productData.unit }}</p>
-                                <p><span class="font-semibold">Stock:</span> {{ productData.stock }} unidades</p>
-                                <p v-if="productData.sku"><span class="font-semibold">SKU:</span> {{ productData.sku }}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div v-if="productData.location">
-                            <h3 class="font-semibold text-gray-700 mb-2">Ubicación</h3>
-                            <p class="bg-gray-50 rounded-lg p-4">{{ productData.location }}</p>
-                        </div>
-                    </div>
-
-                    <!-- Prosthesis Preview -->
-                    <div v-if="serviceType === 'prosthesis'" class="space-y-6">
-                        <div>
-                            <h3 class="font-semibold text-gray-700 mb-2">Tipo de publicación</h3>
-                            <span class="inline-block px-4 py-2 rounded-full text-sm font-semibold text-white bg-primary">
-                                Servicio: Prótesis
-                            </span>
-                        </div>
-
-                        <div v-if="prosthesisData.images.length > 0">
-                            <h3 class="font-semibold text-gray-700 mb-2">Imagen</h3>
-                            <div class="grid grid-cols-4 gap-4">
-                                <img v-for="(image, index) in prosthesisData.images" :key="index" :src="image"
-                                    class="w-full h-24 object-cover rounded-lg" />
-                            </div>
-                        </div>
-
-                        <div>
-                            <h3 class="font-semibold text-gray-700 mb-2">Información del servicio</h3>
-                            <div class="bg-gray-50 rounded-lg p-4 space-y-2">
-                                <p><span class="font-semibold">Nombre:</span> {{ prosthesisData.name }}</p>
-                                <p><span class="font-semibold">Material:</span> {{ prosthesisData.material }}</p>
-                                <p><span class="font-semibold">Descripción:</span> {{ prosthesisData.description }}</p>
-                                <p v-if="prosthesisData.deliveryTime"><span class="font-semibold">Días de
-                                        fabricación:</span> {{ prosthesisData.deliveryTime }} días</p>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h3 class="font-semibold text-gray-700 mb-3">Matriz de precios</h3>
-                            <div class="overflow-x-auto">
-                                <table class="w-full border-collapse border border-gray-300">
-                                    <thead>
-                                        <tr class="bg-primary-50">
-                                            <th class="border border-gray-300 px-4 py-2 text-left font-semibold text-primary">Tipo de trabajo</th>
-                                            <th class="border border-gray-300 px-4 py-2 text-center font-semibold text-primary">Anterior</th>
-                                            <th class="border border-gray-300 px-4 py-2 text-center font-semibold text-primary">Premolar</th>
-                                            <th class="border border-gray-300 px-4 py-2 text-center font-semibold text-primary">Molar</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td class="border border-gray-300 px-4 py-2 font-semibold">Corona total</td>
-                                            <td class="border border-gray-300 px-4 py-2 text-center">
-                                                {{ prosthesisData.pricingMatrix.corona_total.anterior ? '$' +
-                                                    formatPrice(prosthesisData.pricingMatrix.corona_total.anterior) : '-' }}
-                                            </td>
-                                            <td class="border border-gray-300 px-4 py-2 text-center">
-                                                {{ prosthesisData.pricingMatrix.corona_total.premolar ? '$' +
-                                                    formatPrice(prosthesisData.pricingMatrix.corona_total.premolar) : '-' }}
-                                            </td>
-                                            <td class="border border-gray-300 px-4 py-2 text-center">
-                                                {{ prosthesisData.pricingMatrix.corona_total.molar ? '$' +
-                                                    formatPrice(prosthesisData.pricingMatrix.corona_total.molar) : '-' }}
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td class="border border-gray-300 px-4 py-2 font-semibold">Carilla</td>
-                                            <td class="border border-gray-300 px-4 py-2 text-center">
-                                                {{ prosthesisData.pricingMatrix.carilla.anterior ? '$' +
-                                                    formatPrice(prosthesisData.pricingMatrix.carilla.anterior) : '-' }}
-                                            </td>
-                                            <td class="border border-gray-300 px-4 py-2 text-center">
-                                                {{ prosthesisData.pricingMatrix.carilla.premolar ? '$' +
-                                                    formatPrice(prosthesisData.pricingMatrix.carilla.premolar) : '-' }}
-                                            </td>
-                                            <td class="border border-gray-300 px-4 py-2 text-center">
-                                                {{ prosthesisData.pricingMatrix.carilla.molar ? '$' +
-                                                    formatPrice(prosthesisData.pricingMatrix.carilla.molar) : '-' }}
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td class="border border-gray-300 px-4 py-2 font-semibold">Incrustación</td>
-                                            <td class="border border-gray-300 px-4 py-2 text-center">
-                                                {{ prosthesisData.pricingMatrix.incrustacion.anterior ? '$' +
-                                                    formatPrice(prosthesisData.pricingMatrix.incrustacion.anterior) : '-' }}
-                                            </td>
-                                            <td class="border border-gray-300 px-4 py-2 text-center">
-                                                {{ prosthesisData.pricingMatrix.incrustacion.premolar ? '$' +
-                                                    formatPrice(prosthesisData.pricingMatrix.incrustacion.premolar) : '-' }}
-                                            </td>
-                                            <td class="border border-gray-300 px-4 py-2 text-center">
-                                                {{ prosthesisData.pricingMatrix.incrustacion.molar ? '$' +
-                                                    formatPrice(prosthesisData.pricingMatrix.incrustacion.molar) : '-' }}
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td class="border border-gray-300 px-4 py-2 font-semibold">Puente</td>
-                                            <td class="border border-gray-300 px-4 py-2 text-center">
-                                                {{ prosthesisData.pricingMatrix.puente.anterior ? '$' +
-                                                    formatPrice(prosthesisData.pricingMatrix.puente.anterior) : '-' }}
-                                            </td>
-                                            <td class="border border-gray-300 px-4 py-2 text-center">
-                                                {{ prosthesisData.pricingMatrix.puente.premolar ? '$' +
-                                                    formatPrice(prosthesisData.pricingMatrix.puente.premolar) : '-' }}
-                                            </td>
-                                            <td class="border border-gray-300 px-4 py-2 text-center">
-                                                {{ prosthesisData.pricingMatrix.puente.molar ? '$' +
-                                                    formatPrice(prosthesisData.pricingMatrix.puente.molar) : '-' }}
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <div v-if="prosthesisData.location">
-                            <h3 class="font-semibold text-gray-700 mb-2">Ubicación</h3>
-                            <p class="bg-gray-50 rounded-lg p-4">{{ prosthesisData.location }}</p>
-                        </div>
-                    </div>
-
-                    <!-- Plaster Preview -->
-                    <div v-if="serviceType === 'plaster'" class="space-y-6">
-                        <div>
-                            <h3 class="font-semibold text-gray-700 mb-2">Tipo de publicación</h3>
-                            <span class="inline-block px-4 py-2 rounded-full text-sm font-semibold text-white bg-secondary">
-                                Servicio: Modelado en Yeso
-                            </span>
-                        </div>
-
-                        <div v-if="plasterData.images.length > 0">
-                            <h3 class="font-semibold text-gray-700 mb-2">Imagen</h3>
-                            <div class="grid grid-cols-4 gap-4">
-                                <img v-for="(image, index) in plasterData.images" :key="index" :src="image"
-                                    class="w-full h-24 object-cover rounded-lg" />
-                            </div>
-                        </div>
-
-                        <div>
-                            <h3 class="font-semibold text-gray-700 mb-2">Información del servicio</h3>
-                            <div class="bg-gray-50 rounded-lg p-4 space-y-2">
-                                <p><span class="font-semibold">Nombre:</span> {{ plasterData.name }}</p>
-                                <p><span class="font-semibold">Descripción:</span> {{ plasterData.description }}</p>
-                                <p><span class="font-semibold">Precio:</span> ${{ formatPrice(plasterData.basePrice) }}
-                                </p>
-                                <p v-if="plasterData.deliveryTime"><span class="font-semibold">Días de
-                                        fabricación:</span> {{ plasterData.deliveryTime }} días</p>
-                            </div>
-                        </div>
-
-                        <div v-if="plasterData.location">
-                            <h3 class="font-semibold text-gray-700 mb-2">Ubicación</h3>
-                            <p class="bg-gray-50 rounded-lg p-4">{{ plasterData.location }}</p>
-                        </div>
-                    </div>
-
-                    <!-- Rental Preview -->
-                    <div v-if="serviceType === 'rental'" class="space-y-6">
-                        <div>
-                            <h3 class="font-semibold text-gray-700 mb-2">Tipo de publicación</h3>
-                            <span class="inline-block px-4 py-2 rounded-full text-sm font-semibold text-white bg-accent">
-                                Servicio: Alquiler de Equipos
-                            </span>
-                        </div>
-
-                        <div v-if="rentalData.images.length > 0">
-                            <h3 class="font-semibold text-gray-700 mb-2">Imágenes</h3>
-                            <div class="grid grid-cols-4 gap-4">
-                                <img v-for="(image, index) in rentalData.images" :key="index" :src="image"
-                                    class="w-full h-24 object-cover rounded-lg" />
-                            </div>
-                        </div>
-
-                        <div>
-                            <h3 class="font-semibold text-gray-700 mb-2">Información del equipo</h3>
-                            <div class="bg-gray-50 rounded-lg p-4 space-y-2">
-                                <p><span class="font-semibold">Nombre:</span> {{ rentalData.name }}</p>
-                                <p><span class="font-semibold">Descripción:</span> {{ rentalData.description }}</p>
-                                <p><span class="font-semibold">Stock disponible:</span> {{ rentalData.stock }} unidades
-                                </p>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h3 class="font-semibold text-gray-700 mb-2">Precios de alquiler</h3>
-                            <div class="bg-gray-50 rounded-lg p-4">
-                                <div class="grid gap-4 text-center" :class="{
-                                    'grid-cols-1': [rentalData.priceDay, rentalData.priceWeek, rentalData.priceMonth].filter(Boolean).length === 1,
-                                    'grid-cols-2': [rentalData.priceDay, rentalData.priceWeek, rentalData.priceMonth].filter(Boolean).length === 2,
-                                    'grid-cols-3': [rentalData.priceDay, rentalData.priceWeek, rentalData.priceMonth].filter(Boolean).length === 3
-                                }">
-                                    <div v-if="rentalData.priceDay">
-                                        <p class="text-xs text-gray-600 mb-1">Por día</p>
-                                        <p class="text-lg font-bold text-accent">${{
-                                            formatPrice(rentalData.priceDay) }}</p>
-                                    </div>
-                                    <div v-if="rentalData.priceWeek">
-                                        <p class="text-xs text-gray-600 mb-1">Por semana</p>
-                                        <p class="text-lg font-bold text-accent">${{
-                                            formatPrice(rentalData.priceWeek) }}</p>
-                                    </div>
-                                    <div v-if="rentalData.priceMonth">
-                                        <p class="text-xs text-gray-600 mb-1">Por mes</p>
-                                        <p class="text-lg font-bold text-accent">${{
-                                            formatPrice(rentalData.priceMonth) }}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h3 class="font-semibold text-gray-700 mb-2">Garantía</h3>
-                            <div class="bg-gray-50 rounded-lg p-4 space-y-2">
-                                <p v-if="rentalData.insuranceType === 'deposit'">
-                                    <span class="font-semibold">Depósito en garantía:</span> ${{
-                                    formatPrice(rentalData.depositAmount) }}
-                                </p>
-                                <div v-else>
-                                    <p class="mb-2"><span class="font-semibold">Tipo:</span> Seguro contra daños</p>
-                                    <div v-if="rentalData.insuranceFile" class="flex items-center gap-2 text-sm">
-                                        <svg class="w-5 h-5 text-accent" fill="currentColor"
-                                            viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd"
-                                                d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
-                                                clip-rule="evenodd"></path>
-                                        </svg>
-                                        <span>{{ rentalData.insuranceFile.name }}</span>
-                                        <span class="text-gray-500">({{ (rentalData.insuranceFile.size /
-                                            1024).toFixed(2) }} KB)</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div v-if="rentalData.location">
-                            <h3 class="font-semibold text-gray-700 mb-2">Ubicación</h3>
-                            <p class="bg-gray-50 rounded-lg p-4">{{ rentalData.location }}</p>
-                        </div>
-                    </div>
+                    <ListingPreview :type="formType" :form="currentForm" />
                 </div>
 
                 <!-- Preview Navigation -->
@@ -1585,9 +518,9 @@ export default {
                     <RouterLink to="/mi-perfil/editar" class="font-semibold text-primary-700 underline">Completá tu perfil</RouterLink>
                 </p>
             </div>
-        
-        <ShippingMethodModal v-if="shippingModal" :method="shippingModal.method"
-            @saved="onShippingSaved" @close="shippingModal = null" />
-</div>
+
+            <ShippingMethodModal v-if="shippingModal" :method="shippingModal.method"
+                @saved="onShippingSaved" @close="shippingModal = null" />
+        </div>
     </section>
 </template>
