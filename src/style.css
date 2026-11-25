@@ -48,6 +48,18 @@
   --color-surface-alt: #F9FCFE;
 
   --color-footer: #148F75;
+
+  /* Fondos suaves de la portada */
+  --color-secondary-wash: #E8F9F5;
+  --color-accent-wash: #FBF5F2;
+  --color-accent-blush: #EBD0C7;
+  --color-paper: #FAFAF7;
+  --color-pastel-green-100: #D4EAD0;
+  --color-pastel-green-200: #C8E4C3;
+  --color-pastel-blue-100: #D4E9F4;
+  --color-pastel-blue-200: #C3DEF0;
+
+  --shadow-card-hover: 0 12px 28px -12px rgba(18, 45, 70, 0.3);
 }
 
 @layer base {
