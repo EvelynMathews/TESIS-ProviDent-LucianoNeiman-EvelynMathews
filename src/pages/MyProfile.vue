@@ -15,9 +15,10 @@ import { isCurrentUserSeller, hasPaymentAccount } from '../services/sellers'
 import { supabase } from '../services/supabase'
 import { listMyProducts, listProvinces } from '../services/products'
 import { getUserProfileById } from '../services/user-profiles'
-import { listMyAddresses, saveAddress, deleteAddress, setPrimaryAddress, listMyOrders } from '../services/addresses'
+import { listMyAddresses, deleteAddress, setPrimaryAddress, listMyOrders } from '../services/addresses'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
+import AddressForm from '../components/AddressForm.vue'
 import { formatPrice, formatDate } from '../services/format'
 
 const EMPTY_ADDRESS = { id: null, recipient_name: '', street: '', city: '', province_id: '', postal_code: '', is_primary: false }
@@ -37,7 +38,8 @@ export default {
     name: 'MyProfile',
     components: {
         LoadingSpinner,
-        ConfirmModal
+        ConfirmModal,
+        AddressForm
     },
     data() {
         return {
@@ -56,8 +58,6 @@ export default {
             addressToDelete: null,
             showAddressEdit: false,
             editingAddress: { ...EMPTY_ADDRESS },
-            addressError: '',
-            addressSaving: false,
             addressNotice: '',
         }
     },
@@ -155,37 +155,21 @@ export default {
         },
         // --- Domicilios ---
         openAddressForm(address = null) {
-            this.addressError = ''
             this.editingAddress = address
                 ? { ...EMPTY_ADDRESS, ...address }
                 : { ...EMPTY_ADDRESS, is_primary: this.addresses.length === 0, recipient_name: `${this.userProfile?.name || ''} ${this.userProfile?.lastName || ''}`.trim() }
             this.showAddressEdit = true
             this._lastFocus = document.activeElement
-            this.$nextTick(() => this.$refs.firstAddressField?.focus())
         },
         closeAddressForm() {
             this.showAddressEdit = false
             this.$nextTick(() => this._lastFocus?.focus?.())
         },
-        async submitAddress() {
-            const a = this.editingAddress
-            if (!a.street.trim() || !a.city.trim() || !a.province_id) {
-                this.addressError = 'Completá calle, ciudad y provincia.'
-                return
-            }
-            this.addressSaving = true
-            this.addressError = ''
-            try {
-                await saveAddress(a)
-                await this.loadAddresses()
-                this.addressNotice = a.id ? 'Domicilio actualizado.' : 'Domicilio agregado.'
-                this.closeAddressForm()
-            } catch (e) {
-                console.error('Error saving address:', e)
-                this.addressError = 'No pudimos guardar el domicilio. Intentá de nuevo.'
-            } finally {
-                this.addressSaving = false
-            }
+        async onAddressSaved() {
+            const isEdit = !!this.editingAddress.id
+            await this.loadAddresses()
+            this.addressNotice = isEdit ? 'Domicilio actualizado.' : 'Domicilio agregado.'
+            this.closeAddressForm()
         },
         async removeAddress() {
             const address = this.addressToDelete
@@ -442,52 +426,12 @@ export default {
 
         <!-- Formulario de domicilio -->
         <div v-if="showAddressEdit" class="fixed inset-0 bg-gray-900/50 flex items-end sm:items-center justify-center z-50 sm:p-4" @click.self="closeAddressForm">
-            <form role="dialog" aria-modal="true" aria-labelledby="address-dialog-title" @submit.prevent="submitAddress"
+            <div role="dialog" aria-modal="true" aria-labelledby="address-dialog-title"
                 class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg p-6 max-h-[90dvh] overflow-y-auto">
                 <h2 id="address-dialog-title" class="text-xl font-bold text-gray-800 mb-4">{{ editingAddress.id ? 'Editar domicilio' : 'Nuevo domicilio' }}</h2>
-                <div class="space-y-4">
-                    <div>
-                        <label for="addr-recipient" class="field-label">Quién recibe</label>
-                        <input id="addr-recipient" ref="firstAddressField" v-model="editingAddress.recipient_name" type="text" autocomplete="name" class="field-input" />
-                    </div>
-                    <div>
-                        <label for="addr-street" class="field-label">Calle y número</label>
-                        <input id="addr-street" v-model="editingAddress.street" type="text" autocomplete="street-address" required class="field-input" placeholder="Ej: Av. Santa Fe 1234, piso 3" />
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label for="addr-city" class="field-label">Ciudad</label>
-                            <input id="addr-city" v-model="editingAddress.city" type="text" autocomplete="address-level2" required class="field-input" />
-                        </div>
-                        <div>
-                            <label for="addr-zip" class="field-label">Código postal</label>
-                            <input id="addr-zip" v-model="editingAddress.postal_code" type="text" autocomplete="postal-code" class="field-input" />
-                        </div>
-                    </div>
-                    <div>
-                        <label for="addr-province" class="field-label">Provincia</label>
-                        <select id="addr-province" v-model="editingAddress.province_id" required class="field-input">
-                            <option value="" disabled>Elegí una provincia</option>
-                            <option v-for="p in provinces" :key="p.id" :value="p.id">{{ p.name }}</option>
-                        </select>
-                    </div>
-                    <label class="flex items-center gap-3 text-sm text-gray-800">
-                        <input type="checkbox" v-model="editingAddress.is_primary" class="w-5 h-5 rounded border-gray-300 text-primary" />
-                        Usar como domicilio principal
-                    </label>
-                    <p v-if="addressError" class="text-sm text-red-800 bg-red-50 rounded-lg px-3 py-2 m-0" role="alert">{{ addressError }}</p>
-                </div>
-                <div class="mt-6 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
-                    <button type="button" @click="closeAddressForm"
-                        class="h-11 px-5 font-semibold text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
-                        Cancelar
-                    </button>
-                    <button type="submit" :disabled="addressSaving"
-                        class="h-11 px-5 font-semibold text-white bg-primary rounded-lg hover:bg-primary-600 transition disabled:opacity-60">
-                        {{ addressSaving ? 'Guardando…' : 'Guardar domicilio' }}
-                    </button>
-                </div>
-            </form>
+                <AddressForm :address="editingAddress" :provinces="provinces" id-prefix="addr" show-primary
+                    @saved="onAddressSaved" @cancel="closeAddressForm" />
+            </div>
         </div>
 
         <ConfirmModal v-if="addressToDelete"

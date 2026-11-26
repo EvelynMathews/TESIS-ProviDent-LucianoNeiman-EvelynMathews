@@ -9,14 +9,13 @@
  * se marcan en cada producto con la acción para resolverlos.
  */
 import { getCartItems, getCartTotal, syncCartWithSupabase } from '../services/cart'
-import { listMyAddresses, saveAddress } from '../services/addresses'
+import { listMyAddresses } from '../services/addresses'
 import { listProvinces } from '../services/products'
 import { startCheckout } from '../services/checkout'
 import { subscribeToAuthStateChanges } from '../services/auth'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import AddressForm from '../components/AddressForm.vue'
 import { formatPrice, formatDate } from '../services/format'
-
-const EMPTY_ADDRESS = { recipient_name: '', street: '', city: '', province_id: '', postal_code: '', is_primary: false }
 
 const TYPE_LABELS = {
     SUPPLY: 'Insumo',
@@ -27,7 +26,7 @@ const TYPE_LABELS = {
 
 export default {
     name: 'Checkout',
-    components: { LoadingSpinner },
+    components: { LoadingSpinner, AddressForm },
     data() {
         return {
             loading: true,
@@ -36,9 +35,6 @@ export default {
             provinces: [],
             selectedAddressId: null,
             showAddressForm: false,
-            newAddress: { ...EMPTY_ADDRESS },
-            addressError: '',
-            savingAddress: false,
             paying: false,
             payError: '',
             problems: [],
@@ -46,6 +42,9 @@ export default {
         }
     },
     computed: {
+        newAddressDefaults() {
+            return { is_primary: this.addresses.length === 0 }
+        },
         cartItems() {
             return getCartItems().value
         },
@@ -114,34 +113,15 @@ export default {
             }
         },
         openAddressForm() {
-            this.newAddress = { ...EMPTY_ADDRESS, is_primary: this.addresses.length === 0 }
-            this.addressError = ''
             this.showAddressForm = true
-            this.$nextTick(() => this.$refs.firstAddressField?.focus())
         },
         cancelAddressForm() {
             this.showAddressForm = false
-            this.addressError = ''
         },
-        async submitAddress() {
-            const a = this.newAddress
-            if (!a.street.trim() || !a.city.trim() || !a.province_id) {
-                this.addressError = 'Completá calle y número, ciudad y provincia.'
-                return
-            }
-            this.savingAddress = true
-            this.addressError = ''
-            try {
-                const id = await saveAddress(a)
-                this.addresses = await listMyAddresses()
-                this.selectedAddressId = id
-                this.showAddressForm = false
-            } catch (e) {
-                console.error('Error guardando domicilio', e)
-                this.addressError = 'No pudimos guardar el domicilio. Intentá de nuevo.'
-            } finally {
-                this.savingAddress = false
-            }
+        async onAddressSaved(id) {
+            this.addresses = await listMyAddresses()
+            this.selectedAddressId = id
+            this.showAddressForm = false
         },
         async pay() {
             if (!this.canPay) return
@@ -240,45 +220,12 @@ export default {
                             </div>
                         </fieldset>
 
-                        <form v-if="showAddressForm" @submit.prevent="submitAddress" class="space-y-4" novalidate>
-                            <p v-if="!addresses.length" class="text-gray-600 m-0">Cargá el domicilio donde querés recibir tu pedido. Queda guardado en tu perfil.</p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="sm:col-span-2">
-                                    <label for="co-street" class="field-label">Calle y número</label>
-                                    <input id="co-street" ref="firstAddressField" v-model="newAddress.street" type="text" autocomplete="street-address" class="field-input" placeholder="Ej: Av. Santa Fe 1234, piso 3" />
-                                </div>
-                                <div>
-                                    <label for="co-city" class="field-label">Ciudad</label>
-                                    <input id="co-city" v-model="newAddress.city" type="text" autocomplete="address-level2" class="field-input" />
-                                </div>
-                                <div>
-                                    <label for="co-province" class="field-label">Provincia</label>
-                                    <select id="co-province" v-model="newAddress.province_id" class="field-input">
-                                        <option value="" disabled>Elegí una provincia</option>
-                                        <option v-for="p in provinces" :key="p.id" :value="p.id">{{ p.name }}</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="co-zip" class="field-label">Código postal</label>
-                                    <input id="co-zip" v-model="newAddress.postal_code" type="text" inputmode="numeric" autocomplete="postal-code" class="field-input" />
-                                </div>
-                                <div>
-                                    <label for="co-recipient" class="field-label">Quién recibe <span class="font-normal text-gray-600">(opcional)</span></label>
-                                    <input id="co-recipient" v-model="newAddress.recipient_name" type="text" autocomplete="name" class="field-input" />
-                                </div>
-                            </div>
-                            <p v-if="addressError" class="text-sm text-red-800 bg-red-50 rounded-lg px-3 py-2 m-0" role="alert">{{ addressError }}</p>
-                            <div class="flex flex-col-reverse sm:flex-row gap-3">
-                                <button v-if="addresses.length" type="button" @click="cancelAddressForm"
-                                    class="h-11 px-5 font-semibold text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
-                                    Cancelar
-                                </button>
-                                <button type="submit" :disabled="savingAddress"
-                                    class="h-11 px-5 font-semibold text-white bg-primary rounded-lg hover:bg-primary-600 transition disabled:opacity-60">
-                                    {{ savingAddress ? 'Guardando…' : 'Usar este domicilio' }}
-                                </button>
-                            </div>
-                        </form>
+                        <div v-if="showAddressForm">
+                            <p v-if="!addresses.length" class="text-gray-600 mb-4">Cargá el domicilio donde querés recibir tu pedido. Queda guardado en tu perfil.</p>
+                            <AddressForm :address="newAddressDefaults" :provinces="provinces" id-prefix="co"
+                                submit-text="Usar este domicilio" :can-cancel="addresses.length > 0"
+                                @saved="onAddressSaved" @cancel="cancelAddressForm" />
+                        </div>
 
                         <p class="mt-4 mb-0 flex items-start gap-2 text-sm text-gray-700 bg-secondary-50 rounded-lg px-3 py-2.5">
                             <svg class="w-5 h-5 flex-shrink-0 text-secondary-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
