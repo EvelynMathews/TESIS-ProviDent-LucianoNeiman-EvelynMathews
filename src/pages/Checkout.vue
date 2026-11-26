@@ -14,6 +14,7 @@ import { listProvinces } from '../services/products'
 import { startCheckout } from '../services/checkout'
 import { subscribeToAuthStateChanges } from '../services/auth'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import { formatPrice, formatDate } from '../services/format'
 
 const EMPTY_ADDRESS = { recipient_name: '', street: '', city: '', province_id: '', postal_code: '', is_primary: false }
 
@@ -83,14 +84,8 @@ export default {
         }
     },
     methods: {
-        formatPrice(price) {
-            return new Intl.NumberFormat('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(price || 0)
-        },
-        formatDate(value) {
-            if (!value) return ''
-            const d = new Date(`${value}T00:00:00`)
-            return isNaN(d) ? value : d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
-        },
+        formatPrice,
+        formatDate,
         typeLabel(type) {
             return TYPE_LABELS[type] || ''
         },

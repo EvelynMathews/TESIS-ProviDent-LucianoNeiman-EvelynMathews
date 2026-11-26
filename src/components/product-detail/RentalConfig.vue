@@ -1,6 +1,6 @@
 <script>
 import { checkRentalAvailability } from '../../services/rental-availability'
-import { formatPrice } from './format'
+import { formatPrice } from '../../services/format'
 
 const HOURS = Array.from({ length: 15 }, (_, i) => `${String(i + 8).padStart(2, '0')}:00`)
 

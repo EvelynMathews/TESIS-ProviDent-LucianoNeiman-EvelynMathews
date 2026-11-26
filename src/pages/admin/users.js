@@ -14,6 +14,7 @@ import { supabase } from '../../services/supabase'
 import { listUsers, setUserActive } from '../../services/admin'
 import { showToast } from '../../services/toast'
 import AdminLayout from '../../components/admin/AdminLayout.vue'
+import { formatDate } from '../../services/format'
 
 export default {
     name: 'AdminUsers',
@@ -58,6 +59,7 @@ export default {
         }
     },
     methods: {
+        formatDate,
         isProtected(user) {
             return user.roles.includes('ADMIN')
         },
@@ -92,13 +94,6 @@ export default {
                 this.userToToggle = null
             }
         },
-        formatDate(dateString) {
-            return new Date(dateString).toLocaleDateString('es-AR', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            })
-        }
     },
     async mounted() {
         const { data } = await supabase.auth.getUser()

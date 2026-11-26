@@ -9,6 +9,7 @@
  * la provincia completa (código postal 0000 a 9999).
  */
 import { supabase } from './supabase'
+import { formatMoney } from './format'
 
 const WHOLE_PROVINCE = { postal_code_min: '0000', postal_code_max: '9999' }
 
@@ -163,7 +164,7 @@ export async function deleteShippingMethod(id) {
 export function formatShippingPrice(price) {
   if (price === null || price === undefined) return 'Sin precio'
   if (Number(price) === 0) return 'Gratis'
-  return `$${new Intl.NumberFormat('es-AR').format(price)}`
+  return formatMoney(price)
 }
 
 export function shippingSummary(method) {

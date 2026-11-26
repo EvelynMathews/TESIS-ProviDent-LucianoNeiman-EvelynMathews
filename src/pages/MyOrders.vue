@@ -3,8 +3,9 @@
  * Propósito: Listado de todas las compras del usuario, con acceso al detalle de cada una.
  * Cómo funciona: `listMyPurchases` trae los pedidos del comprador (oculta checkouts abandonados).
  */
-import { listMyPurchases, ORDER_STATUS_LABELS, formatMoney, formatDate, shortOrderId } from '../services/sales'
+import { listMyPurchases, ORDER_STATUS_LABELS, shortOrderId } from '../services/sales'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import { formatMoney, formatDate } from '../services/format'
 
 export default {
     name: 'MyOrders',

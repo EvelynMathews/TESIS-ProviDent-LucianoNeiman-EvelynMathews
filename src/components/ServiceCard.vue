@@ -77,6 +77,7 @@
  * Tarjeta de servicio (prótesis, modelado en yeso, alquiler) para la home.
  * Toda la tarjeta lleva al detalle, donde se configura el pedido.
  */
+import { formatPrice } from '../services/format'
 export default {
     name: 'ServiceCard',
     props: {
@@ -120,9 +121,7 @@ export default {
         }
     },
     methods: {
-        formatPrice(price) {
-            return new Intl.NumberFormat('es-AR').format(price || 0)
-        }
+        formatPrice
     }
 }
 </script>

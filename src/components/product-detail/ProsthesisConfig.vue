@@ -1,6 +1,6 @@
 <script>
 import ProsthesisMatrixTable from './ProsthesisMatrixTable.vue'
-import { formatPrice } from './format'
+import { formatPrice } from '../../services/format'
 
 // Variants: A = 'default' (work type + list of teeth), B = 'matrix' (one table), C = 'matrix4' (one table per quadrant)
 export default {

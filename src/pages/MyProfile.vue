@@ -18,6 +18,7 @@ import { getUserProfileById } from '../services/user-profiles'
 import { listMyAddresses, saveAddress, deleteAddress, setPrimaryAddress, listMyOrders } from '../services/addresses'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
+import { formatPrice, formatDate } from '../services/format'
 
 const EMPTY_ADDRESS = { id: null, recipient_name: '', street: '', city: '', province_id: '', postal_code: '', is_primary: false }
 
@@ -67,6 +68,8 @@ export default {
         }
     },
     methods: {
+        formatPrice,
+        formatDate,
         async handleLogout() {
             await logout()
             this.$router.push('/')
@@ -125,12 +128,6 @@ export default {
                 this.addresses = []
                 this.addressesError = 'No pudimos cargar tus domicilios.'
             }
-        },
-        formatPrice(price) {
-            return new Intl.NumberFormat('es-AR').format(price || 0)
-        },
-        formatDate(value) {
-            return value ? new Date(value).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
         },
         orderStatus(status) {
             return ORDER_STATUS[status] || { label: status, cls: 'bg-gray-100 text-gray-700' }

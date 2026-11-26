@@ -4,6 +4,7 @@
  * Muestra los artículos, permite quitarlos y lleva al carrito completo.
  */
 import { getCartItems, getCartTotal, removeFromCart } from '../services/cart'
+import { formatPrice } from '../services/format'
 
 export default {
     name: 'MiniCart',
@@ -26,9 +27,7 @@ export default {
         }
     },
     methods: {
-        formatPrice(price) {
-            return new Intl.NumberFormat('es-AR').format(price || 0)
-        },
+        formatPrice,
         async removeItem(itemId) {
             this.removingId = itemId
             try {

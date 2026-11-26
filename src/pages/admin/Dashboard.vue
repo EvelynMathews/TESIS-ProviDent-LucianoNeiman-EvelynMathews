@@ -93,7 +93,7 @@
                                     {{ product.is_active ? 'Activo' : 'Inactivo' }}
                                 </span>
                             </td>
-                            <td>{{ formatDate(product.created_at) }}</td>
+                            <td>{{ formatDateTime(product.created_at) }}</td>
                         </tr>
                     </tbody>
                 </table>

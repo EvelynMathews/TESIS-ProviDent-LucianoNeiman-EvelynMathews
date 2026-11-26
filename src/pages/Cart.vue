@@ -15,6 +15,7 @@ import { showToast } from '../services/toast'
 import { getPendingOrder } from '../services/checkout'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
+import { formatPrice, formatDate } from '../services/format'
 
 const TYPE_LABELS = {
     SUPPLY: 'Insumo',
@@ -53,14 +54,8 @@ export default {
         }
     },
     methods: {
-        formatPrice(price) {
-            return new Intl.NumberFormat('es-AR').format(price || 0)
-        },
-        formatDate(value) {
-            if (!value) return ''
-            const d = new Date(`${value}T00:00:00`)
-            return isNaN(d) ? value : d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
-        },
+        formatPrice,
+        formatDate,
         typeLabel(type) {
             return TYPE_LABELS[type] || ''
         },

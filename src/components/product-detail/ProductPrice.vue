@@ -1,5 +1,5 @@
 <script>
-import { formatPrice } from './format'
+import { formatPrice } from '../../services/format'
 
 export default {
   name: 'ProductPrice',

@@ -9,6 +9,7 @@ import { listMyProducts, updateProduct, deleteProductById } from '../services/pr
 import { clearCache } from '../services/cache'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
+import { formatPrice } from '../services/format'
 
 const TYPE_LABELS = {
   SUPPLY: 'Insumo',
@@ -41,11 +42,10 @@ export default {
       return TYPE_LABELS[type] || ''
     },
     price(p) {
-      const fmt = n => new Intl.NumberFormat('es-AR').format(n || 0)
       if (p.product_type === 'PROSTHESIS') return 'Precio según trabajo'
-      if (p.product_type === 'RENTAL') return `$${fmt(p.price_day)} /día`
-      if (p.product_type === 'PLASTER_SERVICE') return `$${fmt(p.price)} precio base`
-      return `$${fmt(p.price)} por ${p.unit || 'unidad'}`
+      if (p.product_type === 'RENTAL') return `$${formatPrice(p.price_day)} /día`
+      if (p.product_type === 'PLASTER_SERVICE') return `$${formatPrice(p.price)} precio base`
+      return `$${formatPrice(p.price)} por ${p.unit || 'unidad'}`
     },
     async load() {
       this.error = ''

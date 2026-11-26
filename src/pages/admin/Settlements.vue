@@ -8,8 +8,9 @@
  */
 import AdminLayout from '../../components/admin/AdminLayout.vue'
 import ConfirmModal from '../../components/ConfirmModal.vue'
-import { getSettlements, markPayouts, formatMoney, formatDate, shortOrderId } from '../../services/sales'
+import { getSettlements, markPayouts, shortOrderId } from '../../services/sales'
 import { showToast } from '../../services/toast'
+import { formatMoney, formatDate } from '../../services/format'
 
 export default {
     name: 'AdminSettlements',

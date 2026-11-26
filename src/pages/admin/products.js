@@ -12,6 +12,7 @@
 import { supabase } from '../../services/supabase'
 import { updateProduct, deleteProductById } from '../../services/products'
 import AdminLayout from '../../components/admin/AdminLayout.vue'
+import { formatDate } from '../../services/format'
 
 export default {
     name: 'AdminProducts',
@@ -41,6 +42,7 @@ export default {
         }
     },
     methods: {
+        formatDate,
         async loadProducts() {
             try {
                 this.loading = true
@@ -161,14 +163,6 @@ export default {
             }
             return '-'
         },
-        formatDate(dateString) {
-            const date = new Date(dateString)
-            return date.toLocaleDateString('es-AR', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            })
-        }
     },
     watch: {
         searchQuery() {

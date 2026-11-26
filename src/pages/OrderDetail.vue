@@ -5,9 +5,10 @@
  * cómo se pagó, a dónde se entrega y cómo contactar a cada vendedor para coordinar el envío.
  * Cómo funciona: `getMyOrder` (RPC `get_my_order`) devuelve el pedido solo si es del usuario logueado.
  */
-import { getMyOrder, FULFILLMENT_LABELS, ORDER_STATUS_LABELS, formatMoney, formatDate, shortOrderId } from '../services/sales'
+import { getMyOrder, FULFILLMENT_LABELS, ORDER_STATUS_LABELS, shortOrderId } from '../services/sales'
 import { getProductThumbnails } from '../services/products'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import { formatMoney, formatDate } from '../services/format'
 
 const TYPE_LABELS = { SUPPLY: 'Insumo', PROSTHESIS: 'Prótesis', PLASTER_SERVICE: 'Modelado en yeso', RENTAL: 'Alquiler' }
 

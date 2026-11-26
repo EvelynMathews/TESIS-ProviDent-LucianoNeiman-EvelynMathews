@@ -12,6 +12,7 @@ import { listAllClassifieds, saveClassified, deleteClassified } from '../../serv
 import { showToast } from '../../services/toast'
 import AdminLayout from '../../components/admin/AdminLayout.vue'
 import ClassifiedModal from '../../components/ClassifiedModal.vue'
+import { formatDate } from '../../services/format'
 
 export default {
     name: 'AdminClassifieds',
@@ -53,6 +54,7 @@ export default {
         }
     },
     methods: {
+        formatDate,
         async loadAds() {
             this.loadError = ''
             try {
@@ -90,13 +92,6 @@ export default {
                 this.adToDelete = null
             }
         },
-        formatDate(dateString) {
-            return new Date(dateString).toLocaleDateString('es-AR', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            })
-        }
     },
     mounted() {
         this.loadAds()

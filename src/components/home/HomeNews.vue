@@ -1,7 +1,7 @@
 <script>
 import LoadingSpinner from '../LoadingSpinner.vue'
 import { listPublishedNews, getNewsImageUrl } from '../../services/news'
-import { formatDate } from './format'
+import { formatLongDate } from '../../services/format'
 
 export default {
   name: 'HomeNews',
@@ -14,7 +14,7 @@ export default {
     }
   },
   methods: {
-    formatDate,
+    formatLongDate,
     async load() {
       try {
         this.loading = true
@@ -66,7 +66,7 @@ export default {
           <div class="p-4">
             <h3 class="font-heading font-semibold text-gray-800 mt-2 mb-2 line-clamp-2">{{ item.title }}</h3>
             <p class="text-sm text-gray-600 mb-3 line-clamp-2">{{ item.preview }}</p>
-            <p class="text-xs text-gray-600 m-0"><time :datetime="item.published_at">{{ formatDate(item.published_at) }}</time></p>
+            <p class="text-xs text-gray-600 m-0"><time :datetime="item.published_at">{{ formatLongDate(item.published_at) }}</time></p>
           </div>
         </RouterLink>
       </div>

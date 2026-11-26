@@ -1,5 +1,6 @@
 <script>
 import { getNewsBySlug, getNewsImageUrl } from '../services/news'
+import { formatLongDate } from '../services/format'
 
 export default {
   name: 'NewsDetail',
@@ -13,6 +14,7 @@ export default {
     }
   },
   methods: {
+    formatLongDate,
     async loadNews() {
       try {
         this.loading = true
@@ -39,14 +41,6 @@ export default {
       } finally {
         this.loading = false
       }
-    },
-    formatDate(dateString) {
-      const date = new Date(dateString)
-      return date.toLocaleDateString('es-AR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      })
     },
     formatContent(content) {
       return content
@@ -96,7 +90,7 @@ export default {
       <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         <div class="bg-white rounded-lg shadow-lg p-6 md:p-8 lg:p-12 -mt-20 relative z-10">
           <p class="text-sm text-gray-600 mb-2">
-            <time :datetime="news.published_at">{{ formatDate(news.published_at) }}</time>
+            <time :datetime="news.published_at">{{ formatLongDate(news.published_at) }}</time>
           </p>
 
           <h1 class="text-3xl md:text-4xl lg:text-5xl font-heading font-bold mb-6 text-primary">

@@ -2,6 +2,7 @@
 /**
  * Modal con el detalle de un aviso de empleo (sección Clasificados del Home).
  */
+import { formatLongDate } from '../services/format'
 export default {
     name: 'ClassifiedModal',
     props: {
@@ -15,7 +16,7 @@ export default {
             return `mailto:${this.ad.contact_email}?subject=${subject}`
         },
         publishedDate() {
-            return new Date(this.ad.published_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
+            return formatLongDate(this.ad.published_at)
         }
     },
     mounted() {

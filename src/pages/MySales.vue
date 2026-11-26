@@ -8,13 +8,14 @@
  *    Al marcar "Entregado", su parte (neto, ya descontado el 5% de comisión) queda lista para que
  *    ProviDent se la transfiera a la cuenta cargada en sus datos de cobro.
  */
-import { getSellerSales, updateFulfillment, FULFILLMENT_LABELS, formatMoney, formatDate, shortOrderId } from '../services/sales'
+import { getSellerSales, updateFulfillment, FULFILLMENT_LABELS, shortOrderId } from '../services/sales'
 import { getPayoutInfo } from '../services/sellers'
 import { getProductThumbnails } from '../services/products'
 import { showToast } from '../services/toast'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import PayoutInfoForm from '../components/PayoutInfoForm.vue'
+import { formatMoney, formatDate } from '../services/format'
 
 const TYPE_LABELS = { SUPPLY: 'Insumo', PROSTHESIS: 'Prótesis', PLASTER_SERVICE: 'Modelado en yeso', RENTAL: 'Alquiler' }
 

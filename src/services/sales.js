@@ -100,21 +100,6 @@ export async function markPayouts(splitIds, reference = '') {
     return data
 }
 
-// --- Utilidades de formato compartidas ---
-
-export function formatMoney(value) {
-    return '$' + new Intl.NumberFormat('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(value) || 0)
-}
-
-export function formatDate(value, withTime = false) {
-    if (!value) return ''
-    const d = new Date(value)
-    if (isNaN(d)) return ''
-    return d.toLocaleDateString('es-AR', withTime
-        ? { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }
-        : { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
 export function shortOrderId(id) {
     return id ? `#${String(id).slice(0, 8).toUpperCase()}` : ''
 }

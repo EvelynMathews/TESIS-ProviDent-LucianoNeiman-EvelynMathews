@@ -101,6 +101,7 @@
  * agregar al carrito directamente; prótesis, yeso y alquiler necesitan configurarse en el detalle.
  */
 import { addToCart } from '../services/cart'
+import { formatPrice } from '../services/format'
 
 const TYPE_LABELS = {
     RENTAL: 'Alquiler',
@@ -158,9 +159,7 @@ export default {
         }
     },
     methods: {
-        formatPrice(price) {
-            return new Intl.NumberFormat('es-AR').format(price || 0)
-        },
+        formatPrice,
         initials(name) {
             if (!name) return '?'
             const parts = String(name).trim().split(/\s+/)

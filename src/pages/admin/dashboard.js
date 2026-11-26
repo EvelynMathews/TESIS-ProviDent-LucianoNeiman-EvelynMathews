@@ -13,6 +13,7 @@
 
 import { supabase } from '../../services/supabase'
 import AdminLayout from '../../components/admin/AdminLayout.vue'
+import { formatDate } from '../../services/format'
 
 export default {
     name: 'AdminDashboard',
@@ -32,6 +33,9 @@ export default {
         }
     },
     methods: {
+        formatDateTime(value) {
+            return formatDate(value, true)
+        },
         async loadDashboardData() {
             try {
                 this.loading = true
@@ -65,16 +69,6 @@ export default {
             } finally {
                 this.loading = false
             }
-        },
-        formatDate(dateString) {
-            const date = new Date(dateString)
-            return date.toLocaleDateString('es-AR', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            })
         },
         getProductTypeName(type) {
             const types = {

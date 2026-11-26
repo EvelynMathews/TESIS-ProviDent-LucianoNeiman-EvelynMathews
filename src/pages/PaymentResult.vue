@@ -9,6 +9,7 @@
  */
 import { verifyPayment, getPendingOrder, clearPendingOrder } from '../services/checkout'
 import { syncCartWithSupabase } from '../services/cart'
+import { formatMoney } from '../services/format'
 
 const POLL_MS = 6000
 const MAX_POLLS = 20 // ~2 minutos
@@ -51,7 +52,7 @@ export default {
             return this.orderId ? this.orderId.slice(0, 8).toUpperCase() : ''
         },
         totalLabel() {
-            return this.result ? `$${new Intl.NumberFormat('es-AR').format(this.result.total || 0)}` : ''
+            return this.result ? formatMoney(this.result.total) : ''
         },
         rejectionReason() {
             return REJECTION_REASONS[this.result?.status_detail] || 'El medio de pago no fue aprobado.'

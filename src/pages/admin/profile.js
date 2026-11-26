@@ -13,6 +13,7 @@
 import { subscribeToAuthStateChanges, updateAuthUser, changePassword } from '../../services/auth'
 import { supabase } from '../../services/supabase'
 import AdminLayout from '../../components/admin/AdminLayout.vue'
+import { formatLongDate } from '../../services/format'
 
 export default {
     name: 'AdminProfile',
@@ -51,6 +52,9 @@ export default {
         }
     },
     methods: {
+        formatDate(date) {
+            return date ? formatLongDate(date, true) : '-'
+        },
         async loadAdminStats() {
             try {
                 const [productsRes, activeProductsRes] = await Promise.all([
@@ -116,16 +120,6 @@ export default {
                 this.loading = false
             }
         },
-        formatDate(date) {
-            if (!date) return '-'
-            return new Date(date).toLocaleDateString('es-AR', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            })
-        }
     },
     mounted() {
         subscribeToAuthStateChanges(newUserState => {
