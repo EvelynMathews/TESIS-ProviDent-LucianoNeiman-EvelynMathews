@@ -10,6 +10,8 @@
 
 import { ref } from 'vue'
 import { supabase } from './supabase'
+import { pickPrimaryImage, signedImageUrl } from './product-images'
+import { fetchOwnerNames } from './product-owners'
 
 const cartItems = ref([])
 let currentUserId = null
@@ -228,59 +230,6 @@ async function loadGuestItems() {
       products: productsById[g.product_id]
     }))
   cartItems.value = await toCartItems(rows)
-}
-
-async function fetchOwnerNames(ids) {
-  if (!ids || ids.length === 0) return {}
-  const { data, error } = await supabase
-    .from('public_user_profiles')
-    .select('id, first_name, last_name, avatar_url')
-    .in('id', Array.from(new Set(ids)))
-  if (error) return {}
-  const map = {}
-  await Promise.all((data || []).map(async (r) => {
-    const name = `${r.first_name} ${r.last_name}`.trim()
-    const avatar = await signedAvatarUrl(r.avatar_url)
-    map[r.id] = { name, avatar_url: avatar }
-  }))
-  return map
-}
-
-function pickPrimaryImage(images = []) {
-  if (!Array.isArray(images) || images.length === 0) return null
-  const primary = images.find(i => i.is_primary) || images.sort((a, b) => (a.position || 999) - (b.position || 999))[0]
-  return primary?.path || null
-}
-
-async function signedImageUrl(path) {
-  if (!path) {
-    return null
-  }
-  const { data, error } = await supabase.storage.from('product-images').createSignedUrl(path, 60 * 60)
-  if (!error && data?.signedUrl) {
-    return data.signedUrl
-  }
-  const dl = await supabase.storage.from('product-images').download(path)
-  if (!dl.error && dl.data) {
-    try {
-      const url = URL.createObjectURL(dl.data)
-      return url
-    } catch (e) {
-      console.error('signedImageUrl: Error creating object URL:', e)
-    }
-  }
-  return null
-}
-
-async function signedAvatarUrl(path) {
-  if (!path) return null
-  const { data, error } = await supabase.storage.from('avatars').createSignedUrl(path, 60 * 60)
-  if (!error && data?.signedUrl) return data.signedUrl
-  const dl = await supabase.storage.from('avatars').download(path)
-  if (!dl.error && dl.data) {
-    try { return URL.createObjectURL(dl.data) } catch {}
-  }
-  return null
 }
 
 export function getCartItems() {

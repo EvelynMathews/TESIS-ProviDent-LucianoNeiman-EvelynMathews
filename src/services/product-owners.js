@@ -12,7 +12,7 @@ async function signedAvatarUrl(path) {
 }
 
 export async function fetchOwnerNames(ids) {
-  if (ids.length === 0) return {}
+  if (!ids || ids.length === 0) return {}
   const { data, error } = await supabase
     .from('public_user_profiles')
     .select('id, first_name, last_name, avatar_url')
