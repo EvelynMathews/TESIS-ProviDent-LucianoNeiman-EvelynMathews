@@ -1,5 +1,4 @@
 <script>
-// Decorative blobs behind the home sections. `variant` picks the size and color set.
 export default {
   name: 'OrganicShapes',
   props: {

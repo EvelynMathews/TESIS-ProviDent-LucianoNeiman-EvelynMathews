@@ -118,7 +118,6 @@ export async function saveShippingMethod({ id = null, name, active = true, price
     methodId = data.id
   }
 
-  // Replace coverage: rates first (their zone_id would only be set to null), then zones
   const { error: delRatesError } = await supabase.from('shipping_rates').delete().eq('method_id', methodId)
   if (delRatesError) throw delRatesError
   const { error: delZonesError } = await supabase.from('shipping_zones').delete().eq('method_id', methodId)
@@ -150,7 +149,6 @@ export async function setShippingMethodActive(id, active) {
   if (!data?.length) throw new Error('No tenés permiso para modificar este método.')
 }
 
-// Zones, rates and the links with products are removed by ON DELETE CASCADE
 export async function deleteShippingMethod(id) {
   const { data, error } = await supabase
     .from('shipping_methods')

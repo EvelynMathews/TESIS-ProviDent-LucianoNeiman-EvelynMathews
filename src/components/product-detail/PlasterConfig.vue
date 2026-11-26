@@ -33,7 +33,6 @@ export default {
 
       return true
     },
-    // Called by the page before adding to the cart; null means invalid
     cartItem() {
       if (!this.validate()) return null
       return {

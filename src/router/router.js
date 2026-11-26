@@ -67,7 +67,6 @@ const router = createRouter({
         if (to.hash) return { el: to.hash, top: 96, behavior: 'smooth' }
         if (savedPosition) return savedPosition
         if (to.path === from.path) return false
-        // Moving between two products (e.g. related products) scrolls up smoothly
         if (to.name === from.name) return { top: 0, behavior: 'smooth' }
         return { top: 0 }
     },

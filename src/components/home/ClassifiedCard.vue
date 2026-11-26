@@ -5,7 +5,6 @@ export default {
   name: 'ClassifiedCard',
   props: {
     ad: { type: Object, required: true },
-    // { card, icon, button } classes for the color variant
     look: { type: Object, required: true }
   },
   emits: ['open'],

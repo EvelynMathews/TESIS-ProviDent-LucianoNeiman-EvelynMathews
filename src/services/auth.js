@@ -29,7 +29,6 @@ let user = { ...EMPTY_USER }
 
 let observers = []
 
-// Initialize from Supabase session and subscribe to changes
 loadCurrentUserAuthState()
 subscribeToSupabaseAuth()
 
@@ -53,7 +52,6 @@ function subscribeToSupabaseAuth() {
     }
     setUser({ id: sUser.id, email: sUser.email })
     fetchFullProfile().catch(() => {})
-    // Outside the callback: supabase-js can deadlock if it is called from inside it
     setTimeout(() => closeSessionIfDeactivated(sUser.id), 0)
   })
 }
@@ -65,7 +63,6 @@ async function isAccountActive(userId) {
   return data?.is_active !== false
 }
 
-// Covers sessions that were already open when an admin deactivated the account
 async function closeSessionIfDeactivated(userId) {
   if (!(await isAccountActive(userId))) {
     await supabase.auth.signOut({ scope: 'local' })
@@ -177,7 +174,6 @@ export async function deleteOwnAccount() {
     if (error) {
         throw new Error(error.message.includes('has_orders') ? 'has_orders' : 'No se pudo eliminar la cuenta. Intentá de nuevo más tarde.')
     }
-    // The user no longer exists on the server, so only the local session is cleared
     await supabase.auth.signOut({ scope: 'local' })
 }
 

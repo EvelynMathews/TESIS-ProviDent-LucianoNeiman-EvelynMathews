@@ -27,7 +27,6 @@ function toAdminUser(row) {
   }
 }
 
-// RLS only returns every user to admins
 export async function listUsers() {
   const { data, error } = await supabase
     .from('users')

@@ -92,7 +92,6 @@ export default {
                     description: f.description.trim(),
                     requirements: f.requirements.trim() || null,
                     contact_email: f.contact_email.trim(),
-                    // noon avoids the date moving a day when converting time zones
                     published_at: new Date(`${f.published_at}T12:00:00`).toISOString(),
                     is_active: f.is_active
                 })

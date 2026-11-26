@@ -25,7 +25,6 @@ const FORM_HEADERS = {
     rental: { title: 'Alquiler de Equipos', subtitle: 'Configurá tu servicio de alquiler', box: 'bg-accent-soft', text: 'text-accent' }
 }
 
-// Full class names so Tailwind includes them in the build
 const PROGRESS_WIDTHS = {
     4: ['w-1/4', 'w-2/4', 'w-3/4', 'w-full'],
     5: ['w-1/5', 'w-2/5', 'w-3/5', 'w-4/5', 'w-full']
@@ -47,8 +46,8 @@ export default {
         return {
             currentStep: 1,
             totalSteps: 4,
-            publicationType: null, // 'product' or 'service'
-            serviceType: null, // 'prosthesis', 'plaster', 'rental'
+            publicationType: null,
+            serviceType: null,
             forms: newForms(),
             shippingMethods: [],
             shippingModal: null,
@@ -107,7 +106,7 @@ export default {
             this.publicationType = type
             if (type === 'product') {
                 this.totalSteps = 4
-                this.currentStep = 3 // Skip service type selection
+                this.currentStep = 3
             } else {
                 this.totalSteps = 5
                 this.currentStep = 2
@@ -213,7 +212,6 @@ export default {
 
         async loadShippingMethods(selectId = null) {
             try {
-                // Only active methods can be chosen for a new publication
                 this.shippingMethods = (await listMyShippingMethods()).filter(m => m.active)
                 const supply = this.forms.supply
                 if (selectId) {
@@ -247,13 +245,11 @@ export default {
 <template>
     <section class="min-h-screen bg-gray-50 pb-16">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <!-- Header -->
             <div v-if="!published" class="mb-8">
                 <h1 class="font-heading text-3xl font-bold text-gray-800 mb-2">Publicar en ProviDent</h1>
                 <p class="text-gray-600">Seguí los pasos para crear tu publicación</p>
             </div>
 
-            <!-- Error Message -->
             <div v-if="errorMessage" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg" role="alert">
                 <div class="flex items-start">
                     <svg class="w-5 h-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -265,7 +261,6 @@ export default {
                 </div>
             </div>
 
-            <!-- Progress Bar -->
             <div v-if="!published && !previewMode" class="mb-8">
                 <div class="flex items-center justify-between mb-2">
                     <span class="text-sm font-semibold text-primary">
@@ -282,7 +277,6 @@ export default {
                 </div>
             </div>
 
-            <!-- Step 1: Choose Publication Type -->
             <div v-if="currentStep === 1 && !previewMode" class="bg-white rounded-lg shadow-md p-8">
                 <div class="text-center mb-8">
                     <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center bg-linear-135 from-primary to-secondary">
@@ -339,7 +333,6 @@ export default {
                 </div>
             </div>
 
-            <!-- Step 2: Choose Service Type (only if service selected) -->
             <div v-if="currentStep === 2 && publicationType === 'service' && !previewMode"
                 class="bg-white rounded-lg shadow-md p-8">
                 <div class="text-center mb-8">
@@ -402,7 +395,6 @@ export default {
                 </div>
             </div>
 
-            <!-- Step 3: form of the chosen type -->
             <div v-if="currentStep === 3 && !previewMode && formType" class="bg-white rounded-lg shadow-md p-5 sm:p-8">
                 <div class="p-4 rounded-lg mb-6" :class="formHeader.box">
                     <h2 class="font-heading text-xl font-bold mb-2" :class="formHeader.text">{{ formHeader.title }}</h2>
@@ -414,7 +406,6 @@ export default {
                 <PlasterForm v-else-if="formType === 'plaster'" :form="forms.plaster" is-new @invalid="showError" />
                 <RentalForm v-else-if="formType === 'rental'" :form="forms.rental" is-new @invalid="showError" />
 
-                <!-- Shipping method (only for supplies) -->
                 <div v-if="formType === 'supply'" class="mt-6">
                     <label for="supply-shipping" class="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-2">
                         <ShippingIcon icon="truck" class="w-4 h-4 text-primary" />
@@ -446,7 +437,6 @@ export default {
                 </div>
             </div>
 
-            <!-- Navigation Buttons for Step 3 forms -->
             <div v-if="currentStep === 3 && !previewMode" class="mt-6">
                 <p v-if="missingFields.length" class="mb-3 text-sm text-gray-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3" role="status">
                     Para continuar completá: <strong>{{ missingFields.join(', ') }}</strong>.
@@ -463,7 +453,6 @@ export default {
                 </div>
             </div>
 
-            <!-- Preview Page -->
             <div v-if="previewMode && !published" class="bg-white rounded-lg shadow-md overflow-hidden">
                 <div class="p-4 bg-linear-135 from-primary to-secondary">
                     <h2 class="font-heading text-xl font-bold text-white mb-1">Preview de tu publicación</h2>
@@ -474,7 +463,6 @@ export default {
                     <ListingPreview :type="formType" :form="currentForm" />
                 </div>
 
-                <!-- Preview Navigation -->
                 <div class="p-6 border-t border-gray-200 flex gap-4">
                     <button @click="prevStep"
                         class="flex-1 px-6 py-3 border-2 font-semibold rounded-lg transition hover:bg-gray-50 text-primary border-primary">
@@ -487,7 +475,6 @@ export default {
                 </div>
             </div>
 
-            <!-- Success Page -->
             <div v-if="published" class="text-center py-12">
                 <div class="w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center shadow-lg bg-linear-135 from-primary to-secondary">
                     <svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 20 20">

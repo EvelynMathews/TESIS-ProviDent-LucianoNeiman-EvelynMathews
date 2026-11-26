@@ -3,7 +3,6 @@ import { clearCache } from './cache'
 import { savePrimaryImage } from './product-images'
 import { priceRowsFromMatrix } from './prosthesis-pricing'
 
-// RLS doesn't return an error when it blocks a write, it just affects 0 rows
 export async function updateProduct(id, fields) {
   const { data, error } = await supabase
     .from('products')

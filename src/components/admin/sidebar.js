@@ -9,7 +9,6 @@
 export default {
     name: 'Sidebar',
     props: {
-        // Only used on mobile, where the menu opens from the hamburger button
         open: { type: Boolean, default: false }
     },
     emits: ['navigate'],

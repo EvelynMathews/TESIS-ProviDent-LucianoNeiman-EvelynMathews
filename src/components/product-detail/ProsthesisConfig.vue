@@ -2,7 +2,6 @@
 import ProsthesisMatrixTable from './ProsthesisMatrixTable.vue'
 import { formatPrice } from '../../services/format'
 
-// Variants: A = 'default' (work type + list of teeth), B = 'matrix' (one table), C = 'matrix4' (one table per quadrant)
 export default {
   name: 'ProsthesisConfig',
   components: { ProsthesisMatrixTable },
@@ -116,7 +115,6 @@ export default {
         this.selectedCombinations.push({ toothId: tooth.id, workTypeId, price })
       }
     },
-    // Called by the page before adding to the cart
     cartItem() {
       return {
         price: this.totalPrice,
@@ -136,7 +134,6 @@ export default {
 </script>
 
 <template>
-  <!-- Variant A -->
   <div v-if="mode === 'default'" class="mb-6 bg-gray-50 p-4 rounded-lg">
     <h2 class="font-heading text-lg font-semibold text-gray-800 mb-3">Configurá tu pedido</h2>
 
@@ -207,7 +204,6 @@ export default {
     </div>
   </div>
 
-  <!-- Variant B -->
   <div v-if="mode === 'matrix'" class="mb-6 bg-gray-50 p-4 rounded-lg">
     <h2 class="font-heading text-lg font-semibold text-gray-800 mb-3">Configurá tu pedido</h2>
 
@@ -229,7 +225,6 @@ export default {
     </div>
   </div>
 
-  <!-- Variant C -->
   <div v-if="mode === 'matrix4'" class="mb-6 bg-gray-50 p-4 rounded-lg">
     <h2 class="font-heading text-lg font-semibold text-gray-800 mb-3">Configurá tu pedido por cuadrante</h2>
 

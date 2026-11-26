@@ -5,7 +5,6 @@ import ClassifiedCard from './ClassifiedCard.vue'
 import { listActiveClassifieds } from '../../services/classifieds'
 import { SUPPORT } from '../../config/support'
 
-// Cards cycle through these color variants
 const LOOKS = [
   { card: 'bg-white border-2 border-gray-200', icon: 'bg-primary-soft/20 text-primary', button: 'bg-primary text-white', modal: 'bg-linear-135 from-primary-50 to-secondary-soft' },
   { card: 'bg-linear-135 from-pastel-green-100 to-pastel-green-200', icon: 'bg-white/40 text-gray-700', button: 'bg-gray-700 text-white hover:bg-gray-800', modal: 'bg-linear-135 from-pastel-green-100 to-pastel-green-200' },

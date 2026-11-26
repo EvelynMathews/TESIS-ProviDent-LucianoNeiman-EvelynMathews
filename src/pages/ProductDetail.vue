@@ -51,7 +51,6 @@ export default {
       needsLogin: false,
       imageFailed: false,
       relatedProducts: [],
-      // Prosthesis catalogs
       materials: [],
       workTypes: [],
       toothGroups: [],
@@ -150,7 +149,6 @@ export default {
       try {
         const items = await listActiveProducts()
         const currentId = this.product?.id
-        // Only supplies: services and rentals need options (teeth, dates) before adding to the cart
         this.relatedProducts = items
           .filter(p => p.id !== currentId && p.product_type === 'SUPPLY')
           .slice(0, 4)
@@ -180,7 +178,6 @@ export default {
           this.validCombinations = await loadValidWorkGroupCombinations()
         }
 
-        // Related products load on their own so the product shows up right away
         this.loadRelatedProducts()
       } catch (e) {
         // Un id con formato inválido devuelve error de Postgres: se muestra como "no encontrado"

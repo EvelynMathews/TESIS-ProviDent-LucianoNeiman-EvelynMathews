@@ -85,7 +85,6 @@ export default {
         return false
       }
     },
-    // Called by the page before adding to the cart; null means invalid or unavailable
     async cartItem() {
       if (!this.validateDates()) return null
 

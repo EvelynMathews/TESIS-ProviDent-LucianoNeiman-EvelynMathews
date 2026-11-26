@@ -128,7 +128,6 @@ export default {
                 this.applyFilters()
             } catch (error) {
                 console.error('Error al eliminar producto:', error)
-                // 23503 = foreign key violation (the product is in orders or carts)
                 this.errorMessage = error.code === '23503'
                     ? `"${this.productToDelete.name}" tiene pedidos o está en carritos, no se puede eliminar. Podés desactivarlo.`
                     : `No se pudo eliminar "${this.productToDelete.name}": ${error.message}`

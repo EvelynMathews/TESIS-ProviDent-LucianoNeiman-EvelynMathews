@@ -24,7 +24,6 @@ export async function listActiveClassifieds(limit = 6) {
   return results
 }
 
-// Admin: RLS returns every ad (active or not) only to admins
 export async function listAllClassifieds() {
   const { data, error } = await supabase
     .from('classifieds')

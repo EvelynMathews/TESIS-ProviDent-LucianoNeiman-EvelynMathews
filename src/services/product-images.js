@@ -8,10 +8,8 @@ export function pickPrimaryImage(images = []) {
 
 export async function signedImageUrl(path) {
   if (!path) return null
-  // Try signed URL first
   const { data, error } = await supabase.storage.from('product-images').createSignedUrl(path, 60 * 60)
   if (!error && data?.signedUrl) return data.signedUrl
-  // Fallback: download and create object URL (allowed by read policy)
   const dl = await supabase.storage.from('product-images').download(path)
   if (!dl.error && dl.data) {
     try { return URL.createObjectURL(dl.data) } catch {}
@@ -20,7 +18,6 @@ export async function signedImageUrl(path) {
 }
 
 export async function guessImagePath(ownerId, productId) {
-  // Try to find an object under the seller folder that matches the product id
   try {
     const { data, error } = await supabase.storage.from('product-images').list(`${ownerId}`, { limit: 100 })
     if (error || !Array.isArray(data)) return null
@@ -53,7 +50,6 @@ export async function uploadNewProductImage(ownerId, productId, imageFile, altTe
   if (piErr) throw piErr
 }
 
-// Images live in the owner's folder so the seller keeps access when an admin replaces them
 export async function savePrimaryImage(productId, imageFile, altText) {
   const { data: product, error: ownerErr } = await supabase
     .from('products')

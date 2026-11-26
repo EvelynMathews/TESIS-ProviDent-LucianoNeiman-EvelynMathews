@@ -146,7 +146,6 @@ export async function fetchCartItems(userId) {
       return
     }
 
-    // RLS hides products that are no longer visible (e.g. seller deactivated)
     cartItems.value = await toCartItems(data.filter(item => item.products))
   } catch (error) {
     console.error('Error in fetchCartItems:', error)
@@ -267,7 +266,6 @@ export async function addToCart(productData, typeSpecificData = {}) {
     const cartId = await initializeCart(user.id)
     if (!cartId) throw new Error('No se pudo inicializar el carrito')
 
-    // Checked in the database: the in-memory cart may not be loaded yet right after opening a page
     const { data: existingItem, error: existingError } = await supabase
       .from('cart_items')
       .select('id, quantity')
@@ -352,7 +350,6 @@ async function insertCartItem(cartId, item) {
   }
 }
 
-// Moves the items added without session to the user's cart in Supabase
 async function mergeGuestCart(userId) {
   const guest = readGuestCart()
   if (guest.length === 0) return
@@ -454,7 +451,6 @@ export function getCartTotal() {
  * Sincroniza el carrito al cargar la aplicación
  */
 export async function syncCartWithSupabase() {
-  // Navbar calls this on every auth change; avoid merging the guest cart twice
   if (syncing) return syncing
   syncing = (async () => {
     try {

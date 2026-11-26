@@ -15,7 +15,6 @@ export function formatMoney(value) {
   return '$' + formatPrice(value)
 }
 
-// A date without time ("2026-11-30") is read as local time so it doesn't show the previous day
 function toDate(value) {
   if (!value) return null
   const isDateOnly = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)

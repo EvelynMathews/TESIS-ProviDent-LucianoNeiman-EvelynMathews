@@ -44,7 +44,6 @@ export async function loadValidWorkGroupCombinations() {
   return data || []
 }
 
-// Form matrix ({ corona_total: { anterior: '12000', ... } }) to product_prices rows
 export async function priceRowsFromMatrix(productId, pricingMatrix) {
   const workTypes = await loadWorkTypes()
   const toothGroups = await loadToothGroups()

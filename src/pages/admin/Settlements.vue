@@ -22,7 +22,7 @@ export default {
             references: {},
             loading: true,
             loadError: '',
-            toConfirm: null, // seller
+            toConfirm: null,
             saving: false,
         }
     },

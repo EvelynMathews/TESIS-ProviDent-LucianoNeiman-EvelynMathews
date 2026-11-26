@@ -1,5 +1,4 @@
 <script>
-// One seller plan. Each feature is { text, strong, after } so a word can be bold.
 export default {
   name: 'PlanCard',
   props: {

@@ -33,7 +33,6 @@ export default {
         this.quantity--
       }
     },
-    // Called by the page before adding to the cart
     cartItem() {
       return { price: this.product.price, quantity: this.quantity, typeSpecificData: {} }
     }
