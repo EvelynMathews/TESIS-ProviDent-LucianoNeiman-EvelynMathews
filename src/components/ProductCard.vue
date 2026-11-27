@@ -101,6 +101,7 @@
  * agregar al carrito directamente; prótesis, yeso y alquiler necesitan configurarse en el detalle.
  */
 import { addToCart } from '../services/cart'
+import { showToast } from '../services/toast'
 import { formatPrice } from '../services/format'
 
 const TYPE_LABELS = {
@@ -180,6 +181,11 @@ export default {
                 this.needsLogin = !!result.needsAuth
                 this.feedback = result.message
                 this.feedbackType = result.success ? 'success' : 'error'
+                if (result.success) {
+                    showToast(result.message || `${this.product.name} se agregó al carrito`)
+                } else if (!result.needsAuth) {
+                    showToast(result.message || 'No pudimos agregarlo al carrito', 'error')
+                }
             } finally {
                 this.adding = false
                 clearTimeout(this._feedbackTimeout)

@@ -8,6 +8,7 @@
 import { subscribeToAuthStateChanges } from '../services/auth'
 import { getProductById, listActiveProducts, loadMaterials, loadWorkTypes, loadToothGroups, loadTeeth, loadValidWorkGroupCombinations } from '../services/products'
 import { addToCart as addToCartService } from '../services/cart'
+import { showToast } from '../services/toast'
 import ProductCard from '../components/ProductCard.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import CartFeedback from '../components/product-detail/CartFeedback.vue'
@@ -127,6 +128,7 @@ export default {
         if (result.success) {
           this.cartMessage = result.message
           this.cartMessageType = 'success'
+          showToast(result.message || 'Producto agregado al carrito')
           purchase.reset?.()
 
           clearTimeout(this._msgTimer)
@@ -136,6 +138,7 @@ export default {
         } else {
           this.cartMessage = result.message || 'Error al agregar al carrito'
           this.cartMessageType = 'error'
+          if (!result.needsAuth) showToast(this.cartMessage, 'error')
         }
       } catch (error) {
         console.error('Error in addToCart:', error)
