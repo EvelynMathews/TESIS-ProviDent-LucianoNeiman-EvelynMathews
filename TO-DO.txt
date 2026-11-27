@@ -1,33 +1,28 @@
 PENDIENTES ANTES DEL CIERRE
 
-Pulido visual:
-- Alinear el isotipo con "ProviDent" en el navbar.
-- Alinear la línea que divide los pasos 1 y 2 del formulario de registro.
-- Unificar el estilo de los íconos de "Categorías principales" en la Home.
-- Poner imágenes en los recuadros que faltan dentro de "¿Qué es ProviDent?".
-- Revisar el diseño de la sección de Tarifas (peso y volumen) dentro de Configuración de métodos de envío.
-
-UX:
-- Mostrar un toast / mensaje de feedback al agregar un producto al carrito.
-
 A verificar en el sitio desplegado:
-- Confirmar que los productos recién publicados con is_active = true aparecen en el listado del catálogo (cache invalidation).
-- Confirmar que el stock que se muestra en la ProductCard coincide con el stock real del producto.
+- Confirmar que los productos recién publicados con is_active = true aparecen en el listado del catálogo. En el código ya se invalida el caché (products:active / services:active) al publicar y al editar, así que lo único que puede haber es demora del deploy en Vercel.
+- Confirmar que el stock que se muestra en la ProductCard coincide con el stock real. Hoy la tarjeta solo muestra "Quedan X" cuando X <= 5 y "Sin stock" cuando X = 0, no la cantidad exacta: eso es intencional. Verificar que ese caso límite se vea bien.
 
-Contenido / tesis:
-- Cargar un set final de noticias desde el admin para la defensa.
-- Revisar que los datos seed queden limpios para la entrega.
+Contenido para la defensa:
+- Cargar un set final de noticias desde el panel de administración.
+- Revisar que los datos seed queden limpios para la entrega (productos de prueba, usuarios, carritos viejos).
 
 
-RESUELTOS (histórico, no borrar hasta entregar):
-- Perfil: form recuerda nombre y apellido, email readonly deriva a soporte.
-- Direcciones: CRUD real sobre Supabase, listado se actualiza al guardar, sin mocks.
+RESUELTOS (histórico, se saca al entregar):
+- Perfil: recuerda nombre y apellido, el email queda readonly y deriva a soporte.
+- Direcciones: CRUD real sobre Supabase, listado refresca al guardar, sin mocks.
 - "Eliminar datos mockeados": se eliminaron mockProducts.js y los mocks del perfil.
 - Soporte / chat: se quitó el chat global roto.
-- Métodos de envío: se mantuvo la gestión real (ShippingMethodForm / Edit).
+- Métodos de envío: se mantiene la gestión real (ShippingMethodForm / ShippingMethodEdit). No aplica "Tarifas por peso y volumen": la sección actual tiene nombre, precio fijo, demora y cobertura por provincia.
 - Mis productos: el editor de alquiler precarga price_day / price_week / price_month.
 - Olvidé mi contraseña: deriva al email de soporte (flujo manual).
 - Pasarela de pago: integración con Mercado Pago (Checkout Pro) en main, deployada en Vercel.
 - Buscador del navbar: enruta a /productos?search= y Products.vue lo lee.
-- Invitación a vender en Home: ya es condicional (no se muestra a vendedores activos).
-- README: ya no referencia el TP anterior.
+- Invitación a vender en Home: condicional, no se muestra a vendedores activos.
+- Toast de feedback al agregar al carrito: implementado en ProductCard y ProductDetail.
+- Isotipo del navbar: recentrado (viewBox cuadrado y sin margen negativo) para que quede alineado con "ProviDent".
+- Registro: el formulario es de un solo paso, ya no hay línea divisoria entre pasos 1 y 2.
+- "¿Qué es ProviDent?": la sección tiene imagen, ya no hay recuadros vacíos.
+- Íconos de "Categorías principales": todos del mismo estilo (trazo 1.75, viewBox 24x24).
+- README: ya no referencia el TP anterior y describe el estado real del proyecto.
