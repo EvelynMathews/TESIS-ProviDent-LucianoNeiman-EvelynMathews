@@ -1,42 +1,33 @@
-COSAS A MEJORAR:
-Perfil:
-- Cuando voy editar datos personales, el form no "recuerda" los datos. (No se puede cambiar ni el teléfono y tampoco el mail)
-- Cuando voy a editar direcciones se pone un fondo negro que no va con la estética. Por otro lado, cuando recargo la pagina vuelve al dato mockeado, que es corrientes 1234. Ademas cuando agrego una nueva dirección solo aparece una y no todo el listado.
-- Eliminar datos mockeados y hacer contenido dinamico aunque este vacío.
+PENDIENTES ANTES DEL CIERRE
 
-Soporte:
-- No anda el chat. Creo que es un error de global-chat y de supabase.
+Pulido visual:
+- Alinear el isotipo con "ProviDent" en el navbar.
+- Alinear la línea que divide los pasos 1 y 2 del formulario de registro.
+- Unificar el estilo de los íconos de "Categorías principales" en la Home.
+- Poner imágenes en los recuadros que faltan dentro de "¿Qué es ProviDent?".
+- Revisar el diseño de la sección de Tarifas (peso y volumen) dentro de Configuración de métodos de envío.
 
-Metodos de envio:
-- Ver si hace falta hacer todo esto o si con un simple chat con el comprador se resuelve.
-- Arreglar temitas de diseño dentro de configuración, en Tarifas (peso y volumen)
+UX:
+- Mostrar un toast / mensaje de feedback al agregar un producto al carrito.
 
-Mis Productos:
-- En el editar producto no recuerda los valores de precio de alquiler. Todo lo demás sí.
+A verificar en el sitio desplegado:
+- Confirmar que los productos recién publicados con is_active = true aparecen en el listado del catálogo (cache invalidation).
+- Confirmar que el stock que se muestra en la ProductCard coincide con el stock real del producto.
 
-Productos:
-- No se porque uno de los productos que creé no aparece y esta activo.
-- Ver si en productos aparece bien la cantidad de stock que hay del producto que creaste.
-
-
-Iniciar sesión:
-- El olvide mi contraseña esta al pedo ya que no tiene funcionalidad.
-
-Registrarse:
-- Alinear la linea que divide al 1 y 2, para que este en el medio de los dos.
-
-EN GENERAL:
-- Fijarse que hacer porque cuando publicas un producto o un servicio, se muestra en el mismo lugar. Capaz haría una sección de productos publicados y otra de servicios, sino no se entiende. Al parecer ya hay una pagina de servicios, bueno yo la pondría en el navbar para que este mas ordenado y el usuario llegue mas fácil.
--  Falta meter localStorage ya que cada vez que recargas vuelven los datos por default.
-- Hacer pasarela de pago cuando lo aprendamos.
-- Hacer funcional el buscador del navbar
-- Alinear el isotipo con ProviDent en el navbar.
-- Revisar íconos en la home, mas específicamente en la sección de Categorías principales. Hacer que sean todos del mismo tipo
-- Poner imágenes en los recuadros que no las hay (en la sección de ¿Qué es ProviDent?)
-- Sacar la sección de quiero ser vendedor, de la home, cuando el usuario ya esta como comprador y vendedor (al menos en mi caso pasa eso.)
-- Hacer noticias cuando podamos, y hacerlo estático pero que este en la base de datos.
-- Agregar Mensajes de feedback por ejemplo cuando agrega un producto al carrito.
+Contenido / tesis:
+- Cargar un set final de noticias desde el admin para la defensa.
+- Revisar que los datos seed queden limpios para la entrega.
 
 
-PRÓXIMOS PASOS:
-- Saca lo del tp anterior en el Readme.
+RESUELTOS (histórico, no borrar hasta entregar):
+- Perfil: form recuerda nombre y apellido, email readonly deriva a soporte.
+- Direcciones: CRUD real sobre Supabase, listado se actualiza al guardar, sin mocks.
+- "Eliminar datos mockeados": se eliminaron mockProducts.js y los mocks del perfil.
+- Soporte / chat: se quitó el chat global roto.
+- Métodos de envío: se mantuvo la gestión real (ShippingMethodForm / Edit).
+- Mis productos: el editor de alquiler precarga price_day / price_week / price_month.
+- Olvidé mi contraseña: deriva al email de soporte (flujo manual).
+- Pasarela de pago: integración con Mercado Pago (Checkout Pro) en main, deployada en Vercel.
+- Buscador del navbar: enruta a /productos?search= y Products.vue lo lee.
+- Invitación a vender en Home: ya es condicional (no se muestra a vendedores activos).
+- README: ya no referencia el TP anterior.
