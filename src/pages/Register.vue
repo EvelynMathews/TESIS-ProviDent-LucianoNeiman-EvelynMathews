@@ -7,6 +7,7 @@
  * Los errores se traducen a mensajes en español (`translateAuthError`).
  */
 import { register, translateAuthError } from '../services/auth'
+import { SUPPORT } from '../config/support'
 
 export default {
     name: 'Register',
@@ -41,6 +42,9 @@ export default {
         },
         redirectQuery() {
             return this.$route.query.redirect ? { redirect: this.$route.query.redirect } : {}
+        },
+        supportEmail() {
+            return SUPPORT.email
         }
     },
     methods: {
@@ -87,18 +91,21 @@ export default {
 <template>
     <section class="min-h-[calc(100vh-4rem)] bg-gray-50 flex items-center justify-center py-12 px-4">
         <div class="max-w-lg w-full">
-            <!-- Cuenta creada: falta confirmar el email -->
+            <!-- Cuenta creada: hay que activarla desde soporte -->
             <div v-if="registrationSuccess" class="bg-white rounded-2xl border border-gray-200 shadow-[0_12px_32px_-16px_rgba(18,45,70,0.25)] p-8 text-center" role="status">
-                <div class="w-16 h-16 mx-auto mb-5 rounded-full flex items-center justify-center bg-secondary-50 text-secondary-700" aria-hidden="true">
+                <div class="w-16 h-16 mx-auto mb-5 rounded-full flex items-center justify-center bg-primary-50 text-primary" aria-hidden="true">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 20.5a8.5 8.5 0 110-17 8.5 8.5 0 010 17z" />
                     </svg>
                 </div>
-                <h1 class="font-heading text-2xl sm:text-3xl font-bold text-gray-800 mb-2">Revisá tu email</h1>
-                <p class="text-gray-600 mb-1">Te enviamos un enlace de confirmación a</p>
+                <h1 class="font-heading text-2xl sm:text-3xl font-bold text-gray-800 mb-2">Falta activar tu cuenta</h1>
+                <p class="text-gray-600 mb-1">Creamos tu cuenta con el email</p>
                 <p class="text-lg font-semibold text-primary-700 mb-6 break-all">{{ user.email }}</p>
-                <p class="text-sm text-gray-600 mb-6 max-w-sm mx-auto">
-                    Abrí el enlace para activar tu cuenta. Si no lo ves en unos minutos, revisá la carpeta de spam.
+                <p class="text-sm text-gray-700 mb-2 max-w-sm mx-auto">
+                    Para terminar la activación, escribinos a soporte y te damos el alta en el momento.
+                </p>
+                <p class="text-sm font-semibold text-primary-700 break-all mb-6">
+                    <a :href="`mailto:${supportEmail}`" class="hover:underline">{{ supportEmail }}</a>
                 </p>
                 <RouterLink :to="{ path: '/login', query: redirectQuery }"
                     class="inline-block px-6 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-600 transition">
