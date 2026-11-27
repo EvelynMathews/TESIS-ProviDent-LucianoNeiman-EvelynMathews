@@ -150,7 +150,7 @@ export default {
     <nav class="bg-white/95 backdrop-blur border-b border-gray-200 fixed top-0 left-0 right-0 z-50" aria-label="Navegación principal">
         <div class="max-w-screen-xl mx-auto px-4 h-16 flex items-center gap-4">
             <RouterLink to="/" class="flex items-center gap-2 shrink-0 rounded-lg" aria-label="ProviDent, ir al inicio">
-                <BrandLogo class="w-10 h-10 -my-1 text-primary" />
+                <BrandLogo class="w-10 h-10 text-primary" />
                 <span class="font-heading text-xl font-bold text-primary tracking-tight">ProviDent</span>
             </RouterLink>
 
