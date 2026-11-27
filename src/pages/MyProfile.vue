@@ -6,10 +6,9 @@
  * Cómo funciona: `loadProfile` carga en paralelo el perfil (`getUserProfileById`: nombre, avatar, bio y ubicación), el rol de vendedor,
  * la cuenta de cobro, los domicilios y los pedidos reales del usuario. Todo lo que se muestra viene de
  * Supabase; cuando no hay datos se muestra un estado vacío con la acción siguiente.
- * "Eliminar cuenta" borra la cuenta con `deleteOwnAccount` (la base lo bloquea si hay pedidos o ventas).
+ * "Eliminar cuenta" deriva al email de soporte: el alta/baja se hace a mano desde el panel de administración, no desde el cliente.
  */
-import { logout, deleteOwnAccount } from '../services/auth'
-import { showToast } from '../services/toast'
+import { logout } from '../services/auth'
 import { SUPPORT } from '../config/support'
 import { isCurrentUserSeller, hasPaymentAccount } from '../services/sellers'
 import { supabase } from '../services/supabase'
@@ -54,7 +53,6 @@ export default {
             loading: true,
             loadError: '',
             showDeleteAccount: false,
-            deletingAccount: false,
             addressToDelete: null,
             showAddressEdit: false,
             editingAddress: { ...EMPTY_ADDRESS },
@@ -137,21 +135,12 @@ export default {
             if (p.product_type === 'RENTAL') return `$${this.formatPrice(p.price_day)}/día`
             return `$${this.formatPrice(p.price)}`
         },
-        async confirmDeleteAccount() {
-            this.deletingAccount = true
-            try {
-                await deleteOwnAccount()
-                window.location.href = '/'
-            } catch (error) {
-                this.showDeleteAccount = false
-                if (error.message === 'has_orders') {
-                    showToast(`Tenés pedidos o ventas registrados, por eso no podemos eliminar tu cuenta todavía. Finalizá o cancelá tus pedidos, o escribí a ${SUPPORT.email} y lo hacemos por vos.`, 'error', 10000)
-                } else {
-                    showToast(error.message, 'error', 6000)
-                }
-            } finally {
-                this.deletingAccount = false
-            }
+        openDeleteSupport() {
+            window.location.href = `mailto:${SUPPORT.email}?subject=${encodeURIComponent('Baja de mi cuenta en ProviDent')}&body=${encodeURIComponent('Hola, quiero dar de baja mi cuenta. Mi email es: ')}`
+            this.showDeleteAccount = false
+        },
+        supportEmailText() {
+            return SUPPORT.email
         },
         // --- Domicilios ---
         openAddressForm(address = null) {
@@ -443,10 +432,10 @@ export default {
 
         <ConfirmModal v-if="showDeleteAccount"
             title="Eliminar cuenta"
-            message="Se van a borrar tu perfil, tus productos publicados, tu carrito y tus domicilios. Esta acción no se puede deshacer."
-            confirm-text="Eliminar mi cuenta"
-            :loading="deletingAccount"
-            @confirm="confirmDeleteAccount"
+            :message="`Para dar de baja tu cuenta escribinos a ${supportEmailText()} y la damos de baja a mano desde el panel de administración. Es más seguro para vos.`"
+            confirm-text="Escribir a soporte"
+            :danger="false"
+            @confirm="openDeleteSupport"
             @cancel="showDeleteAccount = false" />
     </section>
 </template>
